@@ -19,7 +19,7 @@ public class Test_NetcdfSupport {
 		NetcdfFile ncdf = null;
 		
 		try {
-			ncdf = NetcdfFile.open("D:/PROMOTION/JAVA_NETCDF/ENC/res/test2d.nc");
+			ncdf = NetcdfFile.open("res/test2d.nc");
 			System.out.println(ncdf);
 	
 			DataFrame df_nc = new DataFrame();
