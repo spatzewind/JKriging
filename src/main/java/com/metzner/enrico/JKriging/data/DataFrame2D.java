@@ -330,6 +330,313 @@ public class DataFrame2D {
 		this.setDimension(0+Constants.FIRST_IDX, otherDF.getDimensionValues(0+Constants.FIRST_IDX), otherDF.getDimensionName(0+Constants.FIRST_IDX));
 		this.setDimension(1+Constants.FIRST_IDX, otherDF.getDimensionValues(1+Constants.FIRST_IDX), otherDF.getDimensionName(1+Constants.FIRST_IDX));
 	}
+
+	public void renameVariable(int _old_var_id, String _new_name) {
+		int ovi = _old_var_id - Constants.FIRST_IDX;
+		if(ovi<0 || ovi>=titles.length) {
+			System.err.println("Can not rename variable with ID "+_old_var_id+", could not find variable!");
+			return;
+		}
+		String _old_var_name = getVarname(_old_var_id);
+		if(hasVariable(_new_name)) {
+			System.err.println("Could not rename variable \""+_old_var_name+"\", a variable by name \""+_new_name+"\" already exist!");
+			//DataHelper.printStackTrace(System.err);
+			return;
+		}
+		switch(types[ovi]) {
+			case BOOL:   addColumn(_new_name, bool_column.get(_old_var_name));   removeVariable(_old_var_name); break;
+			case BYTE:   addColumn(_new_name, byte_column.get(_old_var_name));   removeVariable(_old_var_name); break;
+			case SHORT:  addColumn(_new_name, short_column.get(_old_var_name));  removeVariable(_old_var_name); break;
+			case INT:    addColumn(_new_name, int_column.get(_old_var_name));    removeVariable(_old_var_name); break;
+			case LONG:   addColumn(_new_name, long_column.get(_old_var_name));   removeVariable(_old_var_name); break;
+			case FLOAT:  addColumn(_new_name, float_column.get(_old_var_name));  removeVariable(_old_var_name); break;
+			case DOUBLE: addColumn(_new_name, double_column.get(_old_var_name)); removeVariable(_old_var_name); break;
+			case STRING: addColumn(_new_name, string_column.get(_old_var_name)); removeVariable(_old_var_name); break;
+			default: System.err.println("An unexpected error occured: Unknown Variable type!"); DataHelper.printStackTrace(System.err); break;
+		}
+	}
+	public void renameVariable(String _old_name, String _new_name) {
+		renameVariable(getVariableID(_old_name), _new_name);
+	}
+	public void removeVariable(int _var_id) {
+		int vi = _var_id - Constants.FIRST_IDX;
+		if(vi<0 || vi>=titles.length) {
+			System.err.println("There exist no variable with ID "+_var_id);
+			return;
+		}
+		removeVariable(getVarname(_var_id));
+	}
+	public void removeVariable(String _var_name) {
+		if(!hasVariable(_var_name)) {
+			System.err.println("Variable \""+_var_name+"\" does not exist in this dataframe!");
+			return;
+		}
+		int var_id = getVariableID(_var_name)-Constants.FIRST_IDX;
+		if(titles.length==1) { titles = new String[0]; types = new DataType[0]; datalength = new int[] {0, 0}; }
+		else {
+			String[] stemp = new String[titles.length-1];
+			for(int s=0; s<stemp.length; s++) stemp[s] = titles[s+(s>=var_id?1:0)];
+			titles = new String[stemp.length];
+			for(int s=0; s<stemp.length; s++) titles[s] = stemp[s];
+			DataType[] ttemp = new DataType[stemp.length];
+			for(int t=0; t<ttemp.length; t++) ttemp[t] = types[t+(t>=var_id?1:0)];
+			types = new DataType[stemp.length];
+			for(int t=0; t<ttemp.length; t++) types[t] = ttemp[t];
+		}
+	}
+	public void changeVariableType(String _var_name, String _new_type) {
+		changeVariableType(getVariableID(_var_name), DataType.getDataType(_new_type, default_data_type));
+	}
+	public void changeVariableType(String _var_name, DataType _new_type) {
+		changeVariableType(getVariableID(_var_name), _new_type);
+	}
+	public void changeVariableType(int _var_id, String _new_type) {
+		changeVariableType(_var_id, DataType.getDataType(_new_type, default_data_type));
+	}
+	public void changeVariableType(int _var_id, DataType _new_type) {
+		int vi = _var_id - Constants.FIRST_IDX;
+		if(vi<0 || vi>=titles.length) {
+			System.err.println("Cannot find variable, so no datatype change can be made!");
+			DataHelper.printStackTrace(System.err); return;
+		}
+		if(types[vi]==_new_type) {
+			System.out.println("NOTE: variable is already of type "+_new_type.name()+", so no change is made!");
+			return;
+		}
+		String variable_name = titles[vi];
+		switch(types[vi]) {
+			case BOOL: boolean[][] bool_arr = bool_column.get(variable_name);
+				switch(_new_type) {
+					case BYTE: byte[][] barr = new byte[bool_arr.length][bool_arr[0].length];
+						for(int j=0; j<barr.length; j++) for(int i=0; i<barr[0].length; i++) barr[j][i] = (byte)(bool_arr[j][i]?1:0);
+						removeVariable(variable_name); addColumn(variable_name, barr); break;
+					case SHORT: short[][] rarr = new short[bool_arr.length][bool_arr[0].length];
+						for(int j=0; j<rarr.length; j++) for(int i=0; i<rarr[0].length; i++) rarr[j][i] = (short)(bool_arr[j][i]?1:0);
+						removeVariable(variable_name); addColumn(variable_name, rarr); break;
+					case INT: int[][] iarr = new int[bool_arr.length][bool_arr[0].length];
+						for(int j=0; j<iarr.length; j++) for(int i=0; i<iarr[0].length; i++) iarr[j][i] = (bool_arr[j][i]?1:0);
+						removeVariable(variable_name); addColumn(variable_name, iarr); break;
+					case LONG: long[][] larr = new long[bool_arr.length][bool_arr[0].length];
+						for(int j=0; j<larr.length; j++) for(int i=0; i<larr[0].length; i++) larr[j][i] = (bool_arr[j][i]?1L:0L);
+						removeVariable(variable_name); addColumn(variable_name, larr); break;
+					case FLOAT: float[][] farr = new float[bool_arr.length][bool_arr[0].length];
+						for(int j=0; j<farr.length; j++) for(int i=0; i<farr[0].length; i++) farr[j][i] = (bool_arr[j][i]?1f:0f);
+						removeVariable(variable_name); addColumn(variable_name, farr); break;
+					case DOUBLE: double[][] darr = new double[bool_arr.length][bool_arr[0].length];
+						for(int j=0; j<darr.length; j++) for(int i=0; i<darr[0].length; i++) darr[j][i] = (bool_arr[j][i]?1d:0d);
+						removeVariable(variable_name); addColumn(variable_name, darr); break;
+					case STRING: String[][] sarr = new String[bool_arr.length][bool_arr[0].length];
+						for(int j=0; j<sarr.length; j++) for(int i=0; i<sarr[0].length; i++) sarr[j][i] = (bool_arr[j][i]?"true":"false");
+						removeVariable(variable_name); addColumn(variable_name, sarr); break;
+					default:
+						System.err.println("An unexpected error occured, cannot change type of variable!");
+						DataHelper.printStackTrace(System.err); break;
+				} break;
+			case BYTE: byte[][] byte_arr = byte_column.get(variable_name);
+				switch(_new_type) {
+					case BOOL: boolean[][] oarr = new boolean[byte_arr.length][byte_arr[0].length];
+						for(int j=0; j<oarr.length; j++) for(int i=0; i<oarr[0].length; i++) oarr[j][i] = (byte_arr[j][i]!=0);
+						removeVariable(variable_name); addColumn(variable_name, oarr); break;
+					case SHORT: short[][] rarr = new short[byte_arr.length][byte_arr[0].length];
+						for(int j=0; j<rarr.length; j++) for(int i=0; i<rarr[0].length; i++) rarr[j][i] = byte_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, rarr); break;
+					case INT: int[][] iarr = new int[byte_arr.length][byte_arr[0].length];
+						for(int j=0; j<iarr.length; j++) for(int i=0; i<iarr[0].length; i++) iarr[j][i] = byte_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, iarr); break;
+					case LONG: long[][] larr = new long[byte_arr.length][byte_arr[0].length];
+						for(int j=0; j<larr.length; j++) for(int i=0; i<larr[0].length; i++) larr[j][i] = byte_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, larr); break;
+					case FLOAT: float[][] farr = new float[byte_arr.length][byte_arr[0].length];
+						for(int j=0; j<farr.length; j++) for(int i=0; i<farr[0].length; i++) farr[j][i] = byte_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, farr); break;
+					case DOUBLE: double[][] darr = new double[byte_arr.length][byte_arr[0].length];
+						for(int j=0; j<darr.length; j++) for(int i=0; i<darr[0].length; i++) darr[j][i] = byte_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, darr); break;
+					case STRING: String[][] sarr = new String[byte_arr.length][byte_arr[0].length];
+						for(int j=0; j<sarr.length; j++) for(int i=0; i<sarr[0].length; i++) sarr[j][i] = ""+byte_arr[j][i]+"";
+						removeVariable(variable_name); addColumn(variable_name, sarr); break;
+					default:
+						System.err.println("An unexpected error occured, cannot change type of variable!");
+						DataHelper.printStackTrace(System.err); break;
+				} break;
+			case SHORT: short[][] short_arr = short_column.get(variable_name);
+				switch(_new_type) {
+					case BOOL: boolean[][] oarr = new boolean[short_arr.length][short_arr[0].length];
+						for(int j=0; j<oarr.length; j++) for(int i=0; i<oarr[0].length; i++) oarr[j][i] = (short_arr[j][i]!=0);
+						removeVariable(variable_name); addColumn(variable_name, oarr); break;
+					case BYTE: byte[][] barr = new byte[short_arr.length][short_arr[0].length];
+						for(int j=0; j<barr.length; j++) for(int i=0; i<barr[0].length; i++) barr[j][i] = (byte) short_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, barr); break;
+					case INT: int[][] iarr = new int[short_arr.length][short_arr[0].length];
+						for(int j=0; j<iarr.length; j++) for(int i=0; i<iarr[0].length; i++) iarr[j][i] = short_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, iarr); break;
+					case LONG: long[][] larr = new long[short_arr.length][short_arr[0].length];
+						for(int j=0; j<larr.length; j++) for(int i=0; i<larr[0].length; i++) larr[j][i] = short_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, larr); break;
+					case FLOAT: float[][] farr = new float[short_arr.length][short_arr[0].length];
+						for(int j=0; j<farr.length; j++) for(int i=0; i<farr[0].length; i++) farr[j][i] = short_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, farr); break;
+					case DOUBLE: double[][] darr = new double[short_arr.length][short_arr[0].length];
+						for(int j=0; j<darr.length; j++) for(int i=0; i<darr[0].length; i++) darr[j][i] = short_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, darr); break;
+					case STRING: String[][] sarr = new String[short_arr.length][short_arr[0].length];
+						for(int j=0; j<sarr.length; j++) for(int i=0; i<sarr[0].length; i++) sarr[j][i] = ""+short_arr[j][i]+"";
+						removeVariable(variable_name); addColumn(variable_name, sarr); break;
+					default:
+						System.err.println("An unexpected error occured, cannot change type of variable!");
+						DataHelper.printStackTrace(System.err); break;
+				} break;
+			case INT: int[][] int_arr = int_column.get(variable_name);
+				switch(_new_type) {
+					case BOOL: boolean[][] oarr = new boolean[int_arr.length][int_arr[0].length];
+						for(int j=0; j<oarr.length; j++) for(int i=0; i<oarr[0].length; i++) oarr[j][i] = (int_arr[j][i]!=0);
+						removeVariable(variable_name); addColumn(variable_name, oarr); break;
+					case BYTE: byte[][] barr = new byte[int_arr.length][int_arr[0].length];
+						for(int j=0; j<barr.length; j++) for(int i=0; i<barr[0].length; i++) barr[j][i] = (byte) int_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, barr); break;
+					case SHORT: short[][] rarr = new short[int_arr.length][int_arr[0].length];
+						for(int j=0; j<rarr.length; j++) for(int i=0; i<rarr[0].length; i++) rarr[j][i] = (short) int_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, rarr); break;
+					case LONG: long[][] larr = new long[int_arr.length][int_arr[0].length];
+						for(int j=0; j<larr.length; j++) for(int i=0; i<larr[0].length; i++) larr[j][i] = int_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, larr); break;
+					case FLOAT: float[][] farr = new float[int_arr.length][int_arr[0].length];
+						for(int j=0; j<farr.length; j++) for(int i=0; i<farr[0].length; i++) farr[j][i] = int_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, farr); break;
+					case DOUBLE: double[][] darr = new double[int_arr.length][int_arr[0].length];
+						for(int j=0; j<darr.length; j++) for(int i=0; i<darr[0].length; i++) darr[j][i] = int_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, darr); break;
+					case STRING: String[][] sarr = new String[int_arr.length][int_arr[0].length];
+						for(int j=0; j<sarr.length; j++) for(int i=0; i<sarr[0].length; i++) sarr[j][i] = ""+int_arr[j][i]+"";
+						removeVariable(variable_name); addColumn(variable_name, sarr); break;
+					default:
+						System.err.println("An unexpected error occured, cannot change type of variable!");
+						DataHelper.printStackTrace(System.err); break;
+				} break;
+			case LONG: long[][] long_arr = long_column.get(variable_name);
+				switch(_new_type) {
+					case BOOL: boolean[][] oarr = new boolean[long_arr.length][long_arr[0].length];
+						for(int j=0; j<oarr.length; j++) for(int i=0; i<oarr[0].length; i++) oarr[j][i] = (long_arr[j][i]!=0L ? true : false);
+						removeVariable(variable_name); addColumn(variable_name, oarr); break;
+					case BYTE: byte[][] barr = new byte[long_arr.length][long_arr[0].length];
+						for(int j=0; j<barr.length; j++) for(int i=0; i<barr[0].length; i++) barr[j][i] = (byte) long_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, barr); break;
+					case SHORT: short[][] rarr = new short[long_arr.length][long_arr[0].length];
+						for(int j=0; j<rarr.length; j++) for(int i=0; i<rarr[0].length; i++) rarr[j][i] = (short) long_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, rarr); break;
+					case INT: int[][] iarr = new int[long_arr.length][long_arr[0].length];
+						for(int j=0; j<iarr.length; j++) for(int i=0; i<iarr[0].length; i++) iarr[j][i] = (int) long_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, iarr); break;
+					case LONG: long[][] larr = new long[long_arr.length][long_arr[0].length];
+						for(int j=0; j<larr.length; j++) for(int i=0; i<larr[0].length; i++) larr[j][i] = long_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, larr); break;
+					case FLOAT: float[][] farr = new float[long_arr.length][long_arr[0].length];
+						for(int j=0; j<farr.length; j++) for(int i=0; i<farr[0].length; i++) farr[j][i] = long_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, farr); break;
+					case DOUBLE: double[][] darr = new double[long_arr.length][long_arr[0].length];
+						for(int j=0; j<darr.length; j++) for(int i=0; i<darr[0].length; i++) darr[j][i] = long_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, darr); break;
+					case STRING: String[][] sarr = new String[long_arr.length][long_arr[0].length];
+						for(int j=0; j<sarr.length; j++) for(int i=0; i<sarr[0].length; i++) sarr[j][i] = ""+long_arr[j][i]+"";
+						removeVariable(variable_name); addColumn(variable_name, sarr); break;
+					default:
+						System.err.println("An unexpected error occured, cannot change type of variable!");
+						DataHelper.printStackTrace(System.err); break;
+				} break;
+			case FLOAT: float[][] float_arr = float_column.get(variable_name);
+				switch(_new_type) {
+					case BOOL: System.out.println("WARNING: convert float to bool result to true except NaN!");
+						boolean[][] oarr = new boolean[float_arr.length][float_arr[0].length];
+						for(int j=0; j<oarr.length; j++) for(int i=0; i<oarr[0].length; i++) oarr[j][i] = !Float.isNaN(float_arr[j][i]);
+						removeVariable(variable_name); addColumn(variable_name, oarr); break;
+					case BYTE: byte[][] barr = new byte[float_arr.length][float_arr[0].length];
+						for(int j=0; j<barr.length; j++) for(int i=0; i<barr[0].length; i++) barr[j][i] = (byte) float_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, barr); break;
+					case SHORT: short[][] rarr = new short[float_arr.length][float_arr[0].length];
+						for(int j=0; j<rarr.length; j++) for(int i=0; i<rarr[0].length; i++) rarr[j][i] = (short) float_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, rarr); break;
+					case INT: int[][] iarr = new int[float_arr.length][float_arr[0].length];
+						for(int j=0; j<iarr.length; j++) for(int i=0; i<iarr[0].length; i++) iarr[j][i] = (int) float_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, iarr); break;
+					case LONG: long[][] larr = new long[float_arr.length][float_arr[0].length];
+						for(int j=0; j<larr.length; j++) for(int i=0; i<larr[0].length; i++) larr[j][i] = (long) float_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, larr); break;
+					case FLOAT: float[][] farr = new float[float_arr.length][float_arr[0].length];
+						for(int j=0; j<farr.length; j++) for(int i=0; i<farr[0].length; i++) farr[j][i] = float_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, farr); break;
+					case DOUBLE: double[][] darr = new double[float_arr.length][float_arr[0].length];
+						for(int j=0; j<darr.length; j++) for(int i=0; i<darr[0].length; i++) darr[j][i] = float_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, darr); break;
+					case STRING: String[][] sarr = new String[float_arr.length][float_arr[0].length];
+						for(int j=0; j<sarr.length; j++) for(int i=0; i<sarr[0].length; i++) sarr[j][i] = ""+float_arr[j][i]+"";
+						removeVariable(variable_name); addColumn(variable_name, sarr); break;
+					default:
+						System.err.println("An unexpected error occured, cannot change type of variable!");
+						DataHelper.printStackTrace(System.err); break;
+				} break;
+			case DOUBLE: double[][] double_arr = double_column.get(variable_name);
+				switch(_new_type) {
+					case BOOL: System.out.println("WARNING: convert double to bool result to true except NaN!");
+						boolean[][] oarr = new boolean[double_arr.length][double_arr[0].length];
+						for(int j=0; j<oarr.length; j++) for(int i=0; i<oarr[0].length; i++) oarr[j][i] = !Double.isNaN(double_arr[j][i]);
+						removeVariable(variable_name); addColumn(variable_name, oarr); break;
+					case BYTE: byte[][] barr = new byte[double_arr.length][double_arr[0].length];
+						for(int j=0; j<barr.length; j++) for(int i=0; i<barr[0].length; i++) barr[j][i] = (byte) double_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, barr); break;
+					case SHORT: short[][] rarr = new short[double_arr.length][double_arr[0].length];
+						for(int j=0; j<rarr.length; j++) for(int i=0; i<rarr[0].length; i++) rarr[j][i] = (short) double_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, rarr); break;
+					case INT: int[][] iarr = new int[double_arr.length][double_arr[0].length];
+						for(int j=0; j<iarr.length; j++) for(int i=0; i<iarr[0].length; i++) iarr[j][i] = (int) double_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, iarr); break;
+					case LONG: long[][] larr = new long[double_arr.length][double_arr[0].length];
+						for(int j=0; j<larr.length; j++) for(int i=0; i<larr[0].length; i++) larr[j][i] = (long) double_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, larr); break;
+					case FLOAT: float[][] farr = new float[double_arr.length][double_arr[0].length];
+						for(int j=0; j<farr.length; j++) for(int i=0; i<farr[0].length; i++) farr[j][i] = (float) double_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, farr); break;
+					case DOUBLE: double[][] darr = new double[double_arr.length][double_arr[0].length];
+						for(int j=0; j<darr.length; j++) for(int i=0; i<darr[0].length; i++) darr[j][i] = double_arr[j][i];
+						removeVariable(variable_name); addColumn(variable_name, darr); break;
+					case STRING: String[][] sarr = new String[double_arr.length][double_arr[0].length];
+						for(int j=0; j<sarr.length; j++) for(int i=0; i<sarr[0].length; i++) sarr[j][i] = ""+double_arr[j][i]+"";
+						removeVariable(variable_name); addColumn(variable_name, sarr); break;
+					default:
+						System.err.println("An unexpected error occured, cannot change type of variable!");
+						DataHelper.printStackTrace(System.err); break;
+				} break;
+			case STRING: String[][] string_arr = string_column.get(variable_name);
+				switch(_new_type) {
+					case BOOL: boolean[][] oarr = new boolean[string_arr.length][string_arr[0].length];
+						for(int j=0; j<oarr.length; j++) for(int i=0; i<oarr[0].length; i++) oarr[j][i] = set_boolean(string_arr[j][i]);
+						removeVariable(variable_name); addColumn(variable_name, oarr); break;
+					case BYTE: byte[][] barr = new byte[string_arr.length][string_arr[0].length];
+						for(int j=0; j<barr.length; j++) for(int i=0; i<barr[0].length; i++) barr[j][i] = set_byte(string_arr[j][i]);
+						removeVariable(variable_name); addColumn(variable_name, barr); break;
+					case SHORT: short[][] rarr = new short[string_arr.length][string_arr[0].length];
+						for(int j=0; j<rarr.length; j++) for(int i=0; i<rarr[0].length; i++) rarr[j][i] = set_short(string_arr[j][i]);
+						removeVariable(variable_name); addColumn(variable_name, rarr); break;
+					case INT: int[][] iarr = new int[string_arr.length][string_arr[0].length];
+						for(int j=0; j<iarr.length; j++) for(int i=0; i<iarr[0].length; i++) iarr[j][i] = set_int(string_arr[j][i]);
+						removeVariable(variable_name); addColumn(variable_name, iarr); break;
+					case LONG: long[][] larr = new long[string_arr.length][string_arr[0].length];
+						for(int j=0; j<larr.length; j++) for(int i=0; i<larr[0].length; i++) larr[j][i] = set_long(string_arr[j][i]);
+						removeVariable(variable_name); addColumn(variable_name, larr); break;
+					case FLOAT: float[][] farr = new float[string_arr.length][string_arr[0].length];
+						for(int j=0; j<farr.length; j++) for(int i=0; i<farr[0].length; i++) farr[j][i] = set_float(string_arr[j][i]);
+						removeVariable(variable_name); addColumn(variable_name, farr); break;
+					case DOUBLE: double[][] darr = new double[string_arr.length][string_arr[0].length];
+						for(int j=0; j<darr.length; j++) for(int i=0; i<darr[0].length; i++) darr[j][i] = set_double(string_arr[j][i]);
+						removeVariable(variable_name); addColumn(variable_name, darr); break;
+					default:
+						System.err.println("An unexpected error occured, cannot change type of variable!");
+						DataHelper.printStackTrace(System.err); break;
+				} break;
+			default:
+				System.err.println("An unexpected error occured, can not determin the datatype of the variable!");
+				DataHelper.printStackTrace(System.err); break;
+		}
+	}
 	
 /*	public DataFrame2D concat(DataFrame2D df2, int dimension_to_append) {
 		boolean haveDifferentKeys = false;
