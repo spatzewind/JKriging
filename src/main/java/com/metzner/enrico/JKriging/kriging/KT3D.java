@@ -33,6 +33,11 @@ public class KT3D {
 	public static final int ORDINARY_KRIGING               = 1;
 	public static final int SIMPLE_NON_STATIONARY_KRIGING  = 2;
 	public static final int EXTERNAL_DRIFT_KRIGING         = 3;
+	
+	public static final int VARIOGRAM_SPHERICAL   = 1;
+	public static final int VARIOGRAM_EXPONENTIAL = 2;
+	public static final int VARIOGRAM_GAUSSIAN    = 3;
+	public static final int VARIOGRAM_POWER       = 4;
 
 	private int iktype, ncut, koption, idbg;
 	private int[] idrif = new int[MAXDT], it = new int[MAXNST];
