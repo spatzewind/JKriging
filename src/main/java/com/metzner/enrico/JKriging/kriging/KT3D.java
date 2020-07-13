@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.metzner.enrico.JKriging.data.Constants;
 import com.metzner.enrico.JKriging.data.DataFrame;
 import com.metzner.enrico.JKriging.data.DataFrame3D;
 import com.metzner.enrico.JKriging.helper.DataHelper;
@@ -1404,9 +1405,9 @@ public class KT3D {
 				for(int y_=0; y_<ny; y_++) dimension_y[y_] = ymn + y_*xsiz;
 				double[] dimension_z = new double[nz];
 				for(int z_=0; z_<nz; z_++) dimension_z[z_] = zmn + z_*xsiz;
-				result.setDimension(1, dimension_x, x_var);
-				result.setDimension(2, dimension_y, y_var);
-				result.setDimension(3, dimension_z, z_var);
+				result.setDimension(0+Constants.FIRST_IDX, dimension_x, x_var);
+				result.setDimension(1+Constants.FIRST_IDX, dimension_y, y_var);
+				result.setDimension(2+Constants.FIRST_IDX, dimension_z, z_var);
 			}
 			return result;
 		}
