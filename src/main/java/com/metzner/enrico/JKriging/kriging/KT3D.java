@@ -67,6 +67,8 @@ public class KT3D {
 	int num_krig_res; // number of kriging output variables (2 normal, 7 indicator)
 	String[] estimate_titles; // titles for results from kriging
 	private double[][] estimates; // result from kriging
+	
+	private double progressNPoints;
 
 	private boolean[] paramchecklist = new boolean[8];
 	String[] param_descriptions = { "dataframe", "variable-cooredinates and kriging variable", "kriging field/points",
@@ -664,6 +666,10 @@ public class KT3D {
 		}
 	}
 
+	public double getProgress() {
+		return progressNPoints;
+	}
+	
 	public DataFrame kt3d() {
 		return (DataFrame) kt3d_df(1);
 	}
@@ -706,6 +712,7 @@ public class KT3D {
 //        c Original:  A.G. Journel and C. Lemmer                             1981
 //        c Revisions: A.G. Journel and C. Kostov                             1984
 //        c-----------------------------------------------------------------------
+		progressNPoints = 0d;
 		double[] vr = (double[]) dataframe.getArray(vr_var);
 		int datalength = vr.length;
 		double[] x=null,y=null,z=null,dh=null,ve=null;
@@ -960,6 +967,7 @@ public class KT3D {
 		int na, ind, neq;
 		int nclose = closest.length;
 		for(int index=0; index<nloop; index++) {
+			progressNPoints = (index+1d) / (double) nloop;
 			if((index+1)%irepo==0) System.out.println("   currently on estimate "+FormatHelper.nf(index+1,9));
 
 //        c Where are we making an estimate?
@@ -1197,7 +1205,7 @@ public class KT3D {
 //        c
 			if(idbg==3) {
 				try(BufferedWriter bw = new BufferedWriter(new FileWriter(new File(dbgfl),true))) {
-					bw.append("\nEstimating node index : "+ix+" "+iy+" "+iz+"\n");
+					bw.append("\nEstimating node index : "+(ix+1)+" "+(iy+1)+" "+(iz+1)+"\n");
 		            int is = 1 - neq,ie;
 		            for(int i=0; i<neq; i++) {
 		            	is = 1 + i*neq;
