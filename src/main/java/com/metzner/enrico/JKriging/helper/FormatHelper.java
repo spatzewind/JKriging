@@ -1,5 +1,7 @@
 package com.metzner.enrico.JKriging.helper;
 
+import java.io.PrintStream;
+
 public class FormatHelper {
 	
 	public static void chknam(String _possible_file_name) {
@@ -129,5 +131,25 @@ public class FormatHelper {
 				}
 			}
 		}
+	}
+
+	public static void printMat(PrintStream stream, double[][] _mat) {
+	    int la = _mat.length, lb = _mat[0].length;
+	    String[][] mout = new String[la][lb];
+	    //stream.println("    [PRINTMAT] "+la+"x"+lb+" matrix");
+	    int ml = 0;
+	    for(int a=0; a<la; a++) for(int b=0; b<lb; b++) {
+	        mout[a][b] = " "+_mat[a][b]+" ";
+	        ml = Math.max(ml,mout[a][b].length());
+	    }
+	    //stream.println("    [PRINTMAT] "+ml+"chars per entry");
+	    for(int a=0; a<la; a++) for(int b=0; b<lb; b++) {
+	        while(mout[a][b].length()<ml) { mout[a][b] = " "+mout[a][b]; }
+	    }
+	    for(int b=0; b<lb; b++) {
+	        String l = "";
+	        for(int a=0; a<la; a++) l += mout[a][b];
+	        stream.println(l);
+	    }
 	}
 }

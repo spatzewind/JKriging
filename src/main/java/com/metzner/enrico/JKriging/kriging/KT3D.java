@@ -12,7 +12,6 @@ import java.util.List;
 import com.metzner.enrico.JKriging.data.Constants;
 import com.metzner.enrico.JKriging.data.DataFrame;
 import com.metzner.enrico.JKriging.data.DataFrame3D;
-import com.metzner.enrico.JKriging.helper.DataHelper;
 import com.metzner.enrico.JKriging.helper.FormatHelper;
 import com.metzner.enrico.JKriging.helper.LinEquSolver;
 import com.metzner.enrico.JKriging.helper.Rotation;
@@ -39,6 +38,7 @@ public class KT3D {
 	public static final int VARIOGRAM_EXPONENTIAL = 2;
 	public static final int VARIOGRAM_GAUSSIAN    = 3;
 	public static final int VARIOGRAM_POWER       = 4;
+	public static final int VARIOGRAM_HOLE_EFFECT = 5;
 
 	private int iktype, ncut, koption, idbg;
 	private int[] idrif = new int[MAXDT], it = new int[MAXNST];
@@ -678,11 +678,10 @@ public class KT3D {
 	}
 	
 	private Object kt3d_df(int _dataframe_dims) { //TODO beginning of KT3D
-		for(int pcl=0; pcl<8; pcl++)
-			if(!paramchecklist[pcl]) {
-				System.err.println("Not all parameters are set! \""+param_descriptions[pcl]+"\" missing");
-				return null;
-			}
+		for(int pcl=0; pcl<8; pcl++) if(!paramchecklist[pcl]) {
+			System.err.println("Not all parameters are set! \""+param_descriptions[pcl]+"\" missing");
+			return null;
+		}
 //        c-----------------------------------------------------------------------
 //        c
 //        c                Krige a 3-D Grid of Rectangular Blocks
@@ -726,7 +725,6 @@ public class KT3D {
 		if(z_var==null)   {z = new double[datalength];  for(int d=0; d<datalength; d++) z[d]  = zmn; }
 		if(dh_var==null)  {dh = new double[datalength]; for(int d=0; d<datalength; d++) dh[d] = 0d;  }
 		if(ext_var==null) {ve = new double[datalength]; for(int d=0; d<datalength; d++) ve[d] = 1d;  }
-		double[] tmp = new double[datalength];
 		double[] closest = new double[datalength];
 		if (x_var==null && nx > 1)
 			System.out.println(" WARNING: no x variable and nx>1 !");
@@ -738,20 +736,20 @@ public class KT3D {
 		int MAXDIS = nxdis*nydis*nzdis;
 		int maxSamples = ndmax + 1;
 		int maxEquations = maxSamples + MAXDT + 2;
-		int maxSupBlckX = Math.max(1, Math.min(50, nx / 2));
-		int maxSupBlckY = Math.max(1, Math.min(50, ny / 2));
-		int maxSupBlckZ = Math.max(1, Math.min(50, nz / 2));
-		int maxSuperblocks = maxSupBlckX*maxSupBlckY*maxSupBlckZ;
+		//int maxSupBlckX = Math.max(1, Math.min(50, nx / 2));
+		//int maxSupBlckY = Math.max(1, Math.min(50, ny / 2));
+		//int maxSupBlckZ = Math.max(1, Math.min(50, nz / 2));
+		//int maxSuperblocks = maxSupBlckX*maxSupBlckY*maxSupBlckZ;
 		//MXSXY = 4 * MAXSBX * MAXSBY;
 		//MXSX  = 2 * MAXSBX;
 //		if (ndmax > maxSamples) {
 //			System.err.println("ndmax is too big - modify .inc file");
 //			return null;
 //		}
-		int[]    nisb = new int[maxSuperblocks],
-				 ixsbtosr = new int[8*maxSuperblocks],
-				 iysbtosr = new int[8*maxSuperblocks],
-				 izsbtosr = new int[8*maxSuperblocks];
+		//int[]    nisb = new int[maxSuperblocks],
+		//		 ixsbtosr = new int[8*maxSuperblocks],
+		//		 iysbtosr = new int[8*maxSuperblocks],
+		//		 izsbtosr = new int[8*maxSuperblocks];
 		double[] xa = new double[maxSamples],
 				 ya = new double[maxSamples],
 				 za = new double[maxSamples];
@@ -785,7 +783,7 @@ public class KT3D {
 
 		double cbb;
 		boolean fircon=true, accept;
-		double[] sec3 = new double[datalength];
+		//double[] sec3 = new double[datalength];
 //        c
 //        c Set up the rotation/anisotropy matrices that are needed for the
 //        c variogram and search.  Also compute the maximum covariance for
@@ -821,33 +819,29 @@ public class KT3D {
 			return null;
 		}
 		resc = 1d / resc;
-		System.out.println("[DEBUG] Maximum covariance: "+covmax);
+//		System.out.println("[DEBUG] Maximum covariance: "+covmax);
 //        c
 //        c Set up for super block searching:
 //        c
-		System.out.println("Setting up super block search strategy");
-		System.out.println("[DEBUG]");
-		FormatHelper.printTable(20, x,y,z,vr,tmp);
-		int nsec = 2;
-		double[] superblock_grid = new double[9]; // replace n[xyz]sup, [xyz]mnsup, [xyz]sizsup
-		nisb = DataHelper.setsupr(nx, xmn, xsiz, ny, ymn, ysiz, nz, zmn, zsiz, x, y, z, vr, tmp,
-				nsec, ve, dh, sec3, maxSupBlckX, maxSupBlckY, maxSupBlckZ, nisb, superblock_grid);
-		//      call setsupr(nx,xmn,xsiz,ny,ymn,ysiz,nz,zmn,zsiz,nd,x,y,z,
-		//     +             vr,tmp,nsec,ve,dh,sec3,MAXSBX,MAXSBY,MAXSBZ,nisb,
-		//     +             nxsup,xmnsup,xsizsup,nysup,ymnsup,ysizsup,nzsup,
-		//     +             zmnsup,zsizsup)
-		System.out.println("[DEBUG]");
-		FormatHelper.printTable(20, x,y,z,vr,tmp);
-		int nsbtosr = DataHelper.picksupr(superblock_grid, isrot, rotmat, radsqd, ixsbtosr, iysbtosr, izsbtosr);
-		//      call picksup(nxsup,xsizsup,nysup,ysizsup,nzsup,zsizsup,
-		//     +             isrot,MAXROT,rotmat,radsqd,nsbtosr,ixsbtosr,
-		//     +             iysbtosr,izsbtosr)
+		//System.out.println("Setting up super block search strategy");
+//		System.out.println("Setting up 3D-Tree instead of super block search strategy");
+//		System.out.println("[DEBUG]");
+//		FormatHelper.printTable(20, x,y,z,vr,tmp);
+		//int nsec = 2;
+		//double[] superblock_grid = new double[9]; // replace n[xyz]sup, [xyz]mnsup, [xyz]sizsup
+		//nisb = DataHelper.setsupr(nx, xmn, xsiz, ny, ymn, ysiz, nz, zmn, zsiz, x, y, z, vr, tmp,
+		//		nsec, ve, dh, sec3, maxSupBlckX, maxSupBlckY, maxSupBlckZ, nisb, superblock_grid);
+		KdTree tree = new KdTree();
+		tree.build(false, false, x,y,z);
+//		System.out.println("[DEBUG]");
+//		FormatHelper.printTable(20, x,y,z,vr,tmp);
+		//int nsbtosr = DataHelper.picksupr(superblock_grid, isrot, rotmat, radsqd, ixsbtosr, iysbtosr, izsbtosr);
 //        c
 //        c Compute the number of drift terms, if an external drift is being
 //        c considered then it is one more drift term, if SK is being considered
 //        c then we will set all the drift terms off and mdt to 0):
 //        c
-		System.out.println("[DEBUG] super block strategy set");
+		//System.out.println("[DEBUG] super block strategy set");
 		int mdt = 1;
 		for(int i=0; i<9; i++) {
 			if(ktype==0 || ktype==2) idrif[i] = 0;
@@ -1013,16 +1007,21 @@ public class KT3D {
 			}
 
 //        c Find the nearest samples:
-			int[] supres = DataHelper.srchsupr(xloc, yloc, zloc, radsqd, isrot, rotmat,
-					nsbtosr, ixsbtosr, iysbtosr, izsbtosr, noct,
-					nd, x, y, z, tmp, nisb, superblock_grid, closest);
-			nclose = supres[0];
+			//int[] supres = DataHelper.srchsupr(xloc, yloc, zloc, radsqd, isrot, rotmat,
+			//		nsbtosr, ixsbtosr, iysbtosr, izsbtosr, noct,
+			//		nd, x, y, z, tmp, nisb, superblock_grid, closest);
+			int[] supres = tree.getIndexOfNClosestPointsTo(ndmax, rotmat[isrot-1], false, false, xloc, yloc, zloc);
+			nclose = supres[0]; //TODO
 			//int infoct = supres[1];
 
 //        c Load the nearest data in xa,ya,za,vra,vea:
 			na = 0;
+//			System.out.println("[DEBUG]  pivot:                 pos "+
+//					FormatHelper.nf(xloc,12,8)+" "+FormatHelper.nf(yloc,12,8)+" "+FormatHelper.nf(zloc,12,8));
 			for(int i=0; i<nclose; i++) {
-				ind    = (int) (closest[i]+0.5d);
+				ind    = supres[i+1];
+//				System.out.println("[DEBUG]  closest point: ind "+FormatHelper.nf(ind,3)+" pos "+
+//						FormatHelper.nf(x[ind],12,8)+" "+FormatHelper.nf(y[ind],12,8)+" "+FormatHelper.nf(z[ind],12,8));
 				accept = true;
 				if(koption!=0 && (Math.abs(x[ind]-xloc)+Math.abs(y[ind]-yloc)+ Math.abs(z[ind]-zloc))<EPSLON)
 					accept = false;
@@ -1134,22 +1133,33 @@ public class KT3D {
 			}
 
 //        c Set up the right hand side:
+			//System.out.println("[KT3D] point to estimate:"); //TODO DEBUG, remove later
+			//System.out.println("         "+FormatHelper.nf(xdb[0],10,6)+"  "+FormatHelper.nf(ydb[0],10,6)+"  "+FormatHelper.nf(zdb[0],10,6));
+			//System.out.println("       points surround with value:");
 			for(int i=0; i<na; i++) {
 				if(ndb<=1) {
 					cb = Covariance.cova3(xa[i],ya[i],za[i], xdb[0],ydb[0],zdb[0],
 							1,nst,MAXNST, c0,it,cc,aa, 1,MAXROT,rotmat)[0];
+					//System.out.println("         xyz={"+FormatHelper.nf(xa[i],10,6)+" "+FormatHelper.nf(ya[i],10,6)+" "+FormatHelper.nf(za[i],10,6)+"}  "+
+					//		"abc={"+FormatHelper.nf(xdb[0],10,6)+" "+FormatHelper.nf(ydb[0],10,6)+" "+FormatHelper.nf(zdb[0],10,6)+"}  "+
+					//		FormatHelper.nf(cb,10,6));
 				} else {
 					cb  = 0d;
+					//String tempstr = "";
 					for(int j=0; j<ndb; j++) {
-						cb = Covariance.cova3(xa[i], ya[i], za[i], xdb[j], ydb[j], zdb[j],
+						cov = Covariance.cova3(xa[i], ya[i], za[i], xdb[j], ydb[j], zdb[j],
 								1, nst, MAXNST, c0, it, cc, aa, 1, MAXROT, rotmat)[0];
 						cb += cov;
+						//tempstr += " "+FormatHelper.nf(cov,8,6);
 						double dx = xa[i] - xdb[j];
 						double dy = ya[i] - ydb[j];
 						double dz = za[i] - zdb[j];
 						if(dx*dx+dy*dy+dz*dz < EPSLON) cb -= c0[0];
 					}
 					cb /= ndb;
+					//System.out.println("           ,--<  "+tempstr);
+					//System.out.println("         "+FormatHelper.nf(xa[i],10,6)+"  "+FormatHelper.nf(ya[i],10,6)+"  "+FormatHelper.nf(za[i],10,6)+"  "+
+					//		FormatHelper.nf(cb,10,6));
 				}
 				r[i] = cb;
 			}
@@ -1206,13 +1216,15 @@ public class KT3D {
 			if(idbg==3) {
 				try(BufferedWriter bw = new BufferedWriter(new FileWriter(new File(dbgfl),true))) {
 					bw.append("\nEstimating node index : "+(ix+1)+" "+(iy+1)+" "+(iz+1)+"\n");
+					System.out.println("Estimating node index : "+(ix+1)+" "+(iy+1)+" "+(iz+1)+"\n");
 		            int is = 1 - neq,ie;
 		            for(int i=0; i<neq; i++) {
-		            	is = 1 + i*neq;
-		            	ie = is + neq - 1;
+		            	is = i*neq;
+		            	ie = is + neq;
 		            	String str_a = "";
-		            	for(int j=is-1; j<ie; j++) str_a += " "+FormatHelper.nf(a[j],7,4);
+		            	for(int j=is; j<ie; j++) str_a += " "+FormatHelper.nf(a[j],7,4);
 		            	bw.append("    r("+FormatHelper.nf(i+1,2)+")= "+FormatHelper.nf(r[i],7,4)+"  a="+str_a+"\n");
+		            	System.out.println("    r("+FormatHelper.nf(i+1,2)+")= "+FormatHelper.nf(r[i],7,4)+"  a="+str_a);
 		            }
 		            bw.flush();
 				}catch(IOException io_e) {
@@ -1403,7 +1415,7 @@ public class KT3D {
 			for(int n_est=0; n_est<num_krig_res; n_est++) {
 				double[][][] estimates3D = new double[xn][yn][zn];
 				for(int x_=0; x_<xn; x_++) for(int y_=0; y_<yn; y_++) for(int z_=0; z_<zn; z_++)
-					estimates3D[x_][y_][z_] = estimates[n_est][x_*yn*zn+y_*zn+z_];
+					estimates3D[x_][y_][z_] = estimates[n_est][x_+xn*y_+xn*yn*z_];
 				result.addColumn(estimate_titles[n_est], estimates3D);
 			}
 			if(nx*ny*nz==estimates[0].length) {

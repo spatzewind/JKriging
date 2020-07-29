@@ -152,7 +152,7 @@ public class DataHelper {
 	public static void sortem(double[] pivot_arr, double[]... other_arr) {
 		sortem(pivot_arr, 0, pivot_arr.length-1, false, other_arr);
 	}
-	private static void sortem(double[] pivot_arr, int begin_, int end_, boolean backward, double[]... other_arr) {
+	public static void sortem(double[] pivot_arr, int begin_, int end_, boolean backward, double[]... other_arr) {
 		List<int[]> partitions = new ArrayList<int[]>();
 		partitions.add(new int[] {begin_, end_});
 		//System.out.println("[DEBUG : SORTEM]    ");
@@ -428,7 +428,7 @@ public class DataHelper {
 						double xdis = (i1-i2)*0.5d*xsizsup + xo;
 						double ydis = (j1-j2)*0.5d*ysizsup + yo;
 						double zdis = (k1-k2)*0.5d*zsizsup + zo;
-						hsqd = Rotation.sqdist(0.0,0.0,0.0,xdis,ydis,zdis,irot,rotmat);
+						hsqd = Rotation.sqdist(0.0,0.0,0.0,xdis,ydis,zdis,rotmat[irot-1]);
 						if(hsqd<=shortest) shortest = hsqd;
 					}
 				}
@@ -562,7 +562,7 @@ public class DataHelper {
 //        c
 //        c Check squared distance:
 //        c
-				hsqd = Rotation.sqdist(xloc,yloc,zloc,x[i],y[i],z[i],irot,rotmat);
+				hsqd = Rotation.sqdist(xloc,yloc,zloc,x[i],y[i],z[i],rotmat[irot-1]);
 				if(hsqd>radsqd) continue;
 //        c
 //        c Accept this sample:

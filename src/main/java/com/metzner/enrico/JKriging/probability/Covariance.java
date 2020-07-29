@@ -81,7 +81,7 @@ public class Covariance {
 //        c
 //        c Check for "zero" distance, return with cmax if so:
 //        c
-		hsqd = Rotation.sqdist(x1,y1,z1,x2,y2,z2,irot,rotmat);
+		hsqd = Rotation.sqdist(x1,y1,z1,x2,y2,z2,rotmat[irot-1]);
 		if(hsqd < EPSLON) {
 			cova = cmax;
 			return new double[] {cova, cmax};
@@ -99,7 +99,7 @@ public class Covariance {
 //        c
 			if(ist!=0) {
 				ir   = Math.min((irot+is-1),maxrot);
-				hsqd = Rotation.sqdist(x1,y1,z1,x2,y2,z2,ir,rotmat);
+				hsqd = Rotation.sqdist(x1,y1,z1,x2,y2,z2,rotmat[ir-1]);
 			}
 			h = Math.sqrt(hsqd);
 //        c

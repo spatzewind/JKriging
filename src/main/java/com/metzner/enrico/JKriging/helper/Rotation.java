@@ -4,6 +4,58 @@ import com.metzner.enrico.JKriging.data.Constants;
 
 public class Rotation {
 
+	/**
+	 * Sets up an Anisotropic Rotation Matrix
+	 * <p>
+	 *     Sets up the matrix to transform cartesian coordinates to coordinates
+	 *     accounting for angles and anisotropy (see manual for a detailed
+	 *     definition):
+	 * </p>
+	 * <p>
+	 *     NO EXTERNAL REFERENCES
+	 * </p>
+	 * <p>
+	 *     ALgorithm:
+	 *     
+	 *     Converts the semi-axis lengths into anisotropy informations:
+	 *              anis1   Ratio of minor axis length to major axis length
+	 *              anis2   Ratio of second minor axis length to major axis length
+	 *     
+	 *     Converts the input angles to three angles which make more mathematical sense:
+	 *              alpha   angle between the major axis of anisotropy and the
+	 *                      E-W axis. Note: Counter clockwise is positive.
+	 *              beta    angle between major axis and the horizontal plane.
+	 *                      (The dip of the ellipsoid measured positive down)
+	 *              theta   Angle of rotation of minor axis about the major axis
+	 *                      of the ellipsoid with positive clockwise in the
+	 *                      direction of the major axis (from inside to outside)
+	 *     
+	 *     After that following scheme is used:
+	 *     
+	 *                 -> * Scale(1,anis1,anis2)     -> * Rot(x-axis,theta)  -> * Rot(y-axis,beta)  _-> * Rot(z-axis,alpha) ->
+	 *         Sphere                                                                                                          Ellipse
+	 *                 <- * Scale(1,1/anis1,1/anis2) <- * Rot(x-axis,-theta) <- * Rot(y-axis,-beta) <- * Rot(z-axis,-alpha) <-
+	 *     
+	 *     The final transformation matrix got the following look:
+	 *     
+	 *             [ 1    0       0    ]   [ 1     0           0       ]   [ cos(-beta) 0 sin(-beta) ]   [ cos(-alpha) sin(-alpha) 0 ]
+	 *         M = [ 0 1/anis1    0    ] * [ 0 cos(-theta) sin(-theta) ] * [     0      1     0      ] * [ sin(-alpha) cos(-alpha) 0 ]
+	 *             [ 0    0    1/anis2 ]   [ 0 sin(-theta) cos(-theta) ]   [ sin(-beta) 0 cos(-beta) ]   [     0           0       1 ]
+	 *             
+	 *             [                            ]
+	 *         M = [ ()/anis1 ()/anis1 ()/anis1 ]
+	 *             [ ()/anis2 ()/anis2 ()/anis2 ]
+	 * </p>
+	 * @param ang1      Azimuth angle for principal direction
+	 * @param ang2      Dip angle for principal direction
+	 * @param ang3      Third rotation angle
+	 * @param anis1     First anisotropy ratio
+	 * @param anis2     Second anisotropy ratio
+	 * @param ind       matrix indicator to initialize
+	 * @param maxrot    maximum number of rotation matrices dimensioned
+	 * @param rotmat    rotation matrices
+	 * @return
+	 */
 	public static double[][][] setrot(double ang1, double ang2, double ang3, double anis1, double anis2, int ind, int maxrot, double[][][] rotmat) {
 //        c-----------------------------------------------------------------------
 //        c
@@ -83,8 +135,27 @@ public class Rotation {
 		return rotmat;
 	}
 	
+	/**
+	 * Squared Anisotropic Distance Calculation Given Matrix Indicator
+	 * <p>
+	 *     This routine calculates the anisotropic distance between two points
+	 *     given the coordinates of each point and a definition of the
+	 *     anisotropy.
+	 * </p>
+	 * <p>
+	 *     NO EXTERNAL REFERENCE
+	 * </p>
+	 * @param x1	    x-coordinate of first point
+	 * @param y1        y-coordinate of first point
+	 * @param z1        z-coordinate of first point
+	 * @param x2	    x-coordinate of second point
+	 * @param y2	    y-coordinate of second point
+	 * @param z2	    z-coordinate of second point
+	 * @param rotmat    the rotation matrix
+	 * @return          The squared distance accounting for the anisotropy and the rotation of coordinates (if any).
+	 */
 	public static double sqdist(double x1, double y1, double z1, double x2, double y2, double z2,
-			int ind, double[][][] rotmat) {
+			double[][] rotmat) {
 //        c-----------------------------------------------------------------------
 //        c
 //        c    Squared Anisotropic Distance Calculation Given Matrix Indicator
@@ -125,9 +196,35 @@ public class Rotation {
 		dz = (z1 - z2);
 		double sqdist = 0d;
 		for(int i=0; i<3; i++) {
-			cont   = rotmat[ind-1][i][0] * dx
-					+rotmat[ind-1][i][1] * dy
-					+rotmat[ind-1][i][2] * dz;
+			cont   = rotmat[i][0] * dx
+					+rotmat[i][1] * dy
+					+rotmat[i][2] * dz;
+			sqdist += cont * cont;
+		}
+		return sqdist;
+	}
+	
+	/**
+	 * Squared Anisotropic Distance Calculation Given Matrix Indicator
+	 * <p>
+	 *     This routine calculates the anisotropic distance between two points
+	 *     given the coordinates of each point and a definition of the
+	 *     anisotropy in k dimensions.
+	 * </p>
+	 * <p>
+	 *     NO EXTERNAL REFERENCE
+	 * </p>
+	 * @param pos1      coordinate vector of first point
+	 * @param pos2      coordinate vector of second point
+	 * @param rotmat    the rotation matrix
+	 * @return          The squared distance accounting for the anisotropy and the rotation of coordinates (if any).
+	 */
+	public static double sqdist(double[] pos1, double[] pos2, double[][] rotmat) {
+		double sqdist = 0d;
+		for(int j=0; j<rotmat.length; j++) {
+			double cont = 0d;
+			for(int i=0; i<rotmat[j].length; i++)
+				cont += rotmat[j][i] * (pos1[i] - pos2[i]);
 			sqdist += cont * cont;
 		}
 		return sqdist;

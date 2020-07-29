@@ -16,6 +16,7 @@ public class KB2D {
 	public static final int VARIOGRAM_EXPONENTIAL = 2;
 	public static final int VARIOGRAM_GAUSSIAN    = 3;
 	public static final int VARIOGRAM_POWER       = 4;
+	public static final int VARIOGRAM_HOLE_EFFECT = 5;
 	
 	private static final int    MAXNST    = 4;
 	private static final double UNEST     = Double.NaN;
