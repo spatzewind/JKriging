@@ -428,7 +428,7 @@ public class DataHelper {
 						double xdis = (i1-i2)*0.5d*xsizsup + xo;
 						double ydis = (j1-j2)*0.5d*ysizsup + yo;
 						double zdis = (k1-k2)*0.5d*zsizsup + zo;
-						hsqd = Rotation.sqdist(0.0,0.0,0.0,xdis,ydis,zdis,rotmat[irot-1]);
+						hsqd = MathHelper.sqdist(0.0,0.0,0.0,xdis,ydis,zdis,rotmat[irot-1]);
 						if(hsqd<=shortest) shortest = hsqd;
 					}
 				}
@@ -562,7 +562,7 @@ public class DataHelper {
 //        c
 //        c Check squared distance:
 //        c
-				hsqd = Rotation.sqdist(xloc,yloc,zloc,x[i],y[i],z[i],rotmat[irot-1]);
+				hsqd = MathHelper.sqdist(xloc,yloc,zloc,x[i],y[i],z[i],rotmat[irot-1]);
 				if(hsqd>radsqd) continue;
 //        c
 //        c Accept this sample:

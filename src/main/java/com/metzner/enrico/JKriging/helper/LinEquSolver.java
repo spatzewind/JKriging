@@ -103,7 +103,7 @@ public class LinEquSolver {
 		int ijm = ij - nn*(nright-1);
 		//ijm--; // Index shift FORTRAN -> JAVA
 		if(Math.abs(a[ijm]) < tol) {
-			System.err.println("[KSOL] found a[ijm] be less than tol="+tol);
+			System.err.println("[KSOL] found a[ijm="+(ijm+1)+"] be less than tol="+tol);
 			//ising=neq
 			return null;
 		}
@@ -144,7 +144,7 @@ public class LinEquSolver {
 		return s;
 	}
 	
-	public static double[] ktsol(int n, int ns, int nv, double[] a, double[] b, int maxeq) {
+	public static double[] ktsol(int n, int ns, int nv, double[] a, double[] b, int maxeq, int[] a_err_counter) {
 //        c-----------------------------------------------------------------------
 //        c
 //        c Solution of a system of linear equations by gaussian elimination with
@@ -230,7 +230,9 @@ public class LinEquSolver {
 //        c Test for singularity:
 //        c
 				if(Math.abs(a[kdiag-1])<tol) {
-					System.err.println("Diagonal element "+(kdiag)+" is zero -> singular matrix");
+					if(a_err_counter[kdiag-1]<1)
+						System.err.println("Diagonal element "+(kdiag)+" is zero -> singular matrix");
+					a_err_counter[kdiag-1]++;
 					//ktilt=k;
 					return null;
 				}
@@ -286,7 +288,9 @@ public class LinEquSolver {
 //        c
 			kdiag = ntn*iv;
 			if(Math.abs(a[kdiag-1])<tol) {
-				System.err.println("Last pivot is zero/too small -> assume singular matrix");
+				if(a_err_counter[kdiag-1]<1)
+					System.err.println("Last pivot is zero/too small -> assume singular matrix");
+				a_err_counter[kdiag-1]++;
 				//ktilt = n;
 				return null;
 			}
