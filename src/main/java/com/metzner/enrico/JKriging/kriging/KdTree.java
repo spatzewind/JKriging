@@ -3,7 +3,6 @@ package com.metzner.enrico.JKriging.kriging;
 import com.metzner.enrico.JKriging.helper.DataHelper;
 //import com.metzner.enrico.JKriging.helper.FormatHelper;
 import com.metzner.enrico.JKriging.helper.MathHelper;
-import com.metzner.enrico.JKriging.helper.Rotation;
 
 public class KdTree {
 
@@ -92,12 +91,18 @@ public class KdTree {
 	}
 	
 	public int getIndexOfClosestPointTo(boolean use_polar_coordinates, boolean is_in_degree, double... coords) {
-		return getIndexOfNClosestPointsTo(1, use_polar_coordinates, is_in_degree, coords)[1];
+		return getIndexOfNClosestPointsTo(1, Double.POSITIVE_INFINITY, use_polar_coordinates, is_in_degree, coords)[1];
 	}
 	public int[] getIndexOfNClosestPointsTo(int number_of_points, boolean use_polar_coordinates, boolean is_in_degree, double... coords) {
-		return getIndexOfNClosestPointsTo(number_of_points, identity_matrix, use_polar_coordinates, is_in_degree, coords);
+		return getIndexOfNClosestPointsTo(number_of_points, Double.POSITIVE_INFINITY, identity_matrix, use_polar_coordinates, is_in_degree, coords);
+	}
+	public int[] getIndexOfNClosestPointsTo(int number_of_points, double maximum_distance, boolean use_polar_coordinates, boolean is_in_degree, double... coords) {
+		return getIndexOfNClosestPointsTo(number_of_points, maximum_distance, identity_matrix, use_polar_coordinates, is_in_degree, coords);
 	}
 	public int[] getIndexOfNClosestPointsTo(int number_of_points, double[][] rotation_matrix, boolean use_polar_coordinates, boolean is_in_degree, double... coords) {
+		return getIndexOfNClosestPointsTo(number_of_points, Double.POSITIVE_INFINITY, rotation_matrix, use_polar_coordinates, is_in_degree, coords);
+	}
+	public int[] getIndexOfNClosestPointsTo(int number_of_points, double maximum_distance, double[][] rotation_matrix, boolean use_polar_coordinates, boolean is_in_degree, double... coords) {
 		//System.out.println("[KDTREE] Search for Indices of N points:\n"+
 		//                   "            N = "+number_of_points); //TODO DEBUG remove
 		int[] indices = new int[number_of_points+1];
@@ -142,22 +147,20 @@ public class KdTree {
 		double[][] transposed_inverse_rotation_matrix = MathHelper.transpose(MathHelper.inverse(rotation_matrix));
 		//System.out.println("            trpinvrotmat = ");
 		//FormatHelper.printMat(System.out, transposed_inverse_rotation_matrix);
-		double minimum_distance = -1d;
+		double max_dist_squared = maximum_distance * maximum_distance;
 		for(int i=0; i<number_of_points; i++) {
 			//System.out.println("            point "+(i+1)+":"); //TODO DEBUG remove
 			//System.out.println("                -- min-dist = "+minimum_distance);
-			KdTreeNode closest = closestNode(pivot, minimum_distance, rotation_matrix, transposed_inverse_rotation_matrix, root, 0);
+			KdTreeNode closest = closestNode(pivot, indices, max_dist_squared, rotation_matrix, transposed_inverse_rotation_matrix, root, 0);
 			if(closest==null) break;
 			indices[i+1] = closest.getIndex();
 			indices[0]++;
-			double dd = Rotation.sqdist(pivot, closest.getPosition(), rotation_matrix);
-			minimum_distance = Math.sqrt(dd+0.00000001d);
 		}
 		return indices;
 	}
 	
 	
-	private KdTreeNode closestNode(double[] _pivot, double min_dist, double[][] rotmat, double[][] trpinvrotmat, KdTreeNode current_branch, int axis) {
+	private KdTreeNode closestNode(double[] _pivot, int[] nodesToExclude, double max_sqr_dist, double[][] rotmat, double[][] trpinvrotmat, KdTreeNode current_branch, int axis) {
 		if(current_branch == null) return null;
 		
 		KdTreeNode next_branch = null;
@@ -174,12 +177,12 @@ public class KdTree {
 		
 		KdTreeNode best = closer_point(
 					_pivot,
-					closestNode(_pivot, min_dist, rotmat, trpinvrotmat, next_branch, (axis+1)%_pivot.length),
+					closestNode(_pivot, nodesToExclude, max_sqr_dist, rotmat, trpinvrotmat, next_branch, (axis+1)%_pivot.length),
 					current_branch,
-					min_dist, rotmat);
-		double dist = Double.POSITIVE_INFINITY;
+					nodesToExclude, max_sqr_dist, rotmat);
+		double dist = max_sqr_dist;
 		if(best!=null) {
-			dist = Rotation.sqdist(_pivot, best.getPosition(), rotmat);
+			dist = MathHelper.sqdist(_pivot, best.getPosition(), rotmat);
 		}
 		//System.out.println("        inbetween: minimum/best distance: "+dist); //TODO DEBUG remove
 		// calculate the distance between the pivot and the dividing plane from the k-d-tree
@@ -204,23 +207,27 @@ public class KdTree {
 		if ( planedist < dist )
 			best = closer_point(
 					_pivot,
-					closestNode(_pivot, min_dist, rotmat, trpinvrotmat, opp_branch, (axis+1)%_pivot.length),
+					closestNode(_pivot, nodesToExclude, max_sqr_dist, rotmat, trpinvrotmat, opp_branch, (axis+1)%_pivot.length),
 					best,
-					min_dist, rotmat);
+					nodesToExclude, max_sqr_dist, rotmat);
 		
 		return best;
 	}
-	private KdTreeNode closer_point(double[] piv, KdTreeNode p1, KdTreeNode p2, double minimum_distance, double[][] rotation_matrix) {
+	private KdTreeNode closer_point(double[] piv, KdTreeNode p1, KdTreeNode p2, int[] excluded_nodes, double maximum_squared_distance, double[][] rotation_matrix) {
 		if(p2==null) return p1;
 		if(p1==null) return p2;
 		double[] p1p = p1.getPosition();
 		double[] p2p = p2.getPosition();
-		double d1=Rotation.sqdist(piv, p1p, rotation_matrix),
-			   d2=Rotation.sqdist(piv, p2p, rotation_matrix);
-		double md = minimum_distance * minimum_distance;
-		if(d1<=md)
-			return (d2<=minimum_distance ? null : p2);
-		if(d2<=md)
+		double d1=MathHelper.sqdist(piv, p1p, rotation_matrix),
+			   d2=MathHelper.sqdist(piv, p2p, rotation_matrix);
+		boolean p1toEx = false, p2toEx = false;
+		for(int i=1; i<excluded_nodes.length; i++) {
+			if(p1.getIndex()==excluded_nodes[i]) p1toEx = true;
+			if(p2.getIndex()==excluded_nodes[i]) p2toEx = true;
+		}
+		if(p1toEx || d1>maximum_squared_distance)
+			return (p2toEx || d2>maximum_squared_distance ? null : p2);
+		if(p2toEx || d2>maximum_squared_distance)
 			return p1;
 		if(d1<d2) {
 			return p1;

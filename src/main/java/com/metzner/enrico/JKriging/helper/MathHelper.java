@@ -142,13 +142,14 @@ public class MathHelper {
 	 *     
 	 *     The final transformation matrix got the following look:
 	 *     
-	 *             [ 1    0       0    ]   [ 1     0           0       ]   [ cos(-beta) 0 sin(-beta) ]   [ cos(-alpha) sin(-alpha) 0 ]
-	 *         M = [ 0 1/anis1    0    ] * [ 0 cos(-theta) sin(-theta) ] * [     0      1     0      ] * [ sin(-alpha) cos(-alpha) 0 ]
-	 *             [ 0    0    1/anis2 ]   [ 0 sin(-theta) cos(-theta) ]   [ sin(-beta) 0 cos(-beta) ]   [     0           0       1 ]
+	 *             [ 1    0       0    ]   [ 1     0            0       ]   [  cos(-beta) 0 sin(-beta) ]   [  cos(-alpha) sin(-alpha) 0 ]
+	 *         M = [ 0 1/anis1    0    ] * [ 0 cos(-theta) -sin(-theta) ] * [      0      1     0      ] * [ -sin(-alpha) cos(-alpha) 0 ]
+	 *             [ 0    0    1/anis2 ]   [ 0 sin(-theta)  cos(-theta) ]   [ -sin(-beta) 0 cos(-beta) ]   [      0           0       1 ]
 	 *             
-	 *             [                            ]
-	 *         M = [ ()/anis1 ()/anis1 ()/anis1 ]
-	 *             [ ()/anis2 ()/anis2 ()/anis2 ]
+	 *         with abbreviations: cos($)=c$, sin($)=s$, alpha=a, beta=b, theta=t
+	 *             [           ca*cb                   sa*sb              1        ]
+	 *         M = [ (ca*sb*st-sa*ct)/anis1  (sa*sb*st+ca*ct)/anis1  (cb*st)/anis1 ]
+	 *             [ (ca*sb*ct+sa*st)/anis2  (sa*sb*ct-ca*st)/anis2  (cb*ct)/anis2 ]
 	 * </p>
 	 * @param ang1      Azimuth angle for principal direction
 	 * @param ang2      Dip angle for principal direction
@@ -178,7 +179,7 @@ public class MathHelper {
 //        c   ang3             Third rotation angle
 //        c   anis1            First anisotropy ratio
 //        c   anis2            Second anisotropy ratio
-//        c   ind              matrix indicator to initialize
+//        c   ind              matrix indicator to initialise
 //        c   MAXROT           maximum number of rotation matrices dimensioned
 //        c   rotmat           rotation matrices
 //        c
@@ -330,5 +331,33 @@ public class MathHelper {
 			sqdist += cont * cont;
 		}
 		return sqdist;
+	}
+
+	/**
+	 * Calculates the Minimum volume enclosing ellipsoid around listed ellipsoids in 3 dimensions
+	 * 
+	 * @param major            array of all ellipsoids major semi axis
+	 * @param minor            array of all ellipsoids minor semi axis
+	 * @param third_axis       array of all ellipsoids third semi axis
+	 * @param azimuth          array of all ellipsoids major semi axis azimuth position angle
+	 * @param declination      array of all ellipsoids major semi axis azimuth position angle
+	 * @param roll             array of all ellipsoids major semi axis azimuth position angle
+	 * @param angles_in_degree are angles given in degrees?
+	 * @return
+	 */
+	public static double[] getMinimumVolumeEnclosingEllipsoid(double[] major, double[] minor, double[] third_axis,
+			double[] azimuth, double[] declination, double[] roll, boolean angles_in_degree) {
+		
+		
+		return null;
+	}
+	/**
+	 * Calculates the Minimum volume enclosing ellipsoid around listed ellipsoids in arbitrary dimensions
+	 * 
+	 * @param ellipsoids matrices to describe each ellipsoid to enclose by the MVEE.
+	 * @return
+	 */
+	public static double[] getMinimumVolumeEnclosingEllipsoid(double[][] ellipsoids) {
+		return null;
 	}
 }

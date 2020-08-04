@@ -14,8 +14,9 @@ public class Test_3DOrdinaryKriging {
 		kt3d.setKrigingOptionAndDataframe(df_cluster, KT3D.GRID, KT3D.ORDINARY_KRIGING, 0d, false, null);
 		kt3d.setVariableAndCoordinates("Xlocation", "Ylocation", null, "Primary", null);
 		kt3d.setKrigingField(2, 25.0d, 12.5d, 2, 25.0d, 12.5d, 1, 1.0d, 0.0d);
-		kt3d.setSuperBlockParameters(1, 1, 1, 4, 8, 0, 20d, 20d, 20d, 0d, 0d, 0d);
+		kt3d.setSuperBlockParameters(1, 1, 1, 4, 8, 0, 20d);
 		kt3d.addVariogramModel(1, 0.8f, 0d, 0d, 0d, 20d, 20d, 20d);
+		kt3d.setDebuggingLevel(3, "./res/kt3d_debug_cluster.dbg");
 		DataFrame res = kt3d.kt3d();
 		
 		res.head();
