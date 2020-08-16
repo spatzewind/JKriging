@@ -1213,8 +1213,8 @@ public class DataFrame3D {
 					case SHORT:  ncdfWriter.addVariableAttribute(vars[iv+3], new Attribute("_FillValue", Short.MIN_VALUE));   break;
 					case INT:    ncdfWriter.addVariableAttribute(vars[iv+3], new Attribute("_FillValue", Integer.MIN_VALUE)); break;
 					case LONG:   ncdfWriter.addVariableAttribute(vars[iv+3], new Attribute("_FillValue", Long.MIN_VALUE));    break;
-					case FLOAT:  ncdfWriter.addVariableAttribute(vars[iv+3], new Attribute("_FillValue", Float.NaN));  break;
-					case DOUBLE: ncdfWriter.addVariableAttribute(vars[iv+3], new Attribute("_FillValue", Double.NaN)); break;
+					case FLOAT:  ncdfWriter.addVariableAttribute(vars[iv+3], new Attribute("_FillValue", Constants.FILL_VALUE_F));  break;
+					case DOUBLE: ncdfWriter.addVariableAttribute(vars[iv+3], new Attribute("_FillValue", Constants.FILL_VALUE_D)); break;
 					default: break;
 				}
 			}

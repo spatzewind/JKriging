@@ -21,7 +21,6 @@ public class KT3D {
 
 	public static final double VERSION = 3.000d;
 	public static final double EPSLON = 0.000001d;
-	private double UNEST = 1.0e20d;
 	private static final int MAXDT = 9; // maximal number of drift terms
 	private static final int MAXNST = 4; // maximum number of nested variogram model structures
 	private static final int MAXROT = MAXNST + 1; // maximum number of rotation matrices
@@ -33,12 +32,9 @@ public class KT3D {
 	public static final int ORDINARY_KRIGING               = 1;
 	public static final int SIMPLE_NON_STATIONARY_KRIGING  = 2;
 	public static final int EXTERNAL_DRIFT_KRIGING         = 3;
+	public static final int INDEX_KRIGING_NO  = 0;
+	public static final int INDEX_KRIGING_YES = 1;
 	
-	public static final int VARIOGRAM_SPHERICAL   = 1;
-	public static final int VARIOGRAM_EXPONENTIAL = 2;
-	public static final int VARIOGRAM_GAUSSIAN    = 3;
-	public static final int VARIOGRAM_POWER       = 4;
-	public static final int VARIOGRAM_HOLE_EFFECT = 5;
 
 	private int iktype, ncut, koption, idbg;
 	private int[] idrif = new int[MAXDT], it = new int[MAXNST];
@@ -123,8 +119,8 @@ public class KT3D {
 			ktype = kriging_type;
 			skmean = simplekriging_mean;
 			System.out.println(" ktype, skmean = " + ktype + " " + skmean);
-			iktype = (use_indicator_kriging ? 1 : 0);
-			if(iktype==0) {
+			iktype = (use_indicator_kriging ? Constants.IYES : Constants.INO);
+			if(iktype==Constants.INO) {
 				if(kriging_option==0) {
 					paramchecklist[5] = true;
 					paramchecklist[6] = true;
@@ -387,12 +383,12 @@ public class KT3D {
 			// c This is an undocumented feature to have kt3d construct an IK-type
 			// c distribution:
 			// c
-			iktype = 0;
+			iktype = Constants.INO;
 			if (koption < 0) {
-				iktype = 1;
+				iktype = Constants.IYES;
 				koption = -koption;
 			}
-			if (iktype == 1) {
+			if (iktype == Constants.IYES) {
 				line = br.readLine();
 				parts = FormatHelper.splitBySpace(line);
 				ncut = Integer.parseInt(parts[0].trim());
@@ -790,7 +786,7 @@ public class KT3D {
 			aa[i]    = vario[5];
 			anis1[i] = vario[6];
 			anis2[i] = vario[7];
-			if(it[i]==VARIOGRAM_SPHERICAL && aa[i]<max_rad) max_rad = aa[i];
+			if(it[i]==Covariance.VARIOGRAM_SPHERICAL && aa[i]<max_rad) max_rad = aa[i];
 		}
 		//to avoid including basepoints outside the range-ellipsoide:
 		//reduces null-matrices;
@@ -817,7 +813,7 @@ public class KT3D {
 		double wgtsum = 0d;
 		for(int is=0; is<nst[0]; is++) {
 			rotmat = MathHelper.setrot(ang1[is],ang2[is],ang3[is],anis1[is],anis2[is],is+1,MAXROT,rotmat);
-			double cov_single = it[is]==VARIOGRAM_POWER ? PMX : cc[is];
+			double cov_single = it[is]==Covariance.VARIOGRAM_POWER ? PMX : cc[is];
 			covmax += cov_single;
 			double wgt = cov_single / (aa[is]*Math.pow(anis1[is]*anis2[is], 1d/3d));
 			for(int j=0; j<3; j++)
@@ -988,7 +984,7 @@ public class KT3D {
 		int n_accepted, ind, neq;
 		int nclose = closest.length;
 		for(int aic=0; aic<ai.length; aic++) ai[aic] = 0;
-		for(int index=0; index<nloop; index++) {
+		for(int index=0; index<nloop; index++) { //TODO start main kriging loop
 			progressNPoints = (index+1d) / (double) nloop;
 			if((index+1)%irepo==0) System.out.println("   currently on estimate "+FormatHelper.nf(index+1,9));
 
@@ -1006,8 +1002,8 @@ public class KT3D {
 	            xloc   = xmn;
 	            yloc   = ymn;
 	            zloc   = zmn;
-	            _true_ = UNEST;
-//	            secj   = UNEST;
+	            _true_ = Constants.FILL_VALUE_D;
+//	            secj   = Constants.FILL_VALUE_D;
 	            if(jackdf!=null) {
 	            	if(jack_dh_var!=null)  ddh    = ((double[])jackdf.getArray(jack_dh_var))[index];
 	            	if(jack_x_var!=null)   xloc   = ((double[])jackdf.getArray(jack_x_var))[index];
@@ -1016,19 +1012,31 @@ public class KT3D {
 	            	if(jack_vr_var!=null)  _true_ = ((double[])jackdf.getArray(jack_vr_var))[index];
 	            	if(jack_ext_var!=null) extest = ((double[])jackdf.getArray(jack_ext_var))[index];
 	            }
-	            if(_true_<tmin || _true_>=tmax) _true_ = UNEST;
+	            if(_true_<tmin || _true_>=tmax) _true_ = Constants.FILL_VALUE_D;
+			}
+
+//        i added by E. Metzner:
+//        i Initialise output fields, if something goes wrong on some kriging points (so est|estv = Constants.FILL_VALUE_D)
+			if(iktype==Constants.INO) {
+				if(koption==0) {
+					writeEstimatedData(index, Constants.FILL_VALUE_D, Constants.FILL_VALUE_D, 0);
+				} else {
+					writeEstimatedData(index, Constants.FILL_VALUE_D, Constants.FILL_VALUE_D, 0, xloc, yloc, zloc, Constants.FILL_VALUE_D, Constants.FILL_VALUE_D);
+				}
+			} else {
+				writeEstimatedData(index, s, vra, 0, Constants.FILL_VALUE_D);
 			}
 
 //        c Read in the external drift variable for this grid node if needed:
-			if(ktype==2 || ktype==3) {
+			if(ktype==SIMPLE_NON_STATIONARY_KRIGING || ktype==EXTERNAL_DRIFT_KRIGING) {
 				if(koption==0) {
 					extest = ((double[])externdf.getArray(ext_var_e))[index];
 //		                  read(lext,*) (var(i),i=1,iextve)
 //		                  extest = var(iextve)
 				}
 				if(extest<tmin || extest>=tmax) {
-					est  = UNEST;
-					estv = UNEST;
+					est  = Constants.FILL_VALUE_D;
+					estv = Constants.FILL_VALUE_D;
 					continue;
 				}
 				resce  = covmax / Math.max(extest,0.0001d);
@@ -1046,6 +1054,7 @@ public class KT3D {
 			n_accepted = 0;
 //			System.out.println("[DEBUG]  pivot:                 pos "+
 //					FormatHelper.nf(xloc,12,8)+" "+FormatHelper.nf(yloc,12,8)+" "+FormatHelper.nf(zloc,12,8));
+			double pre_x=0d, pre_y=0d, pre_z=0d, pre_r=0d, pre_e=0d, pre_cov;
 			for(int i=0; i<nclose; i++) {
 				ind    = supres[i+1];
 //				System.out.println("[DEBUG]  closest point: ind "+FormatHelper.nf(ind,3)+" pos "+
@@ -1055,14 +1064,37 @@ public class KT3D {
 					accept = false;
 				if(koption!=0 && (Math.abs(dh[ind]-ddh))<EPSLON)
 					accept = false;
-				if(accept) {
+				if(accept) { //pre-acception
+					pre_x = x[ind] - xloc + 0.5d*xsiz;
+					pre_y = y[ind] - yloc + 0.5d*ysiz;
+					pre_z = z[ind] - zloc + 0.5d*zsiz;
+					pre_r = vr[ind];
+					pre_e = ve[ind];
+					if(ndb<=1) {
+						pre_cov = Covariance.cova3(pre_x, pre_y, pre_z, xdb[0], ydb[0], zdb[0],
+								1, nst, MAXNST, c0, it, cc, aa, 1, MAXROT, rotmat)[0];
+					} else {
+						pre_cov  = 0d;
+						for(int j=0; j<ndb; j++) {
+							cov = Covariance.cova3(pre_x, pre_y, pre_z, xdb[j], ydb[j], zdb[j],
+									1, nst, MAXNST, c0, it, cc, aa, 1, MAXROT, rotmat)[0];
+							pre_cov += cov;
+							double dx = pre_x - xdb[j];
+							double dy = pre_y - ydb[j];
+							double dz = pre_z - zdb[j];
+							if(dx*dx+dy*dy+dz*dz < EPSLON) pre_cov -= c0[0];
+						}
+						pre_cov /= ndb;
+					}
+					accept = Math.abs(pre_cov)>EPSLON;
+				}
+				if(accept) { //pre-acception
 					if(n_accepted<ndmax) {
-						//na = na + 1
-						xa[n_accepted]  = x[ind] - xloc + 0.5d*xsiz;
-						ya[n_accepted]  = y[ind] - yloc + 0.5d*ysiz;
-						za[n_accepted]  = z[ind] - zloc + 0.5d*zsiz;
-						vra[n_accepted] = vr[ind];
-						vea[n_accepted] = ve[ind];
+						xa[n_accepted]  = pre_x;
+						ya[n_accepted]  = pre_y;
+						za[n_accepted]  = pre_z;
+						vra[n_accepted] = pre_r;
+						vea[n_accepted] = pre_e;
 						n_accepted++; //copy afterward for JAVA indices
 					}
 				}
@@ -1070,20 +1102,19 @@ public class KT3D {
 
 //        c Test number of samples found:
 			if(n_accepted<ndmin) {
-				est  = UNEST;
-				estv = UNEST;
-//				if(idbg>=3) {
-//					try(BufferedWriter bw = new BufferedWriter(new FileWriter(new File(dbgfl),true))) {
-//						bw.append(" Encountered a location where there were too few data\n"
-//								+ " to estimate all of the drift terms but there would be\n"
-//								+ " enough data for Ord.Kriging or Simple Kriging. KT3D\n"
-//								+ " currently leaves these locations unestimated.\n"
-//								+ " This message is only written once - the first time.\n");
-//						bw.flush();
-//					}catch(IOException io_e) {
-//						io_e.printStackTrace();
-//					}
-//				}
+				est  = Constants.FILL_VALUE_D;
+				estv = Constants.FILL_VALUE_D;
+				if(idbg>=2) {
+					try(BufferedWriter bw = new BufferedWriter(new FileWriter(new File(dbgfl),true))) {
+						bw.append(" Encountered a location where there were too few data\n"
+								+ " for Ord.Kriging or Simple Kriging. KT3D currently\n"
+								+ " leaves these locations Constants.FILL_VALUEimated.\n");
+						bw.flush();
+					}catch(IOException io_e) {
+						io_e.printStackTrace();
+					}
+					System.out.println("   Too few data: No Ordinary or Simple Kriging!");
+				}
 				continue;
 			}
 
@@ -1094,7 +1125,7 @@ public class KT3D {
 						bw.append(" Encountered a location where there were too few data\n"
 								+ " to estimate all of the drift terms but there would be\n"
 								+ " enough data for Ord.Kriging or Simple Kriging. KT3D\n"
-								+ " currently leaves these locations unestimated.\n"
+								+ " currently leaves these locations Constants.FILL_VALUEimated.\n"
 								+ " This message is only written once - the first time.\n");
 						bw.flush();
 					}catch(IOException io_e) {
@@ -1102,8 +1133,8 @@ public class KT3D {
 					}
 					fircon = false;
 				}
-				est  = UNEST;
-				estv = UNEST;
+				est  = Constants.FILL_VALUE_D;
+				estv = Constants.FILL_VALUE_D;
 				continue;
 			}
 
@@ -1121,7 +1152,7 @@ public class KT3D {
 				} else {
 					cb  = 0d;
 					for(int i=0; i<ndb; i++) {
-						cov = Covariance.cova3(xa[0], ya[0], za[0], xdb[i], ydb[i], zdb[0],
+						cov = Covariance.cova3(xa[0], ya[0], za[0], xdb[i], ydb[i], zdb[i],
 								1, nst, MAXNST, c0, it, cc, aa, 1, MAXROT, rotmat)[0];
 						cb += cov;
 						double dx = xa[0] - xdb[i];
@@ -1208,9 +1239,9 @@ public class KT3D {
 //        c Add the additional unbiasedness constraints:
 			int im = n_accepted + 1;
 
-//        c First drift term (linear in "x"):
+//        c (dt) drift term (linear|quadratic|cubic in "x|y"):
 			for(int dt=0; dt<MAXDT; dt++) {
-				if(idrif[dt]==1) {
+				if(idrif[dt]==Constants.IYES) {
 					for(int k=0; k<n_accepted; k++) {
 						a[neq*im+k] = drift_term(dt+1, xa[k], ya[k], za[k]) * resc;
 						a[neq*k+im] = a[neq*im+k];
@@ -1244,7 +1275,7 @@ public class KT3D {
 //        c
 //        c If estimating the trend then reset all the right hand side terms=0.0:
 //        c
-			if(itrend==1) {
+			if(itrend==Constants.IYES) {
 				for(int i=0; i<n_accepted; i++) {
 					r[i]  = 0d;
 					rr[i] = 0d;
@@ -1292,8 +1323,8 @@ public class KT3D {
 						io_e.printStackTrace();
 					}
 				}
-				est  = UNEST;
-				estv = UNEST;
+				est  = Constants.FILL_VALUE_D;
+				estv = Constants.FILL_VALUE_D;
 			} else {
 				est  = 0d;
 				estv = cbb;
@@ -1341,78 +1372,20 @@ public class KT3D {
 //        c END OF MAIN KRIGING LOOP:
 //        c
 		//} // Loop Mark 1: continue;
-			double err,wtmin,sumwt;
-			if(iktype==0) {
-//				try(BufferedWriter bw = new BufferedWriter(new FileWriter(new File(outfl),true))) {
-					if(koption==0) {
-//						bw.append(" "+FormatHelper.nf(est,14,8)+" "+FormatHelper.nf(estv,14,8)+"\n");
-						estimates[0][index] = est;
-						estimates[1][index] = estv;
-						estimates[2][index] = nclose;
-					} else {
-						err = UNEST;
-						if(_true_!=UNEST && est!=UNEST) {
-							err=est-_true_;
-							xkmae += Math.abs(err);
-							xkmse += err*err;
-						}
-//						bw.append(" "+FormatHelper.nf(xloc,14,8)+" "+FormatHelper.nf(yloc,14,8)+" "+FormatHelper.nf(zloc,14,8)
-//								+ " "+FormatHelper.nf(_true_,14,8)+" "+FormatHelper.nf(est,14,8)+" "+FormatHelper.nf(estv,14,8)
-//								+ " "+FormatHelper.nf(err,14,8)+"\n");
-						estimates[0][index] = xloc;
-						estimates[1][index] = yloc;
-						estimates[2][index] = zloc;
-						estimates[3][index] = _true_;
-						estimates[4][index] = est;
-						estimates[5][index] = estv;
-						estimates[6][index] = err;
-						estimates[7][index] = nclose;
+			if(iktype==Constants.INO) { //index-kriging?
+				if(koption==0) {
+					writeEstimatedData(index, est, estv, n_accepted);
+				} else {
+					double err = Constants.FILL_VALUE_D;
+					if(_true_!=Constants.FILL_VALUE_D && est!=Constants.FILL_VALUE_D) {
+						err=est-_true_;
+						xkmae += Math.abs(err);
+						xkmse += err*err;
 					}
-//					bw.flush();
-//				}catch(IOException io_e) {
-//					io_e.printStackTrace();
-//				}
-//        c
-//        c Work out the IK-type distribution implicit to this data configuration
-//        c and kriging weights:
-//        c
+					writeEstimatedData(index, est, estv, n_accepted, xloc, yloc, zloc, _true_, err);
+				}
 			} else {
-				for(int icut=0; icut<ncut; icut++) {
-					cdf[icut] = -1d;
-				}
-				wtmin = 1d;
-				for(int i=0; i<n_accepted; i++) {
-					if(s[i]<wtmin) wtmin = s[i];
-				}
-				sumwt = 0d;
-				for(int i=0; i<n_accepted; i++) {
-					s[i]  -= wtmin;
-					sumwt += s[i];
-				}
-				for(int i=0; i<n_accepted; i++) {
-					s[i] /= Math.max(0.00001d,sumwt);
-				}
-				if(n_accepted>1 && sumwt<0.00001d) {
-					for(int icut=0; icut<ncut; icut++) {
-						cdf[icut] = 0d;
-						for(int i=0; i<n_accepted; i++) {
-							if(vra[i]<=cut[icut]) cdf[icut] += s[i];
-						}
-					}
-				}
-				for(int i=0; i<ncut; i++) estimates[i][index] = cdf[i];
-//				try(BufferedWriter bw = new BufferedWriter(new FileWriter(new File(outfl),true))) {
-//					String str_cdf = "";
-//					for(int i=0; i<ncut; i++) str_cdf+=" "+FormatHelper.nf(cdf[i],8,4);
-//					if(koption==0) {
-//						bw.append(str_cdf+"\n");
-//					} else {
-//						bw.append(str_cdf+" "+FormatHelper.nf(_true_,8,4)+"\n");
-//					}
-//					bw.flush();
-//				}catch(IOException io_e) {
-//					io_e.printStackTrace();
-//				}
+				writeEstimatedData(index, s, vra, n_accepted, _true_);
 			}
 //		      end do
 		} // 2    continue
@@ -1478,9 +1451,9 @@ public class KT3D {
 			if(xn*yn*zn!=estimates[0].length) { nx=estimates[0].length; ny=1; nz=1; }
 			DataFrame3D result = new DataFrame3D();
 			for(int n_est=0; n_est<num_krig_res; n_est++) {
-				double[][][] estimates3D = new double[xn][yn][zn];
-				for(int x_=0; x_<xn; x_++) for(int y_=0; y_<yn; y_++) for(int z_=0; z_<zn; z_++)
-					estimates3D[x_][y_][z_] = estimates[n_est][x_+xn*y_+xn*yn*z_];
+				double[][][] estimates3D = new double[zn][yn][xn];
+				for(int z_=0; z_<zn; z_++) for(int y_=0; y_<yn; y_++) for(int x_=0; x_<xn; x_++)
+					estimates3D[z_][y_][x_] = estimates[n_est][xn*yn*z_ + xn*y_ + x_];
 				result.addColumn(estimate_titles[n_est], estimates3D);
 			}
 			if(nx*ny*nz==estimates[0].length) {
@@ -1490,9 +1463,9 @@ public class KT3D {
 				for(int y_=0; y_<ny; y_++) dimension_y[y_] = ymn + y_*xsiz;
 				double[] dimension_z = new double[nz];
 				for(int z_=0; z_<nz; z_++) dimension_z[z_] = zmn + z_*xsiz;
-				result.setDimension(0+Constants.FIRST_IDX, dimension_x, x_var);
+				result.setDimension(0+Constants.FIRST_IDX, dimension_z, z_var);
 				result.setDimension(1+Constants.FIRST_IDX, dimension_y, y_var);
-				result.setDimension(2+Constants.FIRST_IDX, dimension_z, z_var);
+				result.setDimension(2+Constants.FIRST_IDX, dimension_x, x_var);
 			}
 			return result;
 		}
@@ -1522,7 +1495,82 @@ public class KT3D {
 			default: return 0d;
 		}
 	}
+	private void writeEstimatedData(int _index, double _est, double _estv, int _n_accepted) {
+		estimates[0][_index] = _est;
+		estimates[1][_index] = _estv;
+		estimates[2][_index] = _n_accepted;
+	}
+	private void writeEstimatedData(int _index, double _est, double _estv, int _n_accepted,
+			double _xloc, double _yloc, double _zloc, double __true_, double _err) {
+		estimates[0][_index] = _xloc;
+		estimates[1][_index] = _yloc;
+		estimates[2][_index] = _zloc;
+		estimates[3][_index] = __true_;
+		estimates[4][_index] = _est;
+		estimates[5][_index] = _estv;
+		estimates[6][_index] = _err;
+		estimates[7][_index] = _n_accepted;
+	}
+	private void writeEstimatedData(int _index, double[] _s, double[] _vra, int _n_accepted, double __true_) {
+//      c
+//      c Work out the IK-type distribution implicit to this data configuration
+//      c and kriging weights:
+//      c
+		for(int icut=0; icut<ncut; icut++) {
+			cdf[icut] = -1d;
+		}
+		double wtmin = 1d;
+		for(int i=0; i<_n_accepted; i++) {
+			if(_s[i]<wtmin) wtmin = _s[i];
+		}
+		double sumwt = 0d;
+		for(int i=0; i<_n_accepted; i++) {
+			_s[i]  -= wtmin;
+			sumwt += _s[i];
+		}
+		for(int i=0; i<_n_accepted; i++) {
+			_s[i] /= Math.max(0.00001d,sumwt);
+		}
+		if(_n_accepted>1 && sumwt<0.00001d) {
+			for(int icut=0; icut<ncut; icut++) {
+				cdf[icut] = 0d;
+				for(int i=0; i<_n_accepted; i++) {
+					if(_vra[i]<=cut[icut]) cdf[icut] += _s[i];
+				}
+			}
+		}
+		for(int i=0; i<ncut; i++) estimates[i][_index] = cdf[i];
+		estimates[ncut][_index] = __true_;
+	}
 
+	public void writeGslibOutputfile(String output_file_path) {
+		try(BufferedWriter bw = new BufferedWriter(new FileWriter(new File(output_file_path),true))) {
+			int nloop = (koption==0 ? nx*ny*nz : 10000000);
+			for(int index=0; index<nloop; index++) {
+				if(iktype==0) {
+						if(koption==0) {
+							bw.append(" "+FormatHelper.nf(estimates[0][index],14,8)+" "+FormatHelper.nf(estimates[1][index],14,8)+"\n");
+						} else {
+							bw.append(" "+FormatHelper.nf(estimates[0][index],14,8)+" "+FormatHelper.nf(estimates[1][index],14,8)+" "+FormatHelper.nf(estimates[2][index],14,8)
+									+ " "+FormatHelper.nf(estimates[3][index],14,8)+" "+FormatHelper.nf(estimates[4][index],14,8)+" "+FormatHelper.nf(estimates[5][index],14,8)
+									+ " "+FormatHelper.nf(estimates[6][index],14,8)+"\n");
+						}
+				} else {
+						String str_cdf = "";
+						for(int i=0; i<ncut; i++) str_cdf+=" "+FormatHelper.nf(estimates[i][index],8,4);
+						if(koption==0) {
+							bw.append(str_cdf+"\n");
+						} else {
+							bw.append(str_cdf+" "+FormatHelper.nf(estimates[ncut][index],8,4)+"\n");
+						}
+				}
+			}
+			bw.flush();
+		}catch(IOException io_e) {
+			io_e.printStackTrace();
+		}
+	}
+	
 	public void makepar() {
 		// c-----------------------------------------------------------------------
 		// c

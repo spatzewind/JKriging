@@ -558,6 +558,12 @@ public class ProbabilityTransform {
 		}
 		
 		for(int i=0; i<nd; i++) {
+//        i added by Enrico Metzner
+//        i check whether data is fill_value and continue or it can be transformed
+			if(val[i]==Constants.FILL_VALUE_D) {
+				res[i] = Constants.FILL_VALUE_D;
+				continue;
+			}
 //        c
 //        c Value in the lower tail?    1=linear, 2=power, (3 and 4 are invalid):
 //        c
@@ -674,6 +680,12 @@ public class ProbabilityTransform {
 		}
 		
 		for(int j=0; j<nd[0]; j++) for(int i=0; i<nd[1]; i++) {
+//	        i added by Enrico Metzner
+//	        i check whether data is fill_value and continue or it can be transformed
+			if(val[j][i]==Constants.FILL_VALUE_D) {
+				res[j][i] = Constants.FILL_VALUE_D;
+				continue;
+			}
 //        c
 //        c Value in the lower tail?    1=linear, 2=power, (3 and 4 are invalid):
 //        c
@@ -790,6 +802,12 @@ public class ProbabilityTransform {
 		}
 		
 		for(int k=0; k<nd[0]; k++) for(int j=0; j<nd[1]; j++) for(int i=0; i<nd[2]; i++) {
+//        i added by Enrico Metzner
+//        i check whether data is fill_value and continue or it can be transformed
+			if(val[k][j][i]==Constants.FILL_VALUE_D) {
+				res[k][j][i] = Constants.FILL_VALUE_D;
+				continue;
+			}
 //        c
 //        c Value in the lower tail?    1=linear, 2=power, (3 and 4 are invalid):
 //        c

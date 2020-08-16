@@ -9,14 +9,9 @@ import java.io.IOException;
 
 import com.metzner.enrico.JKriging.helper.FormatHelper;
 import com.metzner.enrico.JKriging.helper.LinEquSolver;
+import com.metzner.enrico.JKriging.probability.Covariance;
 
 public class KB2D {
-
-	public static final int VARIOGRAM_SPHERICAL   = 1;
-	public static final int VARIOGRAM_EXPONENTIAL = 2;
-	public static final int VARIOGRAM_GAUSSIAN    = 3;
-	public static final int VARIOGRAM_POWER       = 4;
-	public static final int VARIOGRAM_HOLE_EFFECT = 5;
 	
 	private static final int    MAXNST    = 4;
 	private static final double UNEST     = Double.NaN;
@@ -851,18 +846,18 @@ public class KB2D {
 			double dx1 =  dx*rotmat[0][is] + dy*rotmat[1][is];
 			double dy1 = (dx*rotmat[2][is] + dy*rotmat[3][is])/anis[is];
 			double h   = Math.sqrt(Math.max(dx1*dx1+dy1*dy1,0d));
-			if(it[is]==1) {
+			if(it[is]==Covariance.VARIOGRAM_SPHERICAL) {
 //        c
 //        c Spherical model:
 //        c
 				double hr = h/aa[is];
 				if(hr<1d) cova2 += cc[is]*(1d-hr*(1.5d-.5d*hr*hr));
-			} else if(it[is]==2) {
+			} else if(it[is]==Covariance.VARIOGRAM_EXPONENTIAL) {
 //        c
 //        c Exponential model:
 //        c
 				cova2 += cc[is]*Math.exp(-3.0d*h/aa[is]);
-			} else if(it[is]==3) {
+			} else if(it[is]==Covariance.VARIOGRAM_GAUSSIAN) {
 //        c
 //        c Gaussian model:
 //        c

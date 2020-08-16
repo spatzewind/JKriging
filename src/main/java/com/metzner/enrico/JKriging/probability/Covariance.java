@@ -4,6 +4,12 @@ import com.metzner.enrico.JKriging.helper.MathHelper;
 
 public class Covariance {
 
+	public static final int VARIOGRAM_SPHERICAL   = 1;
+	public static final int VARIOGRAM_EXPONENTIAL = 2;
+	public static final int VARIOGRAM_GAUSSIAN    = 3;
+	public static final int VARIOGRAM_POWER       = 4;
+	public static final int VARIOGRAM_HOLE_EFFECT = 5;
+
 	public static double[] cova3(double x1, double y1, double z1, double x2, double y2, double z2,
 			int ivarg, int[] nst, int maxnst, double[] c0, int[] it, double[] cc, double[] aa, int irot, int maxrot, double[][][] rotmat) {
 		double cmax, cova;
