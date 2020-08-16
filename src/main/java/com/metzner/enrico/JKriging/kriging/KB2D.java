@@ -9,6 +9,7 @@ import java.io.IOException;
 
 import com.metzner.enrico.JKriging.helper.FormatHelper;
 import com.metzner.enrico.JKriging.helper.LinEquSolver;
+import com.metzner.enrico.JKriging.helper.MathHelper;
 import com.metzner.enrico.JKriging.probability.Covariance;
 
 public class KB2D {
@@ -37,7 +38,7 @@ public class KB2D {
 	int MAXSAM, MAXDIS, MAXKD, MAXKRG;
 	
 	private double[][] rotmat = new double[4][4];
-	private double maxcov;
+	//private double maxcov;
 	
 	public void readParam(String param_path) {
 //        c-----------------------------------------------------------------------
@@ -320,8 +321,8 @@ public class KB2D {
 		double[] r,rr,s,a;
 		int[] nums;
 //        c
-		boolean first = true;
-		double PMX = 9999.0d;
+		//boolean first = true;
+		//double PMX = 9999.0d;
 		System.out.println("[DEBUG] MAXDIS="+MAXDIS+"  MAXSAM="+MAXSAM+"  MAXKD="+MAXKD+"  MAXKRG="+MAXKRG);
 //        c
 //        c Echo the input parameters if debugging flag is >2:
@@ -419,6 +420,13 @@ public class KB2D {
 		//System.out.println("[DEBUG] xdb ydb");
 		//FormatHelper.printTable(30, xdb,ydb);
 //        c
+//        c The first time around, re-initialize the cosine matrix for the
+//        c variogram structures:
+//        c
+		for(int is=0; is<nst; is++) {
+			rotmat = MathHelper.setrot2D(ang[is], anis[is], is+1, nst, rotmat);
+		}
+//        c
 //        c Initialize accumulators:
 //        c
 		double cb;
@@ -427,17 +435,19 @@ public class KB2D {
 //        c
 //        c Calculate Block Covariance. Check for point kriging.
 //        c
-		double cov = cova2(xdb[0],ydb[0],xdb[0],ydb[0],nst,c0,PMX,cc,aa,it,ang,anis,first);
+		//double cov = cova2(xdb[0],ydb[0],xdb[0],ydb[0],nst,c0,PMX,cc,aa,it,ang,anis,first);
+		double cov = Covariance.cova2(xdb[0], ydb[0], xdb[0], ydb[0], nst, c0, it, cc, aa, rotmat);
 //        c
 //        c Keep this value to use for the unbiasedness constraint:
 //        c
 		double unbias = cov;
-		first  = false;
+		//first  = false;
 		if (ndb<=1) {
 			cbb = cov;
 		} else {
 			for(int i=0; i<ndb; i++) for(int j=0; j<ndb; j++) {
-				cov = cova2(xdb[i],ydb[i],xdb[j],ydb[j],nst,c0,PMX,cc,aa,it,ang,anis,first);
+				//cov = cova2(xdb[i],ydb[i],xdb[j],ydb[j],nst,c0,PMX,cc,aa,it,ang,anis,first);
+				cov = Covariance.cova2(xdb[i], ydb[i], xdb[j], ydb[j], nst, c0, it, cc, aa, rotmat);
 				if(i==j) cov -= c0;
 				cbb += cov;
 			}
@@ -557,18 +567,21 @@ public class KB2D {
 //        c Handle the situation of only one sample:
 //        c
 				if(na==1) {
-					double cb1 = cova2(xa[0],ya[0],xa[0],ya[0],nst,c0,PMX,cc,aa,it,ang,anis,first);
+					//double cb1 = cova2(xa[0],ya[0],xa[0],ya[0],nst,c0,PMX,cc,aa,it,ang,anis,first);
+					double cb1 = Covariance.cova2(xa[0],ya[0],xa[0],ya[0],nst,c0,it,cc,aa,rotmat);
 					double xx  = xa[0] - xloc;
 					double yy  = ya[0] - yloc;
 //        c
 //        c Establish Right Hand Side Covariance:
 //        c
 					if(ndb<=1) {
-						cb = cova2(xx,yy,xdb[0],ydb[0],nst,c0,PMX,cc,aa,it,ang,anis,first);
+						//cb = cova2(xx,yy,xdb[0],ydb[0],nst,c0,PMX,cc,aa,it,ang,anis,first);
+						cb = Covariance.cova2(xx,yy,xdb[0],ydb[0],nst,c0,it,cc,aa,rotmat);
 					} else {
 						cb  = 0.0d;
 						for(int i=0; i<ndb; i++) {
-							cb += cova2(xx,yy,xdb[i],ydb[i],nst,c0,PMX,cc,aa,it,ang,anis,first);
+							//cb += cova2(xx,yy,xdb[i],ydb[i],nst,c0,PMX,cc,aa,it,ang,anis,first);
+							cb += Covariance.cova2(xx,yy,xdb[i],ydb[i],nst,c0,it,cc,aa,rotmat);
 							double dx = xx - xdb[i];
 							double dy = yy - ydb[i];
 							if(dx*dx+dy*dy<EPSLON) cb -= c0;
@@ -599,7 +612,8 @@ public class KB2D {
 //        c
 						for(int i=0; i<=j; i++) {
 							in++;
-							a[in] = cova2(xa[i],ya[i],xa[j],ya[j],nst,c0,PMX,cc,aa,it,ang,anis,first);
+							//a[in] = cova2(xa[i],ya[i],xa[j],ya[j],nst,c0,PMX,cc,aa,it,ang,anis,first);
+							a[in] = Covariance.cova2(xa[i],ya[i],xa[j],ya[j],nst,c0,it,cc,aa,rotmat);
 						}
 						double xx = xa[j] - xloc;
 						double yy = ya[j] - yloc;
@@ -607,11 +621,13 @@ public class KB2D {
 //        c Establish Right Hand Side Covariance:
 //        c
 						if(ndb<=1) {
-							cb = cova2(xx,yy,xdb[0],ydb[0],nst,c0,PMX,cc,aa,it,ang,anis,first);
+							//cb = cova2(xx,yy,xdb[0],ydb[0],nst,c0,PMX,cc,aa,it,ang,anis,first);
+							cb = Covariance.cova2(xx,yy,xdb[0],ydb[0],nst,c0,it,cc,aa,rotmat);
 						} else {
 							cb  = 0d;
 							for(int j1=0; j1<ndb; j1++) {
-								cb += cova2(xx,yy,xdb[j1],ydb[j1],nst,c0,PMX,cc,aa,it,ang,anis,first);
+								//cb += cova2(xx,yy,xdb[j1],ydb[j1],nst,c0,PMX,cc,aa,it,ang,anis,first);
+								cb += Covariance.cova2(xx,yy,xdb[j1],ydb[j1],nst,c0,it,cc,aa,rotmat);
 								double dx = xx - xdb[j1];
 								double dy = yy - ydb[j1];
 								if(dx*dx+dy*dy<EPSLON)
@@ -752,127 +768,127 @@ public class KB2D {
 		System.out.println("\n\nFINISHED!");
 	}
 
-	public double cova2(double x1, double y1, double x2, double y2, int nst, double c0,
-			double PMX, double[] cc, double[] aa, int[] it, double[] ang, double[] anis, boolean first) {
-//        c-----------------------------------------------------------------------
-//        c
-//        c              Covariance Between Two Points (2-D Version)
-//        c              *******************************************
-//        c
-//        c This function returns the covariance associated with a variogram model
-//        c that is specified by a nugget effect and possibly four different
-//        c nested varigoram structures.  The anisotropy definition can be
-//        c different for each of the nested structures (spherical, exponential,
-//        c gaussian, or power).
-//        c
-//        c
-//        c
-//        c INPUT VARIABLES:
-//        c
-//        c   x1,y1            Coordinates of first point
-//        c   x2,y2            Coordinates of second point
-//        c   nst              Number of nested structures (max. 4).
-//        c   c0               Nugget constant (isotropic).
-//        c   PMX              Maximum variogram value needed for kriging when
-//        c                      using power model.  A unique value of PMX is
-//        c                      used for all nested structures which use the
-//        c                      power model.  therefore, PMX should be chosen
-//        c                      large enough to account for the largest single
-//        c                      structure which uses the power model.
-//        c   cc(nst)          Multiplicative factor of each nested structure.
-//        c   aa(nst)          Parameter "a" of each nested structure.
-//        c   it(nst)          Type of each nested structure:
-//        c                      1. spherical model of range a;
-//        c                      2. exponential model of parameter a;
-//        c                           i.e. practical range is 3a
-//        c                      3. gaussian model of parameter a;
-//        c                           i.e. practical range is a*sqrt(3)
-//        c                      4. power model of power a (a must be gt. 0  and
-//        c                           lt. 2).  if linear model, a=1,c=slope.
-//        c   ang(nst)         Azimuth angle for the principal direction of
-//        c                      continuity (measured clockwise in degrees from Y)
-//        c   anis(nst)        Anisotropy (radius in minor direction at 90 degrees
-//        c                      from "ang" divided by the principal radius in 
-//        c                      direction "ang")
-//        c   first            A logical variable which is set to true if the
-//        c                      direction specifications have changed - causes
-//        c                      the rotation matrices to be recomputed.
-//        c
-//        c
-//        c
-//        c OUTPUT VARIABLES: returns "cova2" the covariance obtained from the
-//        c                   variogram model.
-//        c
-//        c
-//        c
-//        c-----------------------------------------------------------------------
-		double DTOR = Math.PI/180d,
-			   EPSLON_S = 0.0000001d;
-//        c
-//        c The first time around, re-initialize the cosine matrix for the
-//        c variogram structures:
-//        c
-		if(first) {
-			maxcov = c0;
-			for(int is=0; is<nst; is++) {
-				double azmuth = (90d-ang[is])*DTOR;
-				rotmat[0][is]  =  Math.cos(azmuth);
-				rotmat[1][is]  =  Math.sin(azmuth);
-				rotmat[2][is]  = -Math.sin(azmuth);
-				rotmat[3][is]  =  Math.cos(azmuth);
-				if(it[is]==4) {
-					maxcov = maxcov + PMX;
-				} else {
-					maxcov = maxcov + cc[is];
-				}
-			}
-		}
-//        c
-//        c Check for very small distance:
-//        c
-		double dx = x2-x1;
-		double dy = y2-y1;
-		if(dx*dx+dy*dy < EPSLON_S) {
-			return maxcov;
-		}
-//        c
-//        c Non-zero distance, loop over all the structures:
-//        c
-		double cova2 = 0d;
-		for(int is=0; is<nst; is++) {
-//        c
-//        c Compute the appropriate structural distance:
-//        c
-			double dx1 =  dx*rotmat[0][is] + dy*rotmat[1][is];
-			double dy1 = (dx*rotmat[2][is] + dy*rotmat[3][is])/anis[is];
-			double h   = Math.sqrt(Math.max(dx1*dx1+dy1*dy1,0d));
-			if(it[is]==Covariance.VARIOGRAM_SPHERICAL) {
-//        c
-//        c Spherical model:
-//        c
-				double hr = h/aa[is];
-				if(hr<1d) cova2 += cc[is]*(1d-hr*(1.5d-.5d*hr*hr));
-			} else if(it[is]==Covariance.VARIOGRAM_EXPONENTIAL) {
-//        c
-//        c Exponential model:
-//        c
-				cova2 += cc[is]*Math.exp(-3.0d*h/aa[is]);
-			} else if(it[is]==Covariance.VARIOGRAM_GAUSSIAN) {
-//        c
-//        c Gaussian model:
-//        c
-				double hh=-3.0d*(h*h)/(aa[is]*aa[is]);
-				cova2 += cc[is]*Math.exp(hh);
-			} else {
-//        c
-//        c Power model:
-//        c
-				double cov1  = PMX - cc[is]*Math.pow(h,aa[is]);
-				cova2 += cov1;
-			}
-		}
-		return cova2;
-	}
+//	public double cova2(double x1, double y1, double x2, double y2, int nst, double c0,
+//			double PMX, double[] cc, double[] aa, int[] it, double[] ang, double[] anis, boolean first) {
+////        c-----------------------------------------------------------------------
+////        c
+////        c              Covariance Between Two Points (2-D Version)
+////        c              *******************************************
+////        c
+////        c This function returns the covariance associated with a variogram model
+////        c that is specified by a nugget effect and possibly four different
+////        c nested varigoram structures.  The anisotropy definition can be
+////        c different for each of the nested structures (spherical, exponential,
+////        c gaussian, or power).
+////        c
+////        c
+////        c
+////        c INPUT VARIABLES:
+////        c
+////        c   x1,y1            Coordinates of first point
+////        c   x2,y2            Coordinates of second point
+////        c   nst              Number of nested structures (max. 4).
+////        c   c0               Nugget constant (isotropic).
+////        c   PMX              Maximum variogram value needed for kriging when
+////        c                      using power model.  A unique value of PMX is
+////        c                      used for all nested structures which use the
+////        c                      power model.  therefore, PMX should be chosen
+////        c                      large enough to account for the largest single
+////        c                      structure which uses the power model.
+////        c   cc(nst)          Multiplicative factor of each nested structure.
+////        c   aa(nst)          Parameter "a" of each nested structure.
+////        c   it(nst)          Type of each nested structure:
+////        c                      1. spherical model of range a;
+////        c                      2. exponential model of parameter a;
+////        c                           i.e. practical range is 3a
+////        c                      3. gaussian model of parameter a;
+////        c                           i.e. practical range is a*sqrt(3)
+////        c                      4. power model of power a (a must be gt. 0  and
+////        c                           lt. 2).  if linear model, a=1,c=slope.
+////        c   ang(nst)         Azimuth angle for the principal direction of
+////        c                      continuity (measured clockwise in degrees from Y)
+////        c   anis(nst)        Anisotropy (radius in minor direction at 90 degrees
+////        c                      from "ang" divided by the principal radius in 
+////        c                      direction "ang")
+////        c   first            A logical variable which is set to true if the
+////        c                      direction specifications have changed - causes
+////        c                      the rotation matrices to be recomputed.
+////        c
+////        c
+////        c
+////        c OUTPUT VARIABLES: returns "cova2" the covariance obtained from the
+////        c                   variogram model.
+////        c
+////        c
+////        c
+////        c-----------------------------------------------------------------------
+//		double DTOR = Math.PI/180d,
+//			   EPSLON_S = 0.0000001d;
+////        c
+////        c The first time around, re-initialize the cosine matrix for the
+////        c variogram structures:
+////        c
+//		if(first) {
+//			maxcov = c0;
+//			for(int is=0; is<nst; is++) {
+//				double azmuth = (90d-ang[is])*DTOR;
+//				rotmat[0][is]  =  Math.cos(azmuth);
+//				rotmat[1][is]  =  Math.sin(azmuth);
+//				rotmat[2][is]  = -Math.sin(azmuth);
+//				rotmat[3][is]  =  Math.cos(azmuth);
+//				if(it[is]==4) {
+//					maxcov = maxcov + PMX;
+//				} else {
+//					maxcov = maxcov + cc[is];
+//				}
+//			}
+//		}
+////        c
+////        c Check for very small distance:
+////        c
+//		double dx = x2-x1;
+//		double dy = y2-y1;
+//		if(dx*dx+dy*dy < EPSLON_S) {
+//			return maxcov;
+//		}
+////        c
+////        c Non-zero distance, loop over all the structures:
+////        c
+//		double cova2 = 0d;
+//		for(int is=0; is<nst; is++) {
+////        c
+////        c Compute the appropriate structural distance:
+////        c
+//			double dx1 =  dx*rotmat[0][is] + dy*rotmat[1][is];
+//			double dy1 = (dx*rotmat[2][is] + dy*rotmat[3][is])/anis[is];
+//			double h   = Math.sqrt(Math.max(dx1*dx1+dy1*dy1,0d));
+//			if(it[is]==Covariance.VARIOGRAM_SPHERICAL) {
+////        c
+////        c Spherical model:
+////        c
+//				double hr = h/aa[is];
+//				if(hr<1d) cova2 += cc[is]*(1d-hr*(1.5d-.5d*hr*hr));
+//			} else if(it[is]==Covariance.VARIOGRAM_EXPONENTIAL) {
+////        c
+////        c Exponential model:
+////        c
+//				cova2 += cc[is]*Math.exp(-3.0d*h/aa[is]);
+//			} else if(it[is]==Covariance.VARIOGRAM_GAUSSIAN) {
+////        c
+////        c Gaussian model:
+////        c
+//				double hh=-3.0d*(h*h)/(aa[is]*aa[is]);
+//				cova2 += cc[is]*Math.exp(hh);
+//			} else {
+////        c
+////        c Power model:
+////        c
+//				double cov1  = PMX - cc[is]*Math.pow(h,aa[is]);
+//				cova2 += cov1;
+//			}
+//		}
+//		return cova2;
+//	}
 
 	public void makepar() {
 //        c-----------------------------------------------------------------------

@@ -182,7 +182,7 @@ public class KdTree {
 					nodesToExclude, max_sqr_dist, rotmat);
 		double dist = max_sqr_dist;
 		if(best!=null) {
-			dist = MathHelper.sqdist(_pivot, best.getPosition(), rotmat);
+			dist = MathHelper.sqdistKD(_pivot, best.getPosition(), rotmat);
 		}
 		//System.out.println("        inbetween: minimum/best distance: "+dist); //TODO DEBUG remove
 		// calculate the distance between the pivot and the dividing plane from the k-d-tree
@@ -218,8 +218,8 @@ public class KdTree {
 		if(p1==null) return p2;
 		double[] p1p = p1.getPosition();
 		double[] p2p = p2.getPosition();
-		double d1=MathHelper.sqdist(piv, p1p, rotation_matrix),
-			   d2=MathHelper.sqdist(piv, p2p, rotation_matrix);
+		double d1=MathHelper.sqdistKD(piv, p1p, rotation_matrix),
+			   d2=MathHelper.sqdistKD(piv, p2p, rotation_matrix);
 		boolean p1toEx = false, p2toEx = false;
 		for(int i=1; i<excluded_nodes.length; i++) {
 			if(p1.getIndex()==excluded_nodes[i]) p1toEx = true;

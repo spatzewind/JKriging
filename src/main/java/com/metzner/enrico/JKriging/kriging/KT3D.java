@@ -812,7 +812,7 @@ public class KT3D {
 		double covmax = c0[0];
 		double wgtsum = 0d;
 		for(int is=0; is<nst[0]; is++) {
-			rotmat = MathHelper.setrot(ang1[is],ang2[is],ang3[is],anis1[is],anis2[is],is+1,MAXROT,rotmat);
+			rotmat = MathHelper.setrot3D(ang1[is],ang2[is],ang3[is],anis1[is],anis2[is],is+1,MAXROT,rotmat);
 			double cov_single = it[is]==Covariance.VARIOGRAM_POWER ? PMX : cc[is];
 			covmax += cov_single;
 			double wgt = cov_single / (aa[is]*Math.pow(anis1[is]*anis2[is], 1d/3d));
