@@ -5,6 +5,7 @@ import java.io.PrintStream;
 public class FormatHelper {
 	
 	public static void chknam(String _possible_file_name) {
+		
 	}
 	
 	public static String nf(int _num, int all) {
@@ -30,16 +31,22 @@ public class FormatHelper {
 		return nf;
 	}
 
-	public static String underscore_spaces(String _s) {
+	public static String name2CFConvention(String _s) {
 		String temp = _s.replaceAll(" ", "_");
 		temp = temp.replaceAll("\\\\", "");
-		String patterns = "+-*/:.,;#~!?§$%&(){}[]^°";
+		temp = temp.replaceAll("<=", "_le_");
+		temp = temp.replaceAll(">=", "_ge_");
+		temp = temp.replaceAll("<", "_lt_");
+		temp = temp.replaceAll(">", "_gt_");
+		temp = temp.replaceAll("=", "_eq_");
+		String patterns = "+-*/:.,;#~!?§$%&(){}[]^°|'´`@";
 		String out = "";
 		for(char r: temp.toCharArray()) {
 			if(!patterns.contains(""+r)) out += r;
 		}
+		temp = out;
 		if(out.length()>0)
-			if(out.charAt(0)>='0' && out.charAt(0)<='9')
+			if((out.charAt(0)>='0' && out.charAt(0)<='9') || out.charAt(0)=='_')
 				temp = "v"+out;
 		return temp;
 	}
@@ -104,11 +111,13 @@ public class FormatHelper {
 	public static void printTable(String[][] strings, boolean[] col_divider, boolean[] row_divider, boolean transpose) {
 		int nrow = strings.length,
 			ncol = strings[0].length;
-		String[][] txt = (transpose ? new String[ncol][nrow] : strings);
+		String[][] txt = (transpose ? new String[ncol][nrow] : new String[nrow][ncol]);
 		if(transpose) {
 			for(int j=0; j<nrow; j++) for(int i=0; i<ncol; i++) txt[i][j] = strings[j][i];
 			nrow = txt.length;
 			ncol = txt[0].length;
+		} else {
+			for(int j=0; j<nrow; j++) for(int i=0; i<ncol; i++) txt[j][i] = strings[j][i];
 		}
 		String[] hdivs = new String[ncol];
 		for(int c=0; c<ncol; c++) {

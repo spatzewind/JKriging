@@ -148,6 +148,13 @@ public class DataHelper {
 		return gnirts;
 	}
 
+	public static int strings_index(String[] sarr, String search_regex) {
+		if(sarr==null || search_regex==null) return -1;
+		if(sarr.length<1) return -1;
+		for(int s=0; s<sarr.length; s++) { if(sarr[s]==null) continue; if(sarr[s].equals(search_regex)) return s; }
+		return -1;
+	}
+	
 
 	public static void sortem(double[] pivot_arr, double[]... other_arr) {
 		sortem(pivot_arr, 0, pivot_arr.length-1, false, other_arr);

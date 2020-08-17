@@ -12,6 +12,7 @@ import java.util.Map;
 
 import com.metzner.enrico.JKriging.helper.DataHelper;
 import com.metzner.enrico.JKriging.helper.FormatHelper;
+import com.metzner.enrico.JKriging.helper.LogicHelper;
 import com.metzner.enrico.JKriging.probability.StdAnalysis;
 
 import ucar.ma2.Array;
@@ -72,8 +73,9 @@ public class DataFrame {
 
 	public void addColumn(String _column_name, boolean[] _column_data) { addColumn(_column_name, _column_data, false); }
 	public void addColumn(String _column_name, boolean[] _column_data, boolean chopORfill) {
-		if(hasVariable(_column_name)) {
-			System.err.println("A column with title <"+_column_name+"> allready exists in this dataframe!");
+		String _column_name_c = FormatHelper.name2CFConvention(_column_name);
+		if(hasVariable(_column_name_c)) {
+			System.err.println("A column with title <"+_column_name_c+"> allready exists in this dataframe!");
 			return;
 		}
 		if(_column_data.length!=datalength && !chopORfill && titles.length>0) {
@@ -82,16 +84,17 @@ public class DataFrame {
 			return;
 		}
 		if(titles.length==0) datalength = _column_data.length;
-		add_variable(_column_name, DataType.BOOL);
+		add_variable(_column_name_c, DataType.BOOL);
 		add_stdana(Double.NaN,Double.NaN,Double.NaN,Double.NaN);
 		boolean[] new_data = new boolean[datalength];
 		for(int t=0; t<datalength; t++) if(t<_column_data.length) { new_data[t] = _column_data[t]; } else { new_data[t] = false; }
-		bool_column.put(_column_name, new_data);
+		bool_column.put(_column_name_c, new_data);
 	}
 	public void addColumn(String _column_name, byte[] _column_data) { addColumn(_column_name, _column_data, false); }
 	public void addColumn(String _column_name, byte[] _column_data, boolean chopORfill) {
-		if(hasVariable(_column_name)) {
-			System.err.println("A column with title <"+_column_name+"> allready exists in this dataframe!");
+		String _column_name_c = FormatHelper.name2CFConvention(_column_name);
+		if(hasVariable(_column_name_c)) {
+			System.err.println("A column with title <"+_column_name_c+"> allready exists in this dataframe!");
 			return;
 		}
 		if(_column_data.length!=datalength && !chopORfill && titles.length>0) {
@@ -100,17 +103,18 @@ public class DataFrame {
 			return;
 		}
 		if(titles.length==0) datalength = _column_data.length;
-		add_variable(_column_name, DataType.BYTE);
+		add_variable(_column_name_c, DataType.BYTE);
 		byte[] inax = StdAnalysis.minmax(_column_data); byte[] mv = StdAnalysis.mean_var(_column_data);
 		add_stdana(inax[0],inax[1],mv[0],mv[1]);
 		byte[] new_data = new byte[datalength];
 		for(int t=0; t<datalength; t++) if(t<_column_data.length) { new_data[t] = _column_data[t]; } else { new_data[t] = Byte.MIN_VALUE; }
-		byte_column.put(_column_name, new_data);
+		byte_column.put(_column_name_c, new_data);
 	}
 	public void addColumn(String _column_name, int[] _column_data) { addColumn(_column_name, _column_data, false); }
 	public void addColumn(String _column_name, int[] _column_data, boolean chopORfill) {
-		if(hasVariable(_column_name)) {
-			System.err.println("A column with title <"+_column_name+"> allready exists in this dataframe!");
+		String _column_name_c = FormatHelper.name2CFConvention(_column_name);
+		if(hasVariable(_column_name_c)) {
+			System.err.println("A column with title <"+_column_name_c+"> allready exists in this dataframe!");
 			return;
 		}
 		if(_column_data.length!=datalength && !chopORfill && titles.length>0) {
@@ -119,17 +123,18 @@ public class DataFrame {
 			return;
 		}
 		if(titles.length==0) datalength = _column_data.length;
-		add_variable(_column_name, DataType.INT);
+		add_variable(_column_name_c, DataType.INT);
 		int[] inax = StdAnalysis.minmax(_column_data); int[] mv = StdAnalysis.mean_var(_column_data);
 		add_stdana(inax[0],inax[1],mv[0],mv[1]);
 		int[] new_data = new int[datalength];
 		for(int t=0; t<datalength; t++) if(t<_column_data.length) { new_data[t] = _column_data[t]; } else { new_data[t] = Integer.MIN_VALUE; }
-		int_column.put(_column_name, new_data);
+		int_column.put(_column_name_c, new_data);
 	}
 	public void addColumn(String _column_name, short[] _column_data) { addColumn(_column_name, _column_data, false); }
 	public void addColumn(String _column_name, short[] _column_data, boolean chopORfill) {
-		if(hasVariable(_column_name)) {
-			System.err.println("A column with title <"+_column_name+"> allready exists in this dataframe!");
+		String _column_name_c = FormatHelper.name2CFConvention(_column_name);
+		if(hasVariable(_column_name_c)) {
+			System.err.println("A column with title <"+_column_name_c+"> allready exists in this dataframe!");
 			return;
 		}
 		if(_column_data.length!=datalength && !chopORfill && titles.length>0) {
@@ -138,17 +143,18 @@ public class DataFrame {
 			return;
 		}
 		if(titles.length==0) datalength = _column_data.length;
-		add_variable(_column_name, DataType.SHORT);
+		add_variable(_column_name_c, DataType.SHORT);
 		short[] inax = StdAnalysis.minmax(_column_data); short[] mv = StdAnalysis.mean_var(_column_data);
 		add_stdana(inax[0],inax[1],mv[0],mv[1]);
 		short[] new_data = new short[datalength];
 		for(int t=0; t<datalength; t++) if(t<_column_data.length) { new_data[t] = _column_data[t]; } else { new_data[t] = Short.MIN_VALUE; }
-		short_column.put(_column_name, new_data);
+		short_column.put(_column_name_c, new_data);
 	}
 	public void addColumn(String _column_name, long[] _column_data) { addColumn(_column_name, _column_data, false); }
 	public void addColumn(String _column_name, long[] _column_data, boolean chopORfill) {
-		if(hasVariable(_column_name)) {
-			System.err.println("A column with title <"+_column_name+"> allready exists in this dataframe!");
+		String _column_name_c = FormatHelper.name2CFConvention(_column_name);
+		if(hasVariable(_column_name_c)) {
+			System.err.println("A column with title <"+_column_name_c+"> allready exists in this dataframe!");
 			return;
 		}
 		if(_column_data.length!=datalength && !chopORfill && titles.length>0) {
@@ -157,17 +163,18 @@ public class DataFrame {
 			return;
 		}
 		if(titles.length==0) datalength = _column_data.length;
-		add_variable(_column_name, DataType.LONG);
+		add_variable(_column_name_c, DataType.LONG);
 		long[] inax = StdAnalysis.minmax(_column_data); long[] mv = StdAnalysis.mean_var(_column_data);
 		add_stdana(inax[0],inax[1],mv[0],mv[1]);
 		long[] new_data = new long[datalength];
 		for(int t=0; t<datalength; t++) if(t<_column_data.length) { new_data[t] = _column_data[t]; } else { new_data[t] = Long.MIN_VALUE; }
-		long_column.put(_column_name, new_data);
+		long_column.put(_column_name_c, new_data);
 	}
 	public void addColumn(String _column_name, float[] _column_data) { addColumn(_column_name, _column_data, false); }
 	public void addColumn(String _column_name, float[] _column_data, boolean chopORfill) {
-		if(hasVariable(_column_name)) {
-			System.err.println("A column with title <"+_column_name+"> allready exists in this dataframe!");
+		String _column_name_c = FormatHelper.name2CFConvention(_column_name);
+		if(hasVariable(_column_name_c)) {
+			System.err.println("A column with title <"+_column_name_c+"> allready exists in this dataframe!");
 			return;
 		}
 		if(_column_data.length!=datalength && !chopORfill && titles.length>0) {
@@ -176,17 +183,18 @@ public class DataFrame {
 			return;
 		}
 		if(titles.length==0) datalength = _column_data.length;
-		add_variable(_column_name, DataType.FLOAT);
+		add_variable(_column_name_c, DataType.FLOAT);
 		float[] inax = StdAnalysis.minmax(_column_data); float[] mv = StdAnalysis.mean_var(_column_data);
 		add_stdana(inax[0],inax[1],mv[0],mv[1]);
 		float[] new_data = new float[datalength];
 		for(int t=0; t<datalength; t++) if(t<_column_data.length) { new_data[t] = _column_data[t]; } else { new_data[t] = Float.NaN; }
-		float_column.put(_column_name, new_data);
+		float_column.put(_column_name_c, new_data);
 	}
 	public void addColumn(String _column_name, double[] _column_data) { addColumn(_column_name, _column_data, false); }
 	public void addColumn(String _column_name, double[] _column_data, boolean chopORfill) {
-		if(hasVariable(_column_name)) {
-			System.err.println("A column with title <"+_column_name+"> allready exists in this dataframe!");
+		String _column_name_c = FormatHelper.name2CFConvention(_column_name);
+		if(hasVariable(_column_name_c)) {
+			System.err.println("A column with title <"+_column_name_c+"> allready exists in this dataframe!");
 			return;
 		}
 		if(_column_data.length!=datalength && !chopORfill && titles.length>0) {
@@ -195,17 +203,18 @@ public class DataFrame {
 			return;
 		}
 		if(titles.length==0) datalength = _column_data.length;
-		add_variable(_column_name, DataType.DOUBLE);
+		add_variable(_column_name_c, DataType.DOUBLE);
 		double[] inax = StdAnalysis.minmax(_column_data); double[] mv = StdAnalysis.mean_var(_column_data);
 		add_stdana(inax[0],inax[1],mv[0],mv[1]);
 		double[] new_data = new double[datalength];
 		for(int t=0; t<datalength; t++) if(t<_column_data.length) { new_data[t] = _column_data[t]; } else { new_data[t] = Double.NaN; }
-		double_column.put(_column_name, new_data);
+		double_column.put(_column_name_c, new_data);
 	}
 	public void addColumn(String _column_name, String[] _column_data) { addColumn(_column_name, _column_data, false); }
 	public void addColumn(String _column_name, String[] _column_data, boolean chopORfill) {
-		if(hasVariable(_column_name)) {
-			System.err.println("A column with title <"+_column_name+"> allready exists in this dataframe!");
+		String _column_name_c = FormatHelper.name2CFConvention(_column_name);
+		if(hasVariable(_column_name_c)) {
+			System.err.println("A column with title <"+_column_name_c+"> allready exists in this dataframe!");
 			return;
 		}
 		if(_column_data.length!=datalength && !chopORfill && titles.length>0) {
@@ -214,34 +223,35 @@ public class DataFrame {
 			return;
 		}
 		if(titles.length==0) datalength = _column_data.length;
-		add_variable(_column_name, DataType.STRING);
+		add_variable(_column_name_c, DataType.STRING);
 		add_stdana(Double.NaN,-Double.NaN,Double.NaN,Double.NaN);
 		String[] new_data = new String[datalength];
 		for(int t=0; t<datalength; t++) if(t<_column_data.length) { new_data[t] = _column_data[t]; } else { new_data[t] = ""; }
-		string_column.put(_column_name, new_data);
+		string_column.put(_column_name_c, new_data);
 	}
 
 	public void renameVariable(int _old_var_id, String _new_name) {
+		String _new_name_c = FormatHelper.name2CFConvention(_new_name);
 		int ovi = _old_var_id - Constants.FIRST_IDX;
 		if(ovi<0 || ovi>=titles.length) {
 			System.err.println("Can not rename variable with ID "+_old_var_id+", could not find variable!");
 			return;
 		}
 		String _old_var_name = getVarname(_old_var_id);
-		if(hasVariable(_new_name)) {
-			System.err.println("Could not rename variable \""+_old_var_name+"\", a variable by name \""+_new_name+"\" already exist!");
+		if(hasVariable(_new_name_c)) {
+			System.err.println("Could not rename variable \""+_old_var_name+"\", a variable by name \""+_new_name_c+"\" already exist!");
 			//DataHelper.printStackTrace(System.err);
 			return;
 		}
 		switch(types[ovi]) {
-			case BOOL:   addColumn(_new_name, bool_column.get(_old_var_name));   removeVariable(_old_var_name); break;
-			case BYTE:   addColumn(_new_name, byte_column.get(_old_var_name));   removeVariable(_old_var_name); break;
-			case SHORT:  addColumn(_new_name, short_column.get(_old_var_name));  removeVariable(_old_var_name); break;
-			case INT:    addColumn(_new_name, int_column.get(_old_var_name));    removeVariable(_old_var_name); break;
-			case LONG:   addColumn(_new_name, long_column.get(_old_var_name));   removeVariable(_old_var_name); break;
-			case FLOAT:  addColumn(_new_name, float_column.get(_old_var_name));  removeVariable(_old_var_name); break;
-			case DOUBLE: addColumn(_new_name, double_column.get(_old_var_name)); removeVariable(_old_var_name); break;
-			case STRING: addColumn(_new_name, string_column.get(_old_var_name)); removeVariable(_old_var_name); break;
+			case BOOL:   addColumn(_new_name_c, bool_column.get(_old_var_name));   removeVariable(_old_var_name); break;
+			case BYTE:   addColumn(_new_name_c, byte_column.get(_old_var_name));   removeVariable(_old_var_name); break;
+			case SHORT:  addColumn(_new_name_c, short_column.get(_old_var_name));  removeVariable(_old_var_name); break;
+			case INT:    addColumn(_new_name_c, int_column.get(_old_var_name));    removeVariable(_old_var_name); break;
+			case LONG:   addColumn(_new_name_c, long_column.get(_old_var_name));   removeVariable(_old_var_name); break;
+			case FLOAT:  addColumn(_new_name_c, float_column.get(_old_var_name));  removeVariable(_old_var_name); break;
+			case DOUBLE: addColumn(_new_name_c, double_column.get(_old_var_name)); removeVariable(_old_var_name); break;
+			case STRING: addColumn(_new_name_c, string_column.get(_old_var_name)); removeVariable(_old_var_name); break;
 			default: System.err.println("An unexpected error occured: Unknown Variable type!"); DataHelper.printStackTrace(System.err); break;
 		}
 	}
@@ -508,10 +518,10 @@ public class DataFrame {
 	public DataFrame2D toDataFrame2D(String dim_one_name, String dim_two_name) {
 		DataFrame2D res2D = new DataFrame2D();
 		//check if the DataFrame contain these dimensions!
-		int dim1ID = strings_index(titles, dim_one_name);
+		int dim1ID = DataHelper.strings_index(titles, dim_one_name);
 		if(dim1ID<0) { System.err.println("DataFrame does not contain any variable \""+dim_one_name+"\"!");
 			DataHelper.printStackTrace(System.err); return res2D; }
-		int dim2ID = strings_index(titles, dim_two_name);
+		int dim2ID = DataHelper.strings_index(titles, dim_two_name);
 		if(dim2ID<0) { System.err.println("DataFrame does not contain any variable \""+dim_two_name+"\"!");
 			DataHelper.printStackTrace(System.err); return res2D; }
 		//collect entries for each dimension
@@ -668,13 +678,13 @@ public class DataFrame {
 	public DataFrame3D toDataFrame3D(String dim_one_name, String dim_two_name, String dim_three_name) {
 		DataFrame3D res3D = new DataFrame3D();
 		//check if the DataFrame contain these dimensions!
-		int dim1ID = strings_index(titles, dim_one_name);
+		int dim1ID = DataHelper.strings_index(titles, dim_one_name);
 		if(dim1ID<0) { System.err.println("DataFrame does not contain any variable \""+dim_one_name+"\"!");
 			DataHelper.printStackTrace(System.err); return res3D; }
-		int dim2ID = strings_index(titles, dim_two_name);
+		int dim2ID = DataHelper.strings_index(titles, dim_two_name);
 		if(dim2ID<0) { System.err.println("DataFrame does not contain any variable \""+dim_two_name+"\"!");
 			DataHelper.printStackTrace(System.err); return res3D; }
-		int dim3ID = strings_index(titles, dim_three_name);
+		int dim3ID = DataHelper.strings_index(titles, dim_three_name);
 		if(dim3ID<0) { System.err.println("DataFrame does not contain any variable \""+dim_three_name+"\"!");
 			DataHelper.printStackTrace(System.err); return res3D; }
 		//collect entries for each dimension
@@ -835,6 +845,52 @@ public class DataFrame {
 		res3D.setDimension(1+Constants.FIRST_IDX, dimension_two, dim_two_name);
 		res3D.setDimension(2+Constants.FIRST_IDX, dimension_thr, dim_three_name);
 		return res3D;
+	}
+	public DataFrame filterSubDataFrame(String condition) {
+		String[][] conditions = LogicHelper.readConditions(this, condition);
+		boolean[] rowdivs = new boolean[conditions.length-1]; for(int r=0; r<rowdivs.length; r++) rowdivs[r] = false;
+		boolean[] coldivs = new boolean[conditions[0].length-1]; for(int c=0; c<coldivs.length; c++) coldivs[c] = true;
+		FormatHelper.printTable(conditions,coldivs,rowdivs);
+		int counter = 0;
+		int[] use_elements = new int[datalength];
+		for(int e=0; e<datalength; e++) {
+			if(LogicHelper.evaluateConditionLines(this, e, conditions)) {
+				use_elements[counter] = e;
+				counter++;
+			}
+		}
+		DataFrame sub1D = new DataFrame();
+		for(String var: allVariableNames()) {
+			switch(getVariableType(var)) {
+				case BOOL:   boolean[] newO = new boolean[counter]; boolean[] oldO = bool_column.get(var);
+					for(int i=0; i<counter; i++) newO[i] = oldO[use_elements[i]]; sub1D.addColumn(var, newO);
+					break;
+				case BYTE:   byte[] newB = new byte[counter];       byte[] oldB = byte_column.get(var);
+					for(int i=0; i<counter; i++) newB[i] = oldB[use_elements[i]]; sub1D.addColumn(var, newB);
+					break;
+				case SHORT:  short[] newR = new short[counter];     short[] oldR = short_column.get(var);
+					for(int i=0; i<counter; i++) newR[i] = oldR[use_elements[i]]; sub1D.addColumn(var, newR);
+					break;
+				case INT:    int[] newI = new int[counter];         int[] oldI = int_column.get(var);
+					for(int i=0; i<counter; i++) newI[i] = oldI[use_elements[i]]; sub1D.addColumn(var, newI);
+					break;
+				case LONG:   long[] newL = new long[counter];       long[] oldL = long_column.get(var);
+					for(int i=0; i<counter; i++) newL[i] = oldL[use_elements[i]]; sub1D.addColumn(var, newL);
+					break;
+				case FLOAT:  float[] newF = new float[counter];     float[] oldF = float_column.get(var);
+					for(int i=0; i<counter; i++) newF[i] = oldF[use_elements[i]]; sub1D.addColumn(var, newF);
+					break;
+				case DOUBLE: double[] newD = new double[counter];   double[] oldD = double_column.get(var);
+					for(int i=0; i<counter; i++) newD[i] = oldD[use_elements[i]]; sub1D.addColumn(var, newD);
+					break;
+				case STRING: String[] newS = new String[counter];   String[] oldS = string_column.get(var);
+					for(int i=0; i<counter; i++) newS[i] = oldS[use_elements[i]]; sub1D.addColumn(var, newS);
+					break;
+				default:
+					break;
+			}
+		}
+		return sub1D;
 	}
 	
 	public void setDefaultDatatype(String _type) { default_data_type = DataType.getDataType(_type, default_data_type); }
@@ -1293,7 +1349,7 @@ public class DataFrame {
 					default:
 					case STRING: dataType = ucar.ma2.DataType.STRING;  break;
 				}
-				vars[iv+1] = ncdfWriter.addVariable(null, FormatHelper.underscore_spaces(titles[iv]), dataType, dims);
+				vars[iv+1] = ncdfWriter.addVariable(null, FormatHelper.name2CFConvention(titles[iv]), dataType, dims);
 				switch(types[iv]) {
 					case SHORT:  ncdfWriter.addVariableAttribute(vars[iv+1], new Attribute("_FillValue", Short.MIN_VALUE));   break;
 					case INT:    ncdfWriter.addVariableAttribute(vars[iv+1], new Attribute("_FillValue", Integer.MIN_VALUE)); break;
@@ -1381,10 +1437,10 @@ public class DataFrame {
 		return titles[vi];
 	}
 	public int getVariableID(String _var_name) {
-		return strings_index(titles, _var_name)+Constants.FIRST_IDX;
+		return DataHelper.strings_index(titles, _var_name)+Constants.FIRST_IDX;
 	}
 	public boolean hasVariable(String _var_name) {
-		return strings_index(titles, _var_name)>=0;
+		return DataHelper.strings_index(titles, _var_name)>=0;
 	}
 	public String[] allVariableNames() { return titles; }
 	public DataType getVariableType(int _var_id) {
@@ -1395,6 +1451,7 @@ public class DataFrame {
 	public DataType getVariableType(String _var_name) {
 		return getVariableType(getVariableID(_var_name));
 	}
+	public DataType[] allVariableTypes() { return types; }
 	public double[] getMins() { return minmax_mean_sill[0]; }
 	public double getMin(String var_name) { return getMin(getVariableID(var_name)); }
 	public double getMin(int _var_id) {
@@ -1427,9 +1484,9 @@ public class DataFrame {
 	public Object getArray(String _col_name) {
 		if(_col_name==null)
 			return null;
-		if(strings_index(titles, _col_name)<0)
+		if(DataHelper.strings_index(titles, _col_name)<0)
 			return null;
-		switch(types[strings_index(titles,_col_name)]) {
+		switch(types[DataHelper.strings_index(titles,_col_name)]) {
 			case BOOL:   return bool_column.get(_col_name);
 			case BYTE:   return byte_column.get(_col_name);
 			case INT:    return int_column.get(_col_name);
@@ -1505,7 +1562,7 @@ public class DataFrame {
 		for(int c=0; c<clen-1; c++) coldivs[c] = true;
 		boolean[] rowdivs = new boolean[dlen-1];
 		for(int r=0; r<dlen-1; r++) rowdivs[r] = false;
-		rowdivs[0] = true; rowdivs[1] = true;
+		rowdivs[0] = true; if(dlen>2) rowdivs[1] = true;
 		FormatHelper.printTable(out, coldivs, rowdivs, true);
 	}
 	public void printfull() { head(0); }
@@ -1682,12 +1739,6 @@ public class DataFrame {
 		string_column.clear();
 	}
 
-	private int strings_index(String[] sarr, String search_regex) {
-		if(sarr==null || search_regex==null) return -1;
-		if(sarr.length<1) return -1;
-		for(int s=0; s<sarr.length; s++) { if(sarr[s]==null) continue; if(sarr[s].equals(search_regex)) return s; }
-		return -1;
-	}
 	private String[] null_line(String _in, String _del) {
 		int count = 1;
 		int occ = _in.indexOf(_del);
