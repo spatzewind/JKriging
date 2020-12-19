@@ -112,7 +112,7 @@ public class Test_3DOrdinaryKriging_v2 {
 		kt3d.setVariableAndCoordinates("Xlocation", "Ylocation", "Zlocation", "Primary", null);
 		kt3d.setKrigingField(10, 5.0d, 2.5d, 10, 5.0d, 2.5d, 10, 5.0d, 2.5d);
 		kt3d.setSuperBlockParameters(1, 1, 1, 4, 8, 0, 20d);
-		kt3d.addVariogramModel(3, 1.0d, 0d, 0d, 0d, 15d, 11.5d, 15d);
+		kt3d.addVariogramModelMath(3, 1.0d, 0d, 0d, 0d, 15d, 11.5d, 15d);
 //		kt3d.kt3d();
 		
 		DataFrame3D df_K_alex = kt3d.kt3d_asDataFrame3D();

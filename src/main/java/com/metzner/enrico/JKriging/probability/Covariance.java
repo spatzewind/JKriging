@@ -276,4 +276,42 @@ public class Covariance {
 			default: return 0d;
 		}
 	}
+
+	public static double[] covarianceDerivative(int cova_type, double cc_cova_maximum, double cc_cova_coeff, double h_lag, double aa_range) {
+		double hr = h_lag / aa_range;
+		double hr_d = -h_lag / (aa_range * aa_range);
+		switch(cova_type) {
+			case VARIOGRAM_SPHERICAL:
+				return new double[]{
+							(hr<1d ? 1d-hr*(1.5d-0.5d*hr*hr) : 0d),
+							cc_cova_coeff * (hr<1d ? 1.5d*hr*hr-1.5d : 0d) * hr_d
+						};
+			case VARIOGRAM_EXPONENTIAL:
+				return new double[] {
+							Math.exp(-3d*hr),
+							cc_cova_coeff * Math.exp(-3d*hr) * (-3d) * hr_d
+						};
+			case VARIOGRAM_GAUSSIAN:
+				return new double[] {
+							Math.exp(-3d*hr*hr),
+							cc_cova_coeff * Math.exp(-3d*hr*hr) * (-6d*hr) * hr_d
+						};
+			case VARIOGRAM_POWER:
+				return new double[] {
+							-Math.pow(h_lag, aa_range),
+							-cc_cova_coeff * Math.pow(h_lag, aa_range) * Math.log(h_lag)
+						};
+			case VARIOGRAM_HOLE_EFFECT:
+				return new double[] {
+							Math.exp(-0.3d*hr) * Math.cos(hr*Math.PI),
+							-cc_cova_coeff * Math.exp(-0.3d*hr) * (0.3d * Math.cos(hr*Math.PI) + Math.PI*Math.sin(hr*Math.PI)) * hr_d
+						};
+			case VARIOGRAM_LINEAR:
+				return new double[] {
+							(hr<1d ? 1d-hr : 0d),
+							cc_cova_coeff * (hr<1d ? -hr_d : 0d)
+						};
+			default: return new double[] {0d, 0d};
+		}
+	}
 }

@@ -22,7 +22,7 @@ repositories {
 
 jar {
     baseName = 'jkriging'
-    version = '0.0.2'
+    version = '0.0.3'
 }
 
 dependencies {
@@ -38,5 +38,12 @@ dependencies {
     //JKriging should have Netcdf-support
     compile "edu.ucar:cdm-core:5.3.3"
   	runtime "org.slf4j:slf4j-jdk14:1.7.30"
+  	
+  	//Need matrix decomposition for eigenvalues and eigenvectors
+  	compile group: 'org.ejml', name: 'ejml-all', version: '0.39'
 }
 
+tasks.withType(JavaCompile) {
+    options.compilerArgs << '-Xlint:deprecation'
+    options.deprecation = true
+}

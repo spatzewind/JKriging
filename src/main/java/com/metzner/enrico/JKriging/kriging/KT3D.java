@@ -8,6 +8,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.metzner.enrico.JKriging.data.Constants;
 import com.metzner.enrico.JKriging.data.DataFrame;
@@ -64,6 +65,8 @@ public class KT3D {
 	String[] estimate_titles; // titles for results from kriging
 	private double[][] estimates; // result from kriging
 	
+	private int numOctants; //number of octants minimum has to distribute search
+	
 	private double progressNPoints;
 
 	private boolean[] paramchecklist = new boolean[8];
@@ -71,8 +74,12 @@ public class KT3D {
 			"kriging search parameters", "debugging setting", "usage of jackknife file",
 			"external drift file and parameters", "variogram model(s)" };
 
+	private int numberOfWorker; //used for multithreading
+	private AtomicInteger indexOffset;
+	
 	public KT3D() {
 		variograms = new ArrayList<double[]>();
+		indexOffset = new AtomicInteger(0);
 		reset();
 	}
 
@@ -97,6 +104,9 @@ public class KT3D {
 		num_krig_res = 0;
 		estimates = null;
 		estimate_titles = null;
+		
+		numOctants = 1;
+		numberOfWorker = 1;
 
 		paramchecklist[0] = false; // dataframe is declared
 		paramchecklist[1] = false; // variable-coordinates and depending variables are defined
@@ -200,9 +210,17 @@ public class KT3D {
 			int max_per_octant, double search_radius) {
 		nxdis = x_discretisation; nydis = y_discretisation; nzdis = z_discretisation;
 		ndmin = min_points; ndmax = max_points; noct = max_per_octant;
+		if(max_per_octant>0) {
+			numOctants = 8;
+			System.out.println("WARNING: \"max per octant\" is set, it will override \"minimum search octant\" to 8.");
+		}
 		radius = search_radius; //sanis1 = second_radius / search_radius; sanis2 = third_radius / search_radius;
 		//sang1 = anisotropy_angle; sang2 = second_angle; sang3 = third_angle;
 		paramchecklist[3] = true;
+		return this;
+	}
+	public KT3D setMinimumSearchOctant(int min_search_octant) {
+		numOctants = min_search_octant;
 		return this;
 	}
 	public KT3D setDebuggingLevel(int debugging_level, String debugging_file_path) {
@@ -268,7 +286,11 @@ public class KT3D {
 		}
 		return this;
 	}
-	public KT3D addVariogramModel(int variogram_type, double covariance,
+	public KT3D addVariogramModelGeo(int variogram_type, double covariance,
+			double azimuth, double dip, double roll, double h_max, double h_min, double h_vert) {
+		return addVariogramModelMath(variogram_type, covariance, 90d-azimuth, dip, roll, h_max, h_min, h_vert);
+	}
+	public KT3D addVariogramModelMath(int variogram_type, double covariance,
 			double azimuth, double dip, double roll, double h_max, double h_min, double h_vert) {
 		if(h_max<0d) {
 			System.err.println("search radius must be greater than zero!");
@@ -282,6 +304,10 @@ public class KT3D {
 			variograms.add(new double[] {variogram_type+0.1d, covariance, azimuth, dip, roll, h_max, anis1, anis2});
 			paramchecklist[7] = true;
 		}
+		return this;
+	}
+	public KT3D setThreadNumber(int max_number_of_threads_to_use) {
+		numberOfWorker = max_number_of_threads_to_use;
 		return this;
 	}
 	public void loadParameterFile(String param_path, DataFrame _data, DataFrame _dfjack, DataFrame _dfextern) {
@@ -691,6 +717,9 @@ public class KT3D {
 		}
 		if(someParamIsMissing)
 			return null;
+		numOctants = Math.max(1, Math.min(8, numOctants));
+		if(noct>0)
+			numOctants = 8;
 //        c-----------------------------------------------------------------------
 //        c
 //        c                Krige a 3-D Grid of Rectangular Blocks
@@ -734,7 +763,6 @@ public class KT3D {
 		if(z_var==null)   {z = new double[datalength];  for(int d=0; d<datalength; d++) z[d]  = zmn; }
 		if(dh_var==null)  {dh = new double[datalength]; for(int d=0; d<datalength; d++) dh[d] = 0d;  }
 		if(ext_var==null) {ve = new double[datalength]; for(int d=0; d<datalength; d++) ve[d] = 1d;  }
-		double[] closest = new double[datalength];
 		if (x_var==null && nx > 1)
 			System.out.println(" WARNING: no x variable and nx>1 !");
 		if (y_var==null && ny > 1)
@@ -743,6 +771,7 @@ public class KT3D {
 			System.out.println(" WARNING: no z variable and nz>1 !");
 		
 		int MAXDIS = nxdis*nydis*nzdis;
+		ndmax = Math.max(ndmax, ndmin*numOctants);
 		int maxSamples = ndmax + 1;
 		int maxEquations = maxSamples + MAXDT + 2;
 		//int maxSupBlckX = Math.max(1, Math.min(50, nx / 2));
@@ -759,18 +788,9 @@ public class KT3D {
 		//		 ixsbtosr = new int[8*maxSuperblocks],
 		//		 iysbtosr = new int[8*maxSuperblocks],
 		//		 izsbtosr = new int[8*maxSuperblocks];
-		double[] xa = new double[maxSamples],
-				 ya = new double[maxSamples],
-				 za = new double[maxSamples];
-		double[] vra = new double[maxSamples],
-				 vea = new double[maxSamples];
 		double[] xdb = new double[MAXDIS],
 				 ydb = new double[MAXDIS],
 				 zdb = new double[MAXDIS];
-		double[] r = new double[maxEquations],
-				 rr = new double[maxEquations],
-				 s= new double[maxEquations],
-				 a = new double[maxEquations*maxEquations];
 		int[]    ai = new int[maxEquations*maxEquations];
 		
 		int[] nst = {variograms.size(),0};
@@ -799,7 +819,6 @@ public class KT3D {
 		
 
 		double cbb;
-		boolean fircon=true, accept;
 		//double[] sec3 = new double[datalength];
 //        c
 //        c Set up the rotation/anisotropy matrices that are needed for the
@@ -812,7 +831,7 @@ public class KT3D {
 		double covmax = c0[0];
 		double wgtsum = 0d;
 		for(int is=0; is<nst[0]; is++) {
-			rotmat = MathHelper.setrot3D(ang1[is],ang2[is],ang3[is],anis1[is],anis2[is],is+1,MAXROT,rotmat);
+			rotmat = MathHelper.setrot3Dmath(ang1[is],ang2[is],ang3[is],anis1[is],anis2[is],is+1,MAXROT,rotmat);
 			double cov_single = it[is]==Covariance.VARIOGRAM_POWER ? PMX : cc[is];
 			covmax += cov_single;
 			double wgt = cov_single / (aa[is]*Math.pow(anis1[is]*anis2[is], 1d/3d));
@@ -916,11 +935,7 @@ public class KT3D {
 			}
 		}
 //        c Initialize accumulators:
-		int    nk    = 0;
-		double xk    = 0d;
-		double vk    = 0d;
-		double xkmae = 0d;
-		double xkmse = 0d;
+		//TODO removed because of multithreading
 
 //        c Calculate Block Covariance. Check for point kriging.
 		double cov = Covariance.cova3(xdb[0], ydb[0], zdb[0], xdb[0], ydb[0], zdb[0],
@@ -962,10 +977,9 @@ public class KT3D {
 		for(int i=0; i<9; i++) bv[i] *= resc / ndb;
 
 //        c Report on progress from time to time:
-		int nxy=1,nxyz=1,nloop,irepo;
+		int nxyz=1,nloop,irepo;
 		int nd=vr.length;
 		if(koption==0) {
-			nxy   = nx*ny;
 			nxyz  = nx*ny*nz;
 			nloop = nxyz;
 			irepo = Math.max(1,Math.min(10000,nxyz/10));
@@ -974,421 +988,44 @@ public class KT3D {
 			irepo = Math.max(1,Math.min(10000,nd/10));
 		}
 		estimates = new double[num_krig_res][nloop];
-		double ddh = 0d;
 		System.out.println("\n\nWorking on the kriging\n");
 
 //        c MAIN LOOP OVER ALL THE BLOCKS IN THE GRID:
-		double _true_=0d,//secj,
-				extest=1d;
-		double est=0d,estv=0d,resce=0d, cb,cb1, wt; // cmax;
-		int n_accepted, ind, neq;
-		int nclose = closest.length;
-		for(int aic=0; aic<ai.length; aic++) ai[aic] = 0;
-		for(int index=0; index<nloop; index++) { //TODO start main kriging loop
-			progressNPoints = (index+1d) / (double) nloop;
-			if((index+1)%irepo==0) System.out.println("   currently on estimate "+FormatHelper.nf(index+1,9));
-
-//        c Where are we making an estimate?
-			int ix=0,iy=0,iz=0;
-			if(koption==0) {
-				iz   = (int) (index/nxy);
-				iy   = (int) ((index-iz*nxy)/nx);
-				ix   = index - iz*nxy - iy*nx;
-				xloc = xmn + ix*xsiz;
-				yloc = ymn + iy*ysiz;
-				zloc = zmn + iz*zsiz;
-			} else {
-	            ddh    = 0d;
-	            xloc   = xmn;
-	            yloc   = ymn;
-	            zloc   = zmn;
-	            _true_ = Constants.FILL_VALUE_D;
-//	            secj   = Constants.FILL_VALUE_D;
-	            if(jackdf!=null) {
-	            	if(jack_dh_var!=null)  ddh    = ((double[])jackdf.getArray(jack_dh_var))[index];
-	            	if(jack_x_var!=null)   xloc   = ((double[])jackdf.getArray(jack_x_var))[index];
-	            	if(jack_y_var!=null)   yloc   = ((double[])jackdf.getArray(jack_y_var))[index];
-	            	if(jack_z_var!=null)   zloc   = ((double[])jackdf.getArray(jack_z_var))[index];
-	            	if(jack_vr_var!=null)  _true_ = ((double[])jackdf.getArray(jack_vr_var))[index];
-	            	if(jack_ext_var!=null) extest = ((double[])jackdf.getArray(jack_ext_var))[index];
-	            }
-	            if(_true_<tmin || _true_>=tmax) _true_ = Constants.FILL_VALUE_D;
+		
+		//TODO add Worker!!!
+		indexOffset.set(0);
+		numberOfWorker = Math.min(numberOfWorker, 1+(nloop-1)/irepo);
+		Worker[] worker = new Worker[numberOfWorker];
+		for(int t=0; t<numberOfWorker; t++) {
+			worker[t] = new Worker(nloop, irepo, tree, maxEquations,maxSamples,
+					unbias, covmax, cbb, ndb, c0, nst, resc, mdt,
+					x,y,z,dh,ve,vr,xdb,ydb,zdb);
+			worker[t].start();
+		}
+		//progressNPoints = (index+1d) / (double) nloop;
+		//if((index+1)%irepo==0) System.out.println("   currently on estimate "+FormatHelper.nf(index+1,9));
+		int currentIndex = 0;
+		boolean workerUnfinished = true;
+		while(workerUnfinished) {
+			//wait
+			workerUnfinished = false;
+			for(Worker w: worker)
+				if(!w.hasFinished())
+					workerUnfinished = true;
+			
+			progressNPoints = (indexOffset.get()+1d) / (double) nloop;
+			if(currentIndex!=indexOffset.get()) {
+				currentIndex = indexOffset.get();
+				System.out.println("   currently on estimate "+FormatHelper.nf(Math.min(currentIndex+1,nloop),9));
 			}
-
-//        i added by E. Metzner:
-//        i Initialise output fields, if something goes wrong on some kriging points (so est|estv = Constants.FILL_VALUE_D)
-			if(iktype==Constants.INO) {
-				if(koption==0) {
-					writeEstimatedData(index, Constants.FILL_VALUE_D, Constants.FILL_VALUE_D, 0);
-				} else {
-					writeEstimatedData(index, Constants.FILL_VALUE_D, Constants.FILL_VALUE_D, 0, xloc, yloc, zloc, Constants.FILL_VALUE_D, Constants.FILL_VALUE_D);
-				}
-			} else {
-				writeEstimatedData(index, s, vra, 0, Constants.FILL_VALUE_D);
+			try {
+				Thread.sleep(1000L);
+			} catch(InterruptedException ie) {
+				ie.printStackTrace();
+				return null;
 			}
+		}
 
-//        c Read in the external drift variable for this grid node if needed:
-			if(ktype==SIMPLE_NON_STATIONARY_KRIGING || ktype==EXTERNAL_DRIFT_KRIGING) {
-				if(koption==0) {
-					extest = ((double[])externdf.getArray(ext_var_e))[index];
-//		                  read(lext,*) (var(i),i=1,iextve)
-//		                  extest = var(iextve)
-				}
-				if(extest<tmin || extest>=tmax) {
-					est  = Constants.FILL_VALUE_D;
-					estv = Constants.FILL_VALUE_D;
-					continue;
-				}
-				resce  = covmax / Math.max(extest,0.0001d);
-			}
-
-//        c Find the nearest samples:
-			//int[] supres = DataHelper.srchsupr(xloc, yloc, zloc, radsqd, isrot, rotmat,
-			//		nsbtosr, ixsbtosr, iysbtosr, izsbtosr, noct,
-			//		nd, x, y, z, tmp, nisb, superblock_grid, closest);
-			int[] supres = tree.getIndexOfNClosestPointsTo(ndmax, rotmat[MAXNST], false, false, xloc, yloc, zloc); //use redefined maximum search distance
-			nclose = supres[0]; //TODO
-			//int infoct = supres[1];
-
-//        c Load the nearest data in xa,ya,za,vra,vea:
-			n_accepted = 0;
-//			System.out.println("[DEBUG]  pivot:                 pos "+
-//					FormatHelper.nf(xloc,12,8)+" "+FormatHelper.nf(yloc,12,8)+" "+FormatHelper.nf(zloc,12,8));
-			double pre_x=0d, pre_y=0d, pre_z=0d, pre_r=0d, pre_e=0d, pre_cov;
-			for(int i=0; i<nclose; i++) {
-				ind    = supres[i+1];
-//				System.out.println("[DEBUG]  closest point: ind "+FormatHelper.nf(ind,3)+" pos "+
-//						FormatHelper.nf(x[ind],12,8)+" "+FormatHelper.nf(y[ind],12,8)+" "+FormatHelper.nf(z[ind],12,8));
-				accept = true;
-				if(koption!=0 && (Math.abs(x[ind]-xloc)+Math.abs(y[ind]-yloc)+Math.abs(z[ind]-zloc))<EPSLON)
-					accept = false;
-				if(koption!=0 && (Math.abs(dh[ind]-ddh))<EPSLON)
-					accept = false;
-				if(accept) { //pre-acception
-					pre_x = x[ind] - xloc + 0.5d*xsiz;
-					pre_y = y[ind] - yloc + 0.5d*ysiz;
-					pre_z = z[ind] - zloc + 0.5d*zsiz;
-					pre_r = vr[ind];
-					pre_e = ve[ind];
-					if(ndb<=1) {
-						pre_cov = Covariance.cova3(pre_x, pre_y, pre_z, xdb[0], ydb[0], zdb[0],
-								1, nst, MAXNST, c0, it, cc, aa, 1, MAXROT, rotmat)[0];
-					} else {
-						pre_cov  = 0d;
-						for(int j=0; j<ndb; j++) {
-							cov = Covariance.cova3(pre_x, pre_y, pre_z, xdb[j], ydb[j], zdb[j],
-									1, nst, MAXNST, c0, it, cc, aa, 1, MAXROT, rotmat)[0];
-							pre_cov += cov;
-							double dx = pre_x - xdb[j];
-							double dy = pre_y - ydb[j];
-							double dz = pre_z - zdb[j];
-							if(dx*dx+dy*dy+dz*dz < EPSLON) pre_cov -= c0[0];
-						}
-						pre_cov /= ndb;
-					}
-					accept = Math.abs(pre_cov)>EPSLON;
-				}
-				if(accept) { //pre-acception
-					if(n_accepted<ndmax) {
-						xa[n_accepted]  = pre_x;
-						ya[n_accepted]  = pre_y;
-						za[n_accepted]  = pre_z;
-						vra[n_accepted] = pre_r;
-						vea[n_accepted] = pre_e;
-						n_accepted++; //copy afterward for JAVA indices
-					}
-				}
-			}
-
-//        c Test number of samples found:
-			if(n_accepted<ndmin) {
-				est  = Constants.FILL_VALUE_D;
-				estv = Constants.FILL_VALUE_D;
-				if(idbg>=2) {
-					try(BufferedWriter bw = new BufferedWriter(new FileWriter(new File(dbgfl),true))) {
-						bw.append(" Encountered a location where there were too few data\n"
-								+ " for Ord.Kriging or Simple Kriging. KT3D currently\n"
-								+ " leaves these locations Constants.FILL_VALUEimated.\n");
-						bw.flush();
-					}catch(IOException io_e) {
-						io_e.printStackTrace();
-					}
-					System.out.println("   Too few data: No Ordinary or Simple Kriging!");
-				}
-				continue;
-			}
-
-//        c Test if there are enough samples to estimate all drift terms:
-			if(n_accepted>=1 && n_accepted<=mdt) {
-				if(fircon) {
-					try(BufferedWriter bw = new BufferedWriter(new FileWriter(new File(dbgfl),true))) {
-						bw.append(" Encountered a location where there were too few data\n"
-								+ " to estimate all of the drift terms but there would be\n"
-								+ " enough data for Ord.Kriging or Simple Kriging. KT3D\n"
-								+ " currently leaves these locations Constants.FILL_VALUEimated.\n"
-								+ " This message is only written once - the first time.\n");
-						bw.flush();
-					}catch(IOException io_e) {
-						io_e.printStackTrace();
-					}
-					fircon = false;
-				}
-				est  = Constants.FILL_VALUE_D;
-				estv = Constants.FILL_VALUE_D;
-				continue;
-			}
-
-//        c There are enough samples - proceed with estimation.
-			if(n_accepted<=1) {
-
-//        c Handle the situation of only one sample:
-				cb1 = Covariance.cova3(xa[0], ya[0], za[0], xa[0], ya[0], za[0],
-						1, nst, MAXNST, c0, it, cc, aa, 1, MAXROT, rotmat)[0];
-
-//        c Establish Right Hand Side Covariance:
-				if(ndb<=1) {
-					cb = Covariance.cova3(xa[0], ya[0], za[0], xdb[0], ydb[0], zdb[0],
-							1, nst, MAXNST, c0, it, cc, aa, 1, MAXROT, rotmat)[0];
-				} else {
-					cb  = 0d;
-					for(int i=0; i<ndb; i++) {
-						cov = Covariance.cova3(xa[0], ya[0], za[0], xdb[i], ydb[i], zdb[i],
-								1, nst, MAXNST, c0, it, cc, aa, 1, MAXROT, rotmat)[0];
-						cb += cov;
-						double dx = xa[0] - xdb[i];
-						double dy = ya[0] - ydb[i];
-						double dz = za[0] - zdb[i];
-						if(dx*dx+dy*dy+dz*dz < EPSLON) cb -= c0[0];
-					}
-					cb /= ndb;
-				}
-
-//        c Early bug - always did OK in presence of one data.
-				if(ktype==SIMPLE_NON_STATIONARY_KRIGING) skmean = extest;
-				if(ktype==SIMPLE_KRIGING || ktype==SIMPLE_NON_STATIONARY_KRIGING) {
-					wt   = cb / cb1;
-					est  = wt * vra[0] + (1d-wt) * skmean;
-					estv = cbb - wt*cb;
-				} else {
-					est  = vra[0];
-					estv = cbb - 2d*cb + cb1;
-				}
-				nk++;
-				xk += est;
-				vk += est*est;
-				continue;
-			}
-
-//        c Go ahead and set up the OK portion of the kriging matrix:
-			neq = mdt+n_accepted;
-
-//        c Initialize the main kriging matrix:
-			for(int i=0; i<neq*neq; i++) {
-				a[i] = 0d;
-			}
-
-//        c Fill in the kriging matrix:
-			for(int i=0; i<n_accepted; i++) for(int j=i; j<n_accepted; j++) {
-				cov = Covariance.cova3(xa[i], ya[i], za[i], xa[j], ya[j], za[j],
-						1, nst, MAXNST, c0, it, cc, aa, 1, MAXROT, rotmat)[0];
-				a[neq*i+j] = cov;
-				a[neq*j+i] = cov;
-			}
-
-//        c Fill in the OK unbiasedness portion of the matrix (if not doing SK):
-			if(neq>n_accepted) {
-				for(int i=0; i<n_accepted; i++) {
-					a[neq*i+n_accepted] = unbias;
-					a[neq*n_accepted+i] = unbias;
-				}
-			}
-
-//        c Set up the right hand side:
-			//System.out.println("[KT3D] point to estimate:"); //TODO DEBUG, remove later
-			//System.out.println("         "+FormatHelper.nf(xdb[0],10,6)+"  "+FormatHelper.nf(ydb[0],10,6)+"  "+FormatHelper.nf(zdb[0],10,6));
-			//System.out.println("       points surround with value:");
-			for(int i=0; i<n_accepted; i++) {
-				if(ndb<=1) {
-					cb = Covariance.cova3(xa[i],ya[i],za[i], xdb[0],ydb[0],zdb[0],
-							1,nst,MAXNST, c0,it,cc,aa, 1,MAXROT,rotmat)[0];
-					//System.out.println("         xyz={"+FormatHelper.nf(xa[i],10,6)+" "+FormatHelper.nf(ya[i],10,6)+" "+FormatHelper.nf(za[i],10,6)+"}  "+
-					//		"abc={"+FormatHelper.nf(xdb[0],10,6)+" "+FormatHelper.nf(ydb[0],10,6)+" "+FormatHelper.nf(zdb[0],10,6)+"}  "+
-					//		FormatHelper.nf(cb,10,6));
-				} else {
-					cb  = 0d;
-					//String tempstr = "";
-					for(int j=0; j<ndb; j++) {
-						cov = Covariance.cova3(xa[i], ya[i], za[i], xdb[j], ydb[j], zdb[j],
-								1, nst, MAXNST, c0, it, cc, aa, 1, MAXROT, rotmat)[0];
-						cb += cov;
-						//tempstr += " "+FormatHelper.nf(cov,8,6);
-						double dx = xa[i] - xdb[j];
-						double dy = ya[i] - ydb[j];
-						double dz = za[i] - zdb[j];
-						if(dx*dx+dy*dy+dz*dz < EPSLON) cb -= c0[0];
-					}
-					cb /= ndb;
-					//System.out.println("           ,--<  "+tempstr);
-					//System.out.println("         "+FormatHelper.nf(xa[i],10,6)+"  "+FormatHelper.nf(ya[i],10,6)+"  "+FormatHelper.nf(za[i],10,6)+"  "+
-					//		FormatHelper.nf(cb,10,6));
-				}
-				r[i] = cb;
-			}
-			if(neq>n_accepted) r[n_accepted] = unbias;
-
-//        c Add the additional unbiasedness constraints:
-			int im = n_accepted + 1;
-
-//        c (dt) drift term (linear|quadratic|cubic in "x|y"):
-			for(int dt=0; dt<MAXDT; dt++) {
-				if(idrif[dt]==Constants.IYES) {
-					for(int k=0; k<n_accepted; k++) {
-						a[neq*im+k] = drift_term(dt+1, xa[k], ya[k], za[k]) * resc;
-						a[neq*k+im] = a[neq*im+k];
-					}
-					r[im] = bv[dt];
-					im++;
-				}
-			}
-//        c
-//        c External drift term (specified by external variable):
-//        c
-			if(ktype==EXTERNAL_DRIFT_KRIGING) {
-				//im=im+1
-				for(int k=0; k<n_accepted; k++) {
-					a[neq*im+k] = vea[k]*resce;
-					a[neq*k+im] = vea[k]*resce;
-				}
-				r[im] = extest*resce;
-				im++; // copied afterwards for JAVA indices
-			}
-//        c
-//        c Copy the right hand side to compute the kriging variance later:
-//        c
-			for(int k=0; k<neq; k++) {
-				rr[k] = r[k];
-			}
-			//int kadim = neq * neq;
-			//int ksdim = neq;
-			int nrhs  = 1;
-			int nv    = 1;
-//        c
-//        c If estimating the trend then reset all the right hand side terms=0.0:
-//        c
-			if(itrend==Constants.IYES) {
-				for(int i=0; i<n_accepted; i++) {
-					r[i]  = 0d;
-					rr[i] = 0d;
-				}
-			}
-//        c
-//        c Write out the kriging Matrix if Seriously Debugging:
-//        c
-			if(idbg==3) {
-				try(BufferedWriter bw = new BufferedWriter(new FileWriter(new File(dbgfl),true))) {
-					bw.append("\nEstimating node index : "+(ix+1)+" "+(iy+1)+" "+(iz+1)+"\n");
-					System.out.println("Estimating node index : "+(ix+1)+" "+(iy+1)+" "+(iz+1)+"\n");
-		            int is = 1 - neq,ie;
-		            if(neq==0) {
-		            	bw.append("    number of equation is zero, no solving possible!");
-		            	System.out.println("    number of equation is zero, no solving possible!");
-		            }
-		            for(int i=0; i<neq; i++) {
-		            	is = i*neq;
-		            	ie = is + neq;
-		            	String str_a = "";
-		            	for(int j=is; j<ie; j++) str_a += " "+FormatHelper.nf(a[j],7,4);
-		            	bw.append("    r("+FormatHelper.nf(i+1,2)+")= "+FormatHelper.nf(r[i],7,4)+"  a="+str_a+"\n");
-		            	System.out.println("    r("+FormatHelper.nf(i+1,2)+")= "+FormatHelper.nf(r[i],7,4)+"  a="+str_a);
-		            }
-		            bw.flush();
-				}catch(IOException io_e) {
-					io_e.printStackTrace();
-				}
-			}
-//        c
-//        c Solve the kriging system:
-//        c
-		//      call ktsol(neq,nrhs,nv,a,r,s,ising,maxeq)
-			s = LinEquSolver.ktsol(neq, nrhs, nv, a, r, maxEquations, ai); //TODO ktsol
-//        c
-//        c Compute the solution:
-//        c
-			if(s==null) {
-				if(idbg>=3) {
-					try(BufferedWriter bw = new BufferedWriter(new FileWriter(new File(dbgfl),true))) {
-						bw.append(" Singular Matrix "+(ix+1)+" "+(iy+1)+" "+(iz+1)+"\n");
-						bw.flush();
-					}catch(IOException io_e) {
-						io_e.printStackTrace();
-					}
-				}
-				est  = Constants.FILL_VALUE_D;
-				estv = Constants.FILL_VALUE_D;
-			} else {
-				est  = 0d;
-				estv = cbb;
-				if(ktype==SIMPLE_NON_STATIONARY_KRIGING) skmean = extest;
-				for(int j=0; j<neq; j++) {
-					estv -= s[j]*rr[j];
-					if(j<n_accepted) {
-						if(ktype==SIMPLE_KRIGING) {
-							est += s[j]*(vra[j]-skmean);
-						} else if(ktype==SIMPLE_NON_STATIONARY_KRIGING) {
-							est += s[j]*(vra[j]-vea[j]);
-						} else {
-							est += s[j]*vra[j];
-						}
-					}
-				}
-				if(ktype==SIMPLE_KRIGING || ktype==SIMPLE_NON_STATIONARY_KRIGING) est += skmean;
-				nk++;
-				xk += est;
-				vk += est*est;
-//        c
-//        c Write the kriging weights and data if debugging level is above 2:
-//        c
-				if(idbg>=2) {
-					try(BufferedWriter bw = new BufferedWriter(new FileWriter(new File(dbgfl),true))) {
-						bw.append("\nBLOCK: "+(ix+1)+" "+(iy+1)+" "+(iz+1)+" at "+xloc+" "+yloc+" "+zloc+"\n\n");
-						if(ktype!=SIMPLE_KRIGING)
-							bw.append("  Lagrange : "+(s[n_accepted]*unbias)+"\n");
-						bw.append("  BLOCK EST: x,y,z,vr,wt \n");
-						for(int i=0; i<n_accepted; i++) {
-							xa[i] += xloc - 0.5d*xsiz;
-							ya[i] += yloc - 0.5d*ysiz;
-							za[i] += zloc - 0.5d*zsiz;
-							bw.append(" "+FormatHelper.nf(xa[i],12,3)+" "+FormatHelper.nf(ya[i],12,3)+" "+FormatHelper.nf(za[i],12,3)
-									+ " "+FormatHelper.nf(vra[i],12,3)+" "+FormatHelper.nf(s[i],12,3)+"\n");
-						}
-						bw.append("  estimate, variance  "+est+" "+estv+"\n");
-						bw.flush();
-					} catch(IOException io_e) {
-						io_e.printStackTrace();
-					}
-				}
-			}
-//        c
-//        c END OF MAIN KRIGING LOOP:
-//        c
-		//} // Loop Mark 1: continue;
-			if(iktype==Constants.INO) { //index-kriging?
-				if(koption==0) {
-					writeEstimatedData(index, est, estv, n_accepted);
-				} else {
-					double err = Constants.FILL_VALUE_D;
-					if(_true_!=Constants.FILL_VALUE_D && est!=Constants.FILL_VALUE_D) {
-						err=est-_true_;
-						xkmae += Math.abs(err);
-						xkmse += err*err;
-					}
-					writeEstimatedData(index, est, estv, n_accepted, xloc, yloc, zloc, _true_, err);
-				}
-			} else {
-				writeEstimatedData(index, s, vra, n_accepted, _true_);
-			}
-//		      end do
-		} // 2    continue
 //		if(koption>0) {
 //			try {
 //				brjack.close();
@@ -1399,6 +1036,20 @@ public class KT3D {
 //        c
 //        c Write statistics of kriged values:
 //        c
+		int    nk    = 0;
+		double xk    = 0d;
+		double vk    = 0d;
+		double xkmae = 0d;
+		double xkmse = 0d;
+		for(Worker w: worker) {
+			int wnk = w.getNumberOfKrigedPoints();
+			nk += wnk;
+			double[] acc = w.getAccumulators();
+			xk += acc[0];
+			vk += acc[1];
+			xkmae += acc[2];
+			xkmse += acc[3];
+		}
 		if(nk>0 && idbg>0) {
 			try(BufferedWriter bw = new BufferedWriter(new FileWriter(new File(dbgfl),true))) {
 				xk    /= nk;
@@ -1421,6 +1072,13 @@ public class KT3D {
 		
 		//TODO error-messaging
 		List<String> errmsg = new ArrayList<String>();
+		for(int aic=0; aic<ai.length; aic++)
+			ai[aic] = 0;
+		for(Worker w: worker) {
+			int[] aiw = w.getAi();
+			for(int aic=0; aic<ai.length; aic++)
+				ai[aic] += aiw[aic];
+		}
 		for(int aic=0; aic<ai.length; aic++) {
 			if(ai[aic]>0) {
 				errmsg.add("for "+ai[aic]+" points could not do kriging correctly because got singular matrix (at entry "+aic+")");
@@ -1474,7 +1132,526 @@ public class KT3D {
 //		 96   stop 'ERROR in jackknife file!'
 	}
 
+	private class Worker extends Thread {
+		
+		private boolean isFinished;
+		private int nloop,delta, nk;
+		private int maxEqu, maxSmp, ndb, mdt;
+		private int[] nst;
+		private double unbias, covmax, cbb, resc;
+		private double xloc,yloc,zloc;
+		private double xk, vk, xkmae, xkmse;
+		private double[] x,y,z,dh,ve,vr;
+		private double[] xdb,ydb,zdb, c0;
+		private KdTree tree;
+		
+		//for error logging
+		int[] ai;
+		
+		public Worker(int numberOfLoops, int numberOfPointsPerTask, KdTree searchTree, int maxNumberOfEquations, int maxNumberOfSamples,
+				double unbias_in, double covmax_in, double cbb_in, int ndb_in, double[] c0_in, int[] nst_in, double resc_in, int mdt_in,
+				double[] x_var, double[] y_var, double[] z_var, double[] dh_var, double[] ext_var, double[] vr_var,
+				double[] xdb_in, double[] ydb_in, double[] zdb_in) {
+			// TODO Auto-generated constructor stub
+			nloop = numberOfLoops;
+			delta = numberOfPointsPerTask;
+			tree = searchTree;
+			
+			maxEqu = maxNumberOfEquations;
+			maxSmp = maxNumberOfSamples;
+			unbias = unbias_in;
+			covmax = covmax_in;
+			cbb    = cbb_in;
+			ndb    = ndb_in;
+			c0     = c0_in;
+			nst    = nst_in;
+			resc   = resc_in;
+			mdt    = mdt_in;
+			x  = x_var;
+			y  = y_var;
+			z  = z_var;
+			dh = dh_var;
+			ve = ext_var;
+			vr = vr_var;
+			xdb = xdb_in;
+			ydb = ydb_in;
+			zdb = zdb_in;
+			
+			ai = new int[maxEqu*maxEqu];
+			for(int aic=0; aic<ai.length; aic++) ai[aic] = 0;
+			
+			isFinished = false;
+		}
+		
+		public int getNumberOfKrigedPoints() {
+			return nk;
+		}
+		public double[] getAccumulators() {
+			return new double[] {xk, vk, xkmae, xkmse};
+		}
+		public int[] getAi() {
+			return ai;
+		}
+		public boolean hasFinished() {
+			return isFinished;
+		}
+		
+		@Override
+		public void run() { //TODO worker
+			isFinished = false;
+			
+			//init accumulators:
+			nk    = 0;
+			xk    = 0d;
+			vk    = 0d;
+			xkmae = 0d;
+			xkmse = 0d;
+			
+			//init some local variables
+			int nxy = nx*ny;
+			double[] xa = new double[maxSmp],
+					 ya = new double[maxSmp],
+					 za = new double[maxSmp];
+			double[] vra = new double[maxSmp],
+					 vea = new double[maxSmp];
+			double[] r = new double[maxEqu],
+					 rr = new double[maxEqu],
+					 s= new double[maxEqu],
+					 a = new double[maxEqu*maxEqu];
+			boolean fircon = true;
+			
+			//search for work and do it
+			while(true) {
+				int index_position = indexOffset.addAndGet(delta)-delta;
+				if(index_position>=nloop) break;
 
+				double _true_=0d,//secj,
+						extest=1d;
+				double est=0d,estv=0d,resce=0d, ddh=0d, cov,cb,cb1, wt; // cmax;
+				int n_accepted, ind, neq;
+				int nclose = 0;
+				
+				int localDelta = Math.min(delta, nloop-index_position);
+				for(int index=index_position; index<index_position+localDelta; index++) { //TODO begin of index-loop
+
+//		        c Where are we making an estimate?
+					int ix=0,iy=0,iz=0;
+					if(koption==0) {
+						iz   = (int) (index/nxy);
+						iy   = (int) ((index-iz*nxy)/nx);
+						ix   = index - iz*nxy - iy*nx;
+						xloc = xmn + ix*xsiz;
+						yloc = ymn + iy*ysiz;
+						zloc = zmn + iz*zsiz;
+					} else {
+			            ddh    = 0d;
+			            xloc   = xmn;
+			            yloc   = ymn;
+			            zloc   = zmn;
+			            _true_ = Constants.FILL_VALUE_D;
+//			            secj   = Constants.FILL_VALUE_D;
+			            if(jackdf!=null) {
+			            	if(jack_dh_var!=null)  ddh    = ((double[])jackdf.getArray(jack_dh_var))[index];
+			            	if(jack_x_var!=null)   xloc   = ((double[])jackdf.getArray(jack_x_var))[index];
+			            	if(jack_y_var!=null)   yloc   = ((double[])jackdf.getArray(jack_y_var))[index];
+			            	if(jack_z_var!=null)   zloc   = ((double[])jackdf.getArray(jack_z_var))[index];
+			            	if(jack_vr_var!=null)  _true_ = ((double[])jackdf.getArray(jack_vr_var))[index];
+			            	if(jack_ext_var!=null) extest = ((double[])jackdf.getArray(jack_ext_var))[index];
+			            }
+			            if(_true_<tmin || _true_>=tmax) _true_ = Constants.FILL_VALUE_D;
+					}
+
+//		        i added by E. Metzner:
+//		        i Initialise output fields, if something goes wrong on some kriging points (so est|estv = Constants.FILL_VALUE_D)
+					if(iktype==Constants.INO) {
+						if(koption==0) {
+							writeEstimatedData(index, Constants.FILL_VALUE_D, Constants.FILL_VALUE_D, 0);
+						} else {
+							writeEstimatedData(index, Constants.FILL_VALUE_D, Constants.FILL_VALUE_D, 0, xloc, yloc, zloc, Constants.FILL_VALUE_D, Constants.FILL_VALUE_D);
+						}
+					} else {
+						writeEstimatedData(index, s, vra, 0, Constants.FILL_VALUE_D);
+					}
+
+//		        c Read in the external drift variable for this grid node if needed:
+					if(ktype==SIMPLE_NON_STATIONARY_KRIGING || ktype==EXTERNAL_DRIFT_KRIGING) {
+						if(koption==0) {
+							extest = ((double[])externdf.getArray(ext_var_e))[index];
+//				                  read(lext,*) (var(i),i=1,iextve)
+//				                  extest = var(iextve)
+						}
+						if(extest<tmin || extest>=tmax) {
+							est  = Constants.FILL_VALUE_D;
+							estv = Constants.FILL_VALUE_D;
+							continue;
+						}
+						resce  = covmax / Math.max(extest,0.0001d);
+					}
+
+//		        c Find the nearest samples:
+					//int[] supres = DataHelper.srchsupr(xloc, yloc, zloc, radsqd, isrot, rotmat,
+					//		nsbtosr, ixsbtosr, iysbtosr, izsbtosr, noct,
+					//		nd, x, y, z, tmp, nisb, superblock_grid, closest);
+					n_accepted = 0;
+					int actualUsedOctants = 0;
+					int tryNumOctants = numOctants;
+					while(tryNumOctants>0) {
+						actualUsedOctants = tryNumOctants;
+						int[] supres = tree.getIndexOfNClosestPointsTo(ndmin, ndmax, numOctants, rotmat[MAXNST], false, false, xloc, yloc, zloc); //use redefined maximum search distance
+						nclose = supres[0]; //TODO
+						//int infoct = supres[1];
+	
+	//		        c Load the nearest data in xa,ya,za,vra,vea:
+						n_accepted = 0;
+	//					System.out.println("[DEBUG]  pivot:                 pos "+
+	//							FormatHelper.nf(xloc,12,8)+" "+FormatHelper.nf(yloc,12,8)+" "+FormatHelper.nf(zloc,12,8));
+						double pre_x=0d, pre_y=0d, pre_z=0d, pre_r=0d, pre_e=0d, pre_cov;
+						for(int i=0; i<nclose; i++) {
+							ind    = supres[i+1];
+	//						System.out.println("[DEBUG]  closest point: ind "+FormatHelper.nf(ind,3)+" pos "+
+	//								FormatHelper.nf(x[ind],12,8)+" "+FormatHelper.nf(y[ind],12,8)+" "+FormatHelper.nf(z[ind],12,8));
+							boolean accept = true;
+							if(koption!=0 && (Math.abs(x[ind]-xloc)+Math.abs(y[ind]-yloc)+Math.abs(z[ind]-zloc))<EPSLON)
+								accept = false;
+							if(koption!=0 && (Math.abs(dh[ind]-ddh))<EPSLON)
+								accept = false;
+							if(accept) { //pre-acception
+								pre_x = x[ind] - xloc + 0.5d*xsiz;
+								pre_y = y[ind] - yloc + 0.5d*ysiz;
+								pre_z = z[ind] - zloc + 0.5d*zsiz;
+								pre_r = vr[ind];
+								pre_e = ve[ind];
+								if(ndb<=1) {
+									pre_cov = Covariance.cova3(pre_x, pre_y, pre_z, xdb[0], ydb[0], zdb[0],
+											1, nst, MAXNST, c0, it, cc, aa, 1, MAXROT, rotmat)[0];
+								} else {
+									pre_cov  = 0d;
+									for(int j=0; j<ndb; j++) {
+										cov = Covariance.cova3(pre_x, pre_y, pre_z, xdb[j], ydb[j], zdb[j],
+												1, nst, MAXNST, c0, it, cc, aa, 1, MAXROT, rotmat)[0];
+										pre_cov += cov;
+										double dx = pre_x - xdb[j];
+										double dy = pre_y - ydb[j];
+										double dz = pre_z - zdb[j];
+										if(dx*dx+dy*dy+dz*dz < EPSLON) pre_cov -= c0[0];
+									}
+									pre_cov /= ndb;
+								}
+								accept = Math.abs(pre_cov)>EPSLON;
+							}
+							if(accept) { //pre-acception
+								if(n_accepted<ndmax) {
+									xa[n_accepted]  = pre_x;
+									ya[n_accepted]  = pre_y;
+									za[n_accepted]  = pre_z;
+									vra[n_accepted] = pre_r;
+									vea[n_accepted] = pre_e;
+									n_accepted++; //copy afterward for JAVA indices
+								}
+							}
+						}
+						if(n_accepted>=ndmin)
+							break;
+						tryNumOctants = Math.min(Math.max(1+(n_accepted-1)/ndmin, 0), tryNumOctants-1);
+					}
+
+//		        c Test number of samples found:
+					int ndmino = ndmin*actualUsedOctants;
+					if(n_accepted<ndmino) {
+						est  = Constants.FILL_VALUE_D;
+						estv = Constants.FILL_VALUE_D;
+						if(idbg>=2) {
+							try(BufferedWriter bw = new BufferedWriter(new FileWriter(new File(dbgfl),true))) {
+								bw.append(" Encountered a location where there were too few data\n"
+										+ " for Ord.Kriging or Simple Kriging. KT3D currently\n"
+										+ " leaves these locations Constants.FILL_VALUEimated.\n");
+								bw.flush();
+							}catch(IOException io_e) {
+								io_e.printStackTrace();
+							}
+							System.out.println("   Too few data: No Ordinary or Simple Kriging!");
+						}
+						continue;
+					}
+
+//		        c Test if there are enough samples to estimate all drift terms:
+					if(n_accepted>=1 && n_accepted<=mdt) {
+						if(fircon) {
+							try(BufferedWriter bw = new BufferedWriter(new FileWriter(new File(dbgfl),true))) {
+								bw.append(" Encountered a location where there were too few data\n"
+										+ " to estimate all of the drift terms but there would be\n"
+										+ " enough data for Ord.Kriging or Simple Kriging. KT3D\n"
+										+ " currently leaves these locations Constants.FILL_VALUEimated.\n"
+										+ " This message is only written once - the first time.\n");
+								bw.flush();
+							}catch(IOException io_e) {
+								io_e.printStackTrace();
+							}
+							fircon = false;
+						}
+						est  = Constants.FILL_VALUE_D;
+						estv = Constants.FILL_VALUE_D;
+						continue;
+					}
+
+//		        c There are enough samples - proceed with estimation.
+					if(n_accepted<=1) {
+
+//		        c Handle the situation of only one sample:
+						cb1 = Covariance.cova3(xa[0], ya[0], za[0], xa[0], ya[0], za[0],
+								1, nst, MAXNST, c0, it, cc, aa, 1, MAXROT, rotmat)[0];
+
+//		        c Establish Right Hand Side Covariance:
+						if(ndb<=1) {
+							cb = Covariance.cova3(xa[0], ya[0], za[0], xdb[0], ydb[0], zdb[0],
+									1, nst, MAXNST, c0, it, cc, aa, 1, MAXROT, rotmat)[0];
+						} else {
+							cb  = 0d;
+							for(int i=0; i<ndb; i++) {
+								cov = Covariance.cova3(xa[0], ya[0], za[0], xdb[i], ydb[i], zdb[i],
+										1, nst, MAXNST, c0, it, cc, aa, 1, MAXROT, rotmat)[0];
+								cb += cov;
+								double dx = xa[0] - xdb[i];
+								double dy = ya[0] - ydb[i];
+								double dz = za[0] - zdb[i];
+								if(dx*dx+dy*dy+dz*dz < EPSLON) cb -= c0[0];
+							}
+							cb /= ndb;
+						}
+
+//		        c Early bug - always did OK in presence of one data.
+						if(ktype==SIMPLE_NON_STATIONARY_KRIGING) skmean = extest;
+						if(ktype==SIMPLE_KRIGING || ktype==SIMPLE_NON_STATIONARY_KRIGING) {
+							wt   = cb / cb1;
+							est  = wt * vra[0] + (1d-wt) * skmean;
+							estv = cbb - wt*cb;
+						} else {
+							est  = vra[0];
+							estv = cbb - 2d*cb + cb1;
+						}
+						nk++;
+						xk += est;
+						vk += est*est;
+						continue;
+					}
+
+//		        c Go ahead and set up the OK portion of the kriging matrix:
+					neq = mdt+n_accepted;
+
+//		        c Initialize the main kriging matrix:
+					for(int i=0; i<neq*neq; i++) {
+						a[i] = 0d;
+					}
+
+//		        c Fill in the kriging matrix:
+					for(int i=0; i<n_accepted; i++) for(int j=i; j<n_accepted; j++) {
+						cov = Covariance.cova3(xa[i], ya[i], za[i], xa[j], ya[j], za[j],
+								1, nst, MAXNST, c0, it, cc, aa, 1, MAXROT, rotmat)[0];
+						a[neq*i+j] = cov;
+						a[neq*j+i] = cov;
+					}
+
+//		        c Fill in the OK unbiasedness portion of the matrix (if not doing SK):
+					if(neq>n_accepted) {
+						for(int i=0; i<n_accepted; i++) {
+							a[neq*i+n_accepted] = unbias;
+							a[neq*n_accepted+i] = unbias;
+						}
+					}
+
+//		        c Set up the right hand side:
+					//System.out.println("[KT3D] point to estimate:"); //TODO DEBUG, remove later
+					//System.out.println("         "+FormatHelper.nf(xdb[0],10,6)+"  "+FormatHelper.nf(ydb[0],10,6)+"  "+FormatHelper.nf(zdb[0],10,6));
+					//System.out.println("       points surround with value:");
+					for(int i=0; i<n_accepted; i++) {
+						if(ndb<=1) {
+							cb = Covariance.cova3(xa[i],ya[i],za[i], xdb[0],ydb[0],zdb[0],
+									1,nst,MAXNST, c0,it,cc,aa, 1,MAXROT,rotmat)[0];
+							//System.out.println("         xyz={"+FormatHelper.nf(xa[i],10,6)+" "+FormatHelper.nf(ya[i],10,6)+" "+FormatHelper.nf(za[i],10,6)+"}  "+
+							//		"abc={"+FormatHelper.nf(xdb[0],10,6)+" "+FormatHelper.nf(ydb[0],10,6)+" "+FormatHelper.nf(zdb[0],10,6)+"}  "+
+							//		FormatHelper.nf(cb,10,6));
+						} else {
+							cb  = 0d;
+							//String tempstr = "";
+							for(int j=0; j<ndb; j++) {
+								cov = Covariance.cova3(xa[i], ya[i], za[i], xdb[j], ydb[j], zdb[j],
+										1, nst, MAXNST, c0, it, cc, aa, 1, MAXROT, rotmat)[0];
+								cb += cov;
+								//tempstr += " "+FormatHelper.nf(cov,8,6);
+								double dx = xa[i] - xdb[j];
+								double dy = ya[i] - ydb[j];
+								double dz = za[i] - zdb[j];
+								if(dx*dx+dy*dy+dz*dz < EPSLON) cb -= c0[0];
+							}
+							cb /= ndb;
+							//System.out.println("           ,--<  "+tempstr);
+							//System.out.println("         "+FormatHelper.nf(xa[i],10,6)+"  "+FormatHelper.nf(ya[i],10,6)+"  "+FormatHelper.nf(za[i],10,6)+"  "+
+							//		FormatHelper.nf(cb,10,6));
+						}
+						r[i] = cb;
+					}
+					if(neq>n_accepted) r[n_accepted] = unbias;
+
+//		        c Add the additional unbiasedness constraints:
+					int im = n_accepted + 1;
+
+//		        c (dt) drift term (linear|quadratic|cubic in "x|y"):
+					for(int dt=0; dt<MAXDT; dt++) {
+						if(idrif[dt]==Constants.IYES) {
+							for(int k=0; k<n_accepted; k++) {
+								a[neq*im+k] = drift_term(dt+1, xa[k], ya[k], za[k]) * resc;
+								a[neq*k+im] = a[neq*im+k];
+							}
+							r[im] = bv[dt];
+							im++;
+						}
+					}
+//		        c
+//		        c External drift term (specified by external variable):
+//		        c
+					if(ktype==EXTERNAL_DRIFT_KRIGING) {
+						//im=im+1
+						for(int k=0; k<n_accepted; k++) {
+							a[neq*im+k] = vea[k]*resce;
+							a[neq*k+im] = vea[k]*resce;
+						}
+						r[im] = extest*resce;
+						im++; // copied afterwards for JAVA indices
+					}
+//		        c
+//		        c Copy the right hand side to compute the kriging variance later:
+//		        c
+					for(int k=0; k<neq; k++) {
+						rr[k] = r[k];
+					}
+					//int kadim = neq * neq;
+					//int ksdim = neq;
+					int nrhs  = 1;
+					int nv    = 1;
+//		        c
+//		        c If estimating the trend then reset all the right hand side terms=0.0:
+//		        c
+					if(itrend==Constants.IYES) {
+						for(int i=0; i<n_accepted; i++) {
+							r[i]  = 0d;
+							rr[i] = 0d;
+						}
+					}
+//		        c
+//		        c Write out the kriging Matrix if Seriously Debugging:
+//		        c
+					if(idbg==3) {
+						try(BufferedWriter bw = new BufferedWriter(new FileWriter(new File(dbgfl),true))) {
+							bw.append("\nEstimating node index : "+(ix+1)+" "+(iy+1)+" "+(iz+1)+"\n");
+							System.out.println("Estimating node index : "+(ix+1)+" "+(iy+1)+" "+(iz+1)+"\n");
+				            int is = 1 - neq,ie;
+				            if(neq==0) {
+				            	bw.append("    number of equation is zero, no solving possible!");
+				            	System.out.println("    number of equation is zero, no solving possible!");
+				            }
+				            for(int i=0; i<neq; i++) {
+				            	is = i*neq;
+				            	ie = is + neq;
+				            	String str_a = "";
+				            	for(int j=is; j<ie; j++) str_a += " "+FormatHelper.nf(a[j],7,4);
+				            	bw.append("    r("+FormatHelper.nf(i+1,2)+")= "+FormatHelper.nf(r[i],7,4)+"  a="+str_a+"\n");
+				            	System.out.println("    r("+FormatHelper.nf(i+1,2)+")= "+FormatHelper.nf(r[i],7,4)+"  a="+str_a);
+				            }
+				            bw.flush();
+						}catch(IOException io_e) {
+							io_e.printStackTrace();
+						}
+					}
+//		        c
+//		        c Solve the kriging system:
+//		        c
+				//      call ktsol(neq,nrhs,nv,a,r,s,ising,maxeq)
+					s = LinEquSolver.ktsol(neq, nrhs, nv, a, r, maxEqu, ai); //TODO ktsol
+//		        c
+//		        c Compute the solution:
+//		        c
+					if(s==null) {
+						if(idbg>=3) {
+							try(BufferedWriter bw = new BufferedWriter(new FileWriter(new File(dbgfl),true))) {
+								bw.append(" Singular Matrix "+(ix+1)+" "+(iy+1)+" "+(iz+1)+"\n");
+								bw.flush();
+							}catch(IOException io_e) {
+								io_e.printStackTrace();
+							}
+						}
+						est  = Constants.FILL_VALUE_D;
+						estv = Constants.FILL_VALUE_D;
+					} else {
+						est  = 0d;
+						estv = cbb;
+						if(ktype==SIMPLE_NON_STATIONARY_KRIGING) skmean = extest;
+						for(int j=0; j<neq; j++) {
+							estv -= s[j]*rr[j];
+							if(j<n_accepted) {
+								if(ktype==SIMPLE_KRIGING) {
+									est += s[j]*(vra[j]-skmean);
+								} else if(ktype==SIMPLE_NON_STATIONARY_KRIGING) {
+									est += s[j]*(vra[j]-vea[j]);
+								} else {
+									est += s[j]*vra[j];
+								}
+							}
+						}
+						//TODO is following line a right estimate for variance if not desired octant number is reached?
+						estv *= numOctants / actualUsedOctants;
+						if(ktype==SIMPLE_KRIGING || ktype==SIMPLE_NON_STATIONARY_KRIGING) est += skmean;
+						nk++;
+						xk += est;
+						vk += est*est;
+//		        c
+//		        c Write the kriging weights and data if debugging level is above 2:
+//		        c
+						if(idbg>=2) {
+							try(BufferedWriter bw = new BufferedWriter(new FileWriter(new File(dbgfl),true))) {
+								bw.append("\nBLOCK: "+(ix+1)+" "+(iy+1)+" "+(iz+1)+" at "+xloc+" "+yloc+" "+zloc+"\n\n");
+								if(ktype!=SIMPLE_KRIGING)
+									bw.append("  Lagrange : "+(s[n_accepted]*unbias)+"\n");
+								bw.append("  BLOCK EST: x,y,z,vr,wt \n");
+								for(int i=0; i<n_accepted; i++) {
+									xa[i] += xloc - 0.5d*xsiz;
+									ya[i] += yloc - 0.5d*ysiz;
+									za[i] += zloc - 0.5d*zsiz;
+									bw.append(" "+FormatHelper.nf(xa[i],12,3)+" "+FormatHelper.nf(ya[i],12,3)+" "+FormatHelper.nf(za[i],12,3)
+											+ " "+FormatHelper.nf(vra[i],12,3)+" "+FormatHelper.nf(s[i],12,3)+"\n");
+								}
+								bw.append("  estimate, variance  "+est+" "+estv+"\n");
+								bw.flush();
+							} catch(IOException io_e) {
+								io_e.printStackTrace();
+							}
+						}
+					}
+//		        c
+//		        c END OF MAIN KRIGING LOOP:
+//		        c
+				//} // Loop Mark 1: continue;
+					if(iktype==Constants.INO) { //index-kriging?
+						if(koption==0) {
+							writeEstimatedData(index, est, estv, n_accepted);
+						} else {
+							double err = Constants.FILL_VALUE_D;
+							if(_true_!=Constants.FILL_VALUE_D && est!=Constants.FILL_VALUE_D) {
+								err=est-_true_;
+								xkmae += Math.abs(err);
+								xkmse += err*err;
+							}
+							writeEstimatedData(index, est, estv, n_accepted, xloc, yloc, zloc, _true_, err);
+						}
+					} else {
+						writeEstimatedData(index, s, vra, n_accepted, _true_);
+					}
+//				      end do
+				}
+			}
+			
+			isFinished = true;
+		}
+	}
 
 
 

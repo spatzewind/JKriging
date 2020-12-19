@@ -89,8 +89,52 @@ public class GAMV {
 		dataframe = _df;
 		paramchecklist[2] = true;
 	}
-	public void addDirection(double azm, double atol, double bandwh, double dip, double dtol, double bandwd) {
-		direction.add(new double[] {azm,atol,bandwh, dip,dtol,bandwd});
+	public void addMathDirection(double azm, double atol, double bandwh, double dip, double dtol, double bandwd) {
+		addMathDirection(azm, atol, bandwh, dip, dtol, bandwd, 'd');
+	}
+	public void addMathDirection(double azm, double atol, double bandwh, double dip, double dtol, double bandwd, char angleType) {
+		double a = azm;
+		double at = atol;
+		double d = dip;
+		double dt = dtol;
+		switch(angleType) {
+			case 'd': //DEGREE->DEGREE
+				break;
+			case 'g': //GON->DEGREE
+				a *= 0.9d; at *= 0.9d;
+				d *= 0.9d; dt *= 0.9d;
+				break;
+			case 'r': //RADIANS->DEGREE
+				a *= Constants.RAD2DEG; at *= Constants.RAD2DEG;
+				d *= Constants.RAD2DEG; dt *= Constants.RAD2DEG;
+				break;
+			default: break;
+		}
+		direction.add(new double[] {a,at,bandwh, d,dt,bandwd});
+		paramchecklist[3] = true;
+	}
+	public void addGeoDirection(double azm, double atol, double bandwh, double dip, double dtol, double bandwd) {
+		addGeoDirection(azm, atol, bandwh, dip, dtol, bandwd, 'd');
+	}
+	public void addGeoDirection(double azm, double atol, double bandwh, double dip, double dtol, double bandwd, char angleType) {
+		double a = azm;
+		double at = atol;
+		double d = dip;
+		double dt = dtol;
+		switch(angleType) {
+			case 'd': //DEGREE->DEGREE
+				break;
+			case 'g': //GON->DEGREE
+				a *= 0.9d; at *= 0.9d;
+				d *= 0.9d; dt *= 0.9d;
+				break;
+			case 'r': //RADIANS->DEGREE
+				a *= Constants.RAD2DEG; at *= Constants.RAD2DEG;
+				d *= Constants.RAD2DEG; dt *= Constants.RAD2DEG;
+				break;
+			default: break;
+		}
+		direction.add(new double[] {90d-a,at,bandwh, d,dt,bandwd});
 		paramchecklist[3] = true;
 	}
 	public void addVariogramDef(int type, int tailID, int headID, double _cut) {
@@ -494,7 +538,7 @@ public class GAMV {
 
 //        c The mathematical azimuth is measured counterclockwise from EW and
 //        c not clockwise from NS as the conventional azimuth is:
-				double azmuth = (90d-azm) * D2R;
+				double azmuth = azm * D2R; //reworked to use mathematical angles everywhere as possible
 				double uvxazm = Math.cos(azmuth);
 				double uvyazm = Math.sin(azmuth);
 				double csatol = (atol<=0d ? Math.cos(45d*PI/180d) : Math.cos(atol*PI/180d));

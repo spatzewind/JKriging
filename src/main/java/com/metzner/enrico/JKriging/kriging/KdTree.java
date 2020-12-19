@@ -91,22 +91,23 @@ public class KdTree {
 	}
 	
 	public int getIndexOfClosestPointTo(boolean use_polar_coordinates, boolean is_in_degree, double... coords) {
-		return getIndexOfNClosestPointsTo(1, Double.POSITIVE_INFINITY, use_polar_coordinates, is_in_degree, coords)[1];
+		return getIndexOfNClosestPointsTo(1, 1, 1, Double.POSITIVE_INFINITY, use_polar_coordinates, is_in_degree, coords)[1];
 	}
-	public int[] getIndexOfNClosestPointsTo(int number_of_points, boolean use_polar_coordinates, boolean is_in_degree, double... coords) {
-		return getIndexOfNClosestPointsTo(number_of_points, Double.POSITIVE_INFINITY, identity_matrix, use_polar_coordinates, is_in_degree, coords);
+	public int[] getIndexOfNClosestPointsTo(int min_points, int max_points, int minOcts, boolean use_polar_coordinates, boolean is_in_degree, double... coords) {
+		return getIndexOfNClosestPointsTo(min_points, max_points, minOcts, Double.POSITIVE_INFINITY, identity_matrix, use_polar_coordinates, is_in_degree, coords);
 	}
-	public int[] getIndexOfNClosestPointsTo(int number_of_points, double maximum_distance, boolean use_polar_coordinates, boolean is_in_degree, double... coords) {
-		return getIndexOfNClosestPointsTo(number_of_points, maximum_distance, identity_matrix, use_polar_coordinates, is_in_degree, coords);
+	public int[] getIndexOfNClosestPointsTo(int min_points, int max_points, int minOcts, double maximum_distance, boolean use_polar_coordinates, boolean is_in_degree, double... coords) {
+		return getIndexOfNClosestPointsTo(min_points, max_points, minOcts, maximum_distance, identity_matrix, use_polar_coordinates, is_in_degree, coords);
 	}
-	public int[] getIndexOfNClosestPointsTo(int number_of_points, double[][] rotation_matrix, boolean use_polar_coordinates, boolean is_in_degree, double... coords) {
-		return getIndexOfNClosestPointsTo(number_of_points, Double.POSITIVE_INFINITY, rotation_matrix, use_polar_coordinates, is_in_degree, coords);
+	public int[] getIndexOfNClosestPointsTo(int min_points, int max_points, int minOcts, double[][] rotation_matrix, boolean use_polar_coordinates, boolean is_in_degree, double... coords) {
+		return getIndexOfNClosestPointsTo(min_points, max_points, minOcts, Double.POSITIVE_INFINITY, rotation_matrix, use_polar_coordinates, is_in_degree, coords);
 	}
-	public int[] getIndexOfNClosestPointsTo(int number_of_points, double maximum_distance, double[][] rotation_matrix, boolean use_polar_coordinates, boolean is_in_degree, double... coords) {
+	public int[] getIndexOfNClosestPointsTo(int min_points, int max_points, int minOcts, double maximum_distance, double[][] rotation_matrix, boolean use_polar_coordinates, boolean is_in_degree, double... coords) {
 		//System.out.println("[KDTREE] Search for Indices of N points:\n"+
 		//                   "            N = "+number_of_points); //TODO DEBUG remove
-		int[] indices = new int[number_of_points+1];
-		for(int i=0; i<number_of_points; i++) indices[i+1] = -1;
+		int nump = Math.max(min_points*minOcts, max_points);
+		int[] indices = new int[nump+1];
+		for(int i=0; i<nump; i++) indices[i+1] = -1;
 		indices[0] = 0;
 		if(root==null) {
 			System.err.println("no k-d-tree was build or an other error occured! Return -1."); DataHelper.printStackTrace(System.err);
@@ -148,19 +149,40 @@ public class KdTree {
 		//System.out.println("            trpinvrotmat = ");
 		//FormatHelper.printMat(System.out, transposed_inverse_rotation_matrix);
 		double max_dist_squared = maximum_distance * maximum_distance;
-		for(int i=0; i<number_of_points; i++) {
+		int[] octants = new int[2<<pivot.length];
+		int minNumOctSearch = Math.max(1+(min_points-1)/minOcts, 1)*minOcts;
+		for(int i=0; i<nump; i++) {
+			int minp = (i<minNumOctSearch ? i/minOcts : nump);
+			int exOctCount = 0;
+			for(int o=0; o<octants.length; o++)
+				if(octants[o]>minp) exOctCount++;
+			int[] exOctants = new int[exOctCount];
+			int e=0;
+			for(int o=0; o<octants.length; o++) {
+				if(octants[o]>=nump) {
+					exOctants[e] = o;
+					e++;
+				}
+			}
 			//System.out.println("            point "+(i+1)+":"); //TODO DEBUG remove
 			//System.out.println("                -- min-dist = "+minimum_distance);
-			KdTreeNode closest = closestNode(pivot, indices, max_dist_squared, rotation_matrix, transposed_inverse_rotation_matrix, root, 0);
+			KdTreeNode closest = closestNode(pivot, indices, exOctants, pivot, max_dist_squared, rotation_matrix, transposed_inverse_rotation_matrix, root, 0);
 			if(closest==null) break;
 			indices[i+1] = closest.getIndex();
 			indices[0]++;
+			int closestOctant = 0;
+			double[] closestPos = closest.getPosition();
+			for(int d=0; d<pivot.length; d++) {
+				int j = 1<<d;
+				if(closestPos[d]<pivot[d]) closestOctant |= j;
+			}
+			octants[closestOctant]++;
 		}
 		return indices;
 	}
 	
 	
-	private KdTreeNode closestNode(double[] _pivot, int[] nodesToExclude, double max_sqr_dist, double[][] rotmat, double[][] trpinvrotmat, KdTreeNode current_branch, int axis) {
+	private KdTreeNode closestNode(double[] _pivot, int[] nodesToExclude, int[] octantsToExclode, double[] centerOfOctants, double max_sqr_dist, double[][] rotmat, double[][] trpinvrotmat, KdTreeNode current_branch, int axis) {
 		if(current_branch == null) return null;
 		
 		KdTreeNode next_branch = null;
@@ -177,9 +199,9 @@ public class KdTree {
 		
 		KdTreeNode best = closer_point(
 					_pivot,
-					closestNode(_pivot, nodesToExclude, max_sqr_dist, rotmat, trpinvrotmat, next_branch, (axis+1)%_pivot.length),
+					closestNode(_pivot, nodesToExclude, octantsToExclode, centerOfOctants, max_sqr_dist, rotmat, trpinvrotmat, next_branch, (axis+1)%_pivot.length),
 					current_branch,
-					nodesToExclude, max_sqr_dist, rotmat);
+					nodesToExclude, octantsToExclode, centerOfOctants, max_sqr_dist, rotmat);
 		double dist = max_sqr_dist;
 		if(best!=null) {
 			dist = MathHelper.sqdistKD(_pivot, best.getPosition(), rotmat);
@@ -207,13 +229,13 @@ public class KdTree {
 		if ( planedist < dist )
 			best = closer_point(
 					_pivot,
-					closestNode(_pivot, nodesToExclude, max_sqr_dist, rotmat, trpinvrotmat, opp_branch, (axis+1)%_pivot.length),
+					closestNode(_pivot, nodesToExclude, octantsToExclode, centerOfOctants, max_sqr_dist, rotmat, trpinvrotmat, opp_branch, (axis+1)%_pivot.length),
 					best,
-					nodesToExclude, max_sqr_dist, rotmat);
+					nodesToExclude, octantsToExclode, centerOfOctants, max_sqr_dist, rotmat);
 		
 		return best;
 	}
-	private KdTreeNode closer_point(double[] piv, KdTreeNode p1, KdTreeNode p2, int[] excluded_nodes, double maximum_squared_distance, double[][] rotation_matrix) {
+	private KdTreeNode closer_point(double[] piv, KdTreeNode p1, KdTreeNode p2, int[] excluded_nodes, int[] exclude_octants, double[] octant_center, double maximum_squared_distance, double[][] rotation_matrix) {
 		if(p2==null) return p1;
 		if(p1==null) return p2;
 		double[] p1p = p1.getPosition();
@@ -224,6 +246,16 @@ public class KdTree {
 		for(int i=1; i<excluded_nodes.length; i++) {
 			if(p1.getIndex()==excluded_nodes[i]) p1toEx = true;
 			if(p2.getIndex()==excluded_nodes[i]) p2toEx = true;
+		}
+		int p1oct = 0, p2oct = 0;
+		for(int d=0; d<octant_center.length; d++) {
+			int i = 1<<d;
+			if(p1p[d]<octant_center[d]) p1oct |= i;
+			if(p2p[d]<octant_center[d]) p2oct |= i;
+		}
+		for(int i=0; i<exclude_octants.length; i++) {
+			if(p1oct == exclude_octants[i]) p1toEx = true;
+			if(p2oct == exclude_octants[i]) p2toEx = true;
 		}
 		if(p1toEx || d1>maximum_squared_distance)
 			return (p2toEx || d2>maximum_squared_distance ? null : p2);
@@ -239,6 +271,9 @@ public class KdTree {
 	public KdTreeNode getRoot() { return root; }
 	public double getProgress() { return progress; }
 	
+	public String toJSON() {
+		return root.toJson();
+	}
 	
 	
 	public class KdTreeNode {
