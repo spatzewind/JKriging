@@ -1,6 +1,8 @@
 package com.metzner.enrico.JKriging.probability;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.metzner.enrico.JKriging.data.Constants;
@@ -16,17 +18,82 @@ public class ProbabilityTransform {
 	public static final int INTPOL_POWER      = 2;
 	public static final int INTPOL_HYPERBOLIC = 4;
 
-	public static double[][] nscore(DataFrame df, int variable_id, int weights_id, String name_transformed) {
+	/**
+	 * Transform Univariate Data to Normal Scores
+	 * <p>
+	 *     This subroutine takes data from variable by "variable_id" var(i),i=1,...,n possibly weighted
+	 *     by variable with "weights_id" wgt(i),i=,...,n and returns the normal scores transform N(0,1)
+	 *     as "double[][]" vrg(i),i=1,...,n. An extra storage array "tmp" is used internally
+	 *     so that the data can be returned in the same order (just in case there are associated arrays
+	 *     like the coordinate location).
+	 * </p>
+	 * 
+	 * @param df               data containing dataframe
+	 * @param variable_id      id of the variable in the dataframe
+	 * @param weights_id       id of optional weight variable in the dataframe (if not use, set zero)
+	 * @param name_transformed name of the transformed result to put it in the dataframe
+	 * @return                 transformation table as Array with var-transformed-pairs
+	 */
+	public static double[][] nscore(DataFrame df, int variable_id, int weights_id, double separation, String name_transformed) {
 		return nscore(df, df.getVarname(variable_id), df.getVarname(weights_id),
-				new double[] {Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY}, name_transformed);
+				new double[] {Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY}, separation, name_transformed);
 	}
-	public static double[][] nscore(DataFrame df, String variable, String weight_variable, String name_transformed) {
-		return nscore(df, variable, weight_variable, new double[] {Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY}, name_transformed);
+	/**
+	 * Transform Univariate Data to Normal Scores
+	 * <p>
+	 *     This subroutine takes data from variable by name "variable" var(i),i=1,...,n possibly weighted
+	 *     by variable with name "weight_variable" wgt(i),i=,...,n and returns the normal scores transform N(0,1)
+	 *     as "double[][]" vrg(i),i=1,...,n. An extra storage array "tmp" is used internally
+	 *     so that the data can be returned in the same order (just in case there are associated arrays
+	 *     like the coordinate location).
+	 * </p>
+	 * 
+	 * @param df               data containing dataframe
+	 * @param variable         name of the variable in the dataframe
+	 * @param weights_id       id of optional weight variable in the dataframe (if not use, set null)
+	 * @param name_transformed name of the transformed result to put it in the dataframe
+	 * @return                 transformation table as Array with var-transformed-pairs
+	 */
+	public static double[][] nscore(DataFrame df, String variable, String weight_variable, double separation, String name_transformed) {
+		return nscore(df, variable, weight_variable, new double[] {Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY}, separation, name_transformed);
 	}
-	public static double[][] nscore(DataFrame df, int variable_id, int weights_id, double[] trims, String name_transformed) {
-		return nscore(df, df.getVarname(variable_id), df.getVarname(weights_id), trims, name_transformed);
+	/**
+	 * Transform Univariate Data to Normal Scores
+	 * <p>
+	 *     This subroutine takes data from variable by "variable_id" var(i),i=1,...,n possibly weighted
+	 *     by variable with "weights_id" wgt(i),i=,...,n and returns the normal scores transform N(0,1)
+	 *     as "double[][]" vrg(i),i=1,...,n. An extra storage array "tmp" is used internally
+	 *     so that the data can be returned in the same order (just in case there are associated arrays
+	 *     like the coordinate location).
+	 * </p>
+	 * 
+	 * @param df               data containing dataframe
+	 * @param variable_id      id of the variable in the dataframe
+	 * @param weights_id       id of optional weight variable in the dataframe (if not use, set null)
+	 * @param trims
+	 * @param name_transformed name of the transformed result to put it in the dataframe
+	 * @return                 transformation table as array with var-transformed-pair
+	 */
+	public static double[][] nscore(DataFrame df, int variable_id, int weights_id, double[] trims, double separation, String name_transformed) {
+		return nscore(df, df.getVarname(variable_id), df.getVarname(weights_id), trims, separation, name_transformed);
 	}
-	public static double[][] nscore(DataFrame df, String variable, String weight_variable, double[] trims, String name_transformed) {
+	/**
+	 * Transform Univariate Data to Normal Scores
+	 * <p>
+	 *     This subroutine takes data from variable by "variable_id" var(i),i=1,...,n possibly weighted
+	 *     by variable with "weights_id" wgt(i),i=,...,n and returns the normal scores transform N(0,1)
+	 *     as "double[][]" vrg(i),i=1,...,n. An extra storage array "tmp" is used internally
+	 *     so that the data can be returned in the same order (just in case there are associated arrays
+	 *     like the coordinate location).
+	 * </p>
+	 * 
+	 * @param df               data containing dataframe
+	 * @param variable_id      id of the variable in the dataframe
+	 * @param weights_id       id of optional weight variable in the dataframe (if not use, set null)
+	 * @param name_transformed name of the transformed result to put it in the dataframe
+	 * @return                 transformation table as Array with var-transformed-pairs
+	 */
+	public static double[][] nscore(DataFrame df, String variable, String weight_variable, double[] trims, double separation, String name_transformed) {
 //        c-----------------------------------------------------------------------
 //        c
 //        c              Transform Univariate Data to Normal Scores
@@ -97,38 +164,70 @@ public class ProbabilityTransform {
 			return null;
 		}
 		
-		//remove rundancy and NaNs!
-		Map<Double,double[]> double_map = new HashMap<Double, double[]>();
+		//remove redundancy and NaNs!
+		int max_hit_count = 1;
+		List<double[]> distribution = new ArrayList<double[]>();
 		for(int i=0; i<nd; i++) {
 			if(Double.isNaN(vr[i])) continue;
 			if(vr[i]<trims[0] || vr[i]>=trims[1]) continue;
-			Double d = new Double(vr[i]);
-			if(double_map.containsKey(d)) {
-				double[] nwt = double_map.get(d);
-				nwt[0] += wt[i];
-				double_map.put(d, nwt);
+			boolean is_new = true;
+			int entryID = 0;
+			while(entryID<distribution.size()) {
+				double[] entry = distribution.get(entryID);
+				if(Math.abs(vr[i]-entry[0])<separation) {
+					is_new = false;
+					break;
+				}
+				entryID++;
+			}
+			if(is_new) {
+				distribution.add(new double[] {vr[i], wt[i], i+0.1d});
 			} else {
-				double_map.put(d, new double[] {wt[i], i+0.1d});
+				double[] e_old = distribution.get(entryID);
+				double[] e_new = new double[e_old.length+1];
+				for(int e=0; e<e_old.length; e++)
+					e_new[e] = e_old[e];
+				e_new[e_old.length] = i+0.1d;
+				distribution.remove(entryID);
+				e_new[0] = ((e_old.length-2)*e_old[0] + vr[i]) / (e_new.length-2);
+				e_new[1] += wt[i];
+				distribution.add(e_new);
+				max_hit_count = Math.max(max_hit_count, e_new.length-2);
 			}
 		}
-		nd = double_map.keySet().size();
+		
+		nd = distribution.size();
+		System.out.println("[PROB-TRANSFORM] NSCORE[1d]:  nd="+nd+", hc="+max_hit_count);
+		double[] dist = new double[nd];
+		double[][] indices = new double[max_hit_count+2][nd];
+		double twt = 0d;
+		for(int e=0; e<nd; e++) {
+			double[] entry = distribution.get(e);
+			dist[e] = entry[0];
+			for(int e1=0; e1<entry.length; e1++)
+				indices[e1][e] = entry[e1];
+			for(int e2=entry.length; e2<max_hit_count+2; e2++)
+				indices[e2][e] = -1.1d;
+			twt += indices[1][e];
+		}
+		
 		if(nd<=0) {
 			System.err.println("The variable only consists of NaNs or values outside the defined range, no transformation possible!");
 			DataHelper.printStackTrace(System.err);
 			return null;
 		}
-		double[] vr_  = new double[nd];
-		double[] wt_  = new double[nd];
-		double[] vrg_ = new double[nd],
-				 tmp  = new double[nd];
-		int    c   = -1;
-		double twt = 0d;
-		for(Double d: double_map.keySet()) {
-			c++; vr_[c] = d.doubleValue();
-			wt_[c] = double_map.get(d)[0];
-			twt += wt_[c];
-			tmp[c] = double_map.get(d)[1];
-		}
+//		double[] vr_  = new double[nd];
+//		double[] wt_  = new double[nd];
+//		double[] vrg_ = new double[nd],
+//				 tmp  = new double[nd];
+//		int    c   = -1;
+//		double twt = 0d;
+//		for(Double d: double_map.keySet()) {
+//			c++; vr_[c] = d.doubleValue();
+//			wt_[c] = double_map.get(d)[0];
+//			twt += wt_[c];
+//			tmp[c] = double_map.get(d)[1];
+//		}
 //		System.out.println("[DEBUG]");
 //		FormatHelper.printTable(30, vr_, wt_, tmp, vrg_);
 
@@ -138,48 +237,44 @@ public class ProbabilityTransform {
 			DataHelper.printStackTrace(System.err);
 			return null;
 		}
-		DataHelper.sortem(vr_,wt_,tmp);
+		System.out.println("[PROB-TRANSFORM] NSCORE[1d]:  sorting");
+		DataHelper.sortem(dist,indices);
 
 //        c Compute the cumulative probabilities:
+		System.out.println("[PROB-TRANSFORM] NSCORE[1d]:  compute nscore");
 		double oldcp = 0d,
 			   cp    = 0d,
 			   wttmp = 0d;
 		for(int i=0; i<nd; i++) {
-			cp += wt_[i] / twt;
+			cp += indices[1][i] / twt;
 			wttmp = 0.5d * (cp + oldcp);
 			oldcp = cp;
-			vrg_[i] = Gaussian.cdf_inv(wttmp);
+			indices[0][i] = Gaussian.cdf_inv(wttmp);
 			//if(lout.gt.0) write(lout,'(f12.5,1x,f12.5)') vr(i),vrg(i)
 		}
 
 //        c create transformation table
+		System.out.println("[PROB-TRANSFORM] NSCORE[1d]:  create transformation table");
 		double[][] trnsf = new double[2][nd];
 		for(int i=0; i<nd; i++) {
-			trnsf[0][i] = vr_[i];
-			trnsf[1][i] = vrg_[i];
+			trnsf[0][i] = dist[i];
+			trnsf[1][i] = indices[0][i];
 		}
 
 
 //        c Get the arrays back in original order:
+		
+
+		System.out.println("[PROB-TRANSFORM] NSCORE[1d]:  insert new variable");
 		double[] vrg = new double[vr.length];
-		for(c=0; c<nd; c++) {
-			if(Double.isNaN(vr[c])) { vrg[c] = Double.NaN; continue; }
-			if(vr[c]<trims[0] || vr[c]>=trims[1]) { vrg[c] = Double.NaN; continue; }
-			int indBot = 0,
-				indTop = vr_.length-1;
-			if(vr[c]==vr_[indBot]) { vrg[c] = vrg_[indBot]; continue; }
-			if(vr[c]==vr_[indTop]) { vrg[c] = vrg_[indTop]; continue; }
-			while(indBot!=indTop) {
-				int indMid = (indTop+indBot)/2;
-				if(vr[c]==vr_[indMid]) {
-					indBot = indMid; indTop = indMid;
-				} else if(vr[c]<vr_[indMid]) {
-					indTop = indMid;
-				} else {
-					indBot = indMid;
-				}
+		for(int i=0; i<vr.length; i++)
+			vrg[i] = Double.NaN;
+		for(int i=0; i<nd; i++) {
+			double vr_ns = indices[0][i];
+			for(int e=0; e<max_hit_count; e++) {
+				int j = (int) indices[2+e][i];
+				if(j>=0) vrg[j] = vr_ns;
 			}
-			vrg[c] = vrg_[indBot];
 		}
 //		DataHelper.sortem(tmp, vrg_,vr_,wt_);
 //		double[] vrg = new double[vr.length];

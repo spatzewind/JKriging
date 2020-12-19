@@ -1605,17 +1605,17 @@ public class DataFrame2D {
 //		System.out.println("[DEBUG] found "+(count-1)+" commas -> new String["+count+"]");
 		return out;
 	}
-	private String[] break_line(String _in, String _del) {
-		List<String> parts = new ArrayList<String>();
-		String temp = ""+_in;
-		int occ = temp.indexOf(_del);
-		while(occ>=0) { parts.add(temp.substring(0, occ).trim()); temp = temp.substring(occ+_del.length()); occ = temp.indexOf(_del); }
-		parts.add(temp.trim());
-//		String debug = ""+parts.get(0);
-//		for(int s=1; s<parts.size(); s++) debug +=" | "+parts.get(s);
-//		System.out.println("[DEBUG] break_line: "+debug);
-		return parts.toArray(new String[0]);
-	}
+//	private String[] break_line(String _in, String _del) {
+//		List<String> parts = new ArrayList<String>();
+//		String temp = ""+_in;
+//		int occ = temp.indexOf(_del);
+//		while(occ>=0) { parts.add(temp.substring(0, occ).trim()); temp = temp.substring(occ+_del.length()); occ = temp.indexOf(_del); }
+//		parts.add(temp.trim());
+////		String debug = ""+parts.get(0);
+////		for(int s=1; s<parts.size(); s++) debug +=" | "+parts.get(s);
+////		System.out.println("[DEBUG] break_line: "+debug);
+//		return parts.toArray(new String[0]);
+//	}
 	private boolean set_boolean(String _s) {
 		boolean b = Boolean.FALSE;
 		try { b = Boolean.parseBoolean(_s); } catch(NullPointerException | NumberFormatException np_nf_e) { b = Boolean.FALSE; }
@@ -1678,18 +1678,18 @@ public class DataFrame2D {
 		minmax_mean_sill[2][dlen] = _mean;
 		minmax_mean_sill[3][dlen] = _sill;
 	}
-	private String createTitle(String[] _all_titles) {
-		int tnum = 1; int clen = _all_titles.length;
-		String test_title = "Column_"+Integer.toHexString(tnum);
-		boolean exists = true;
-		while(exists) {
-			exists = false;
-			for(int tt=0; tt<clen; tt++) {
-				if(_all_titles[tt]==null) continue;
-				if(_all_titles[tt].equals(test_title)) { exists = true; break; }
-			}
-			tnum++;
-		}
-		return test_title;
-	}
+//	private String createTitle(String[] _all_titles) {
+//		int tnum = 1; int clen = _all_titles.length;
+//		String test_title = "Column_"+Integer.toHexString(tnum);
+//		boolean exists = true;
+//		while(exists) {
+//			exists = false;
+//			for(int tt=0; tt<clen; tt++) {
+//				if(_all_titles[tt]==null) continue;
+//				if(_all_titles[tt].equals(test_title)) { exists = true; break; }
+//			}
+//			tnum++;
+//		}
+//		return test_title;
+//	}
 }

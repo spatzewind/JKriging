@@ -966,36 +966,6 @@ public class DataFrame3D {
 		dimension_one = new double[dimlen[0]];
 		dimension_two = new double[dimlen[1]];
 		dimension_thr = new double[dimlen[2]];
-		for(int dimid=0; dimid<3; dimid++) {
-			Variable var = netcdf_file.findVariable(dims.get(dimid).getFullNameEscaped());
-			boolean was_succesful = false;
-			if(var!=null) {
-				Array a = null;
-				try {
-					a = var.read();
-					if(dimid==0)
-						for(int dl=0; dl<dimlen[0]; dl++)
-							dimension_one[dl] = a.getDouble(dl);
-					if(dimid==1)
-						for(int dl=0; dl<dimlen[1]; dl++)
-							dimension_two[dl] = a.getDouble(dl);
-					if(dimid==2)
-						for(int dl=0; dl<dimlen[2]; dl++)
-							dimension_thr[dl] = a.getDouble(dl);
-					dimension_names[dimid] = var.getFullName();
-					was_succesful = true;
-				} catch (IOException e) {
-					System.out.println("WARNING: could not read dimension \""+dims.get(dimid).getFullName()+"\": add as index-array to dataframe");
-				} catch (NumberFormatException nfe) {
-					System.out.println("WARNING: could not read dimension \""+dims.get(dimid).getFullName()+"\": add as index-array to dataframe");
-				}
-			}
-			if(!was_succesful) {
-				if(dimid==0) for(int dl=0; dl<dimension_one.length; dl++) dimension_one[dl] = dl+1d;
-				if(dimid==1) for(int dl=0; dl<dimension_two.length; dl++) dimension_two[dl] = dl+1d;
-				if(dimid==2) for(int dl=0; dl<dimension_thr.length; dl++) dimension_thr[dl] = dl+1d;
-			}
-		}
 		for(int vi=0; vi<var_exist.length; vi++) {
 			if(!var_exist[vi]) continue;
 			Variable var = netcdf_file.findVariable(variable[vi]);
@@ -1166,6 +1136,48 @@ public class DataFrame3D {
 								", so the variable is not added to the dataframe");
 						break;
 				}
+			}
+		}
+		for(int dimid=0; dimid<3; dimid++) {
+			Variable var = netcdf_file.findVariable(dims.get(dimid).getFullNameEscaped());
+			boolean was_succesful = false;
+			if(var!=null) {
+				Array a = null;
+				try {
+					a = var.read();
+					Index ind = a.getIndex();
+					if(dimid==0)
+						for(int dl=0; dl<dimlen[0]; dl++) {
+							ind.set(dl);
+							dimension_one[dl] = a.getDouble(ind);
+						}
+					if(dimid==1)
+						for(int dl=0; dl<dimlen[1]; dl++) {
+							ind.set(dl);
+							dimension_two[dl] = a.getDouble(ind);
+						}
+					if(dimid==2)
+						for(int dl=0; dl<dimlen[2]; dl++) {
+							ind.set(dl);
+							dimension_thr[dl] = a.getDouble(ind);
+						}
+					dimension_names[dimid] = var.getFullName();
+					double[] dimarray = ( dimid==0 ? dimension_one : (dimid==1 ? dimension_two : dimension_thr));
+					String dim_vals = ""+dimarray[0];
+					for(int dl=1; dl<dimarray.length; dl++)
+						dim_vals += ", "+dimarray[dl];
+					System.out.println("[DF3D - NDread] read dimension \""+dimension_names[dimid]+"\": "+dim_vals);
+					was_succesful = true;
+				} catch (IOException e) {
+					System.out.println("WARNING: could not read dimension \""+dims.get(dimid).getFullName()+"\": add as index-array to dataframe");
+				} catch (NumberFormatException nfe) {
+					System.out.println("WARNING: could not read dimension \""+dims.get(dimid).getFullName()+"\": add as index-array to dataframe");
+				}
+			}
+			if(!was_succesful) {
+				if(dimid==0) dimension_one = DataHelper.createIndexArrayDouble(dimension_one.length);
+				if(dimid==1) dimension_two = DataHelper.createIndexArrayDouble(dimension_two.length);
+				if(dimid==2) dimension_thr = DataHelper.createIndexArrayDouble(dimension_thr.length);
 			}
 		}
 	}
@@ -1682,17 +1694,17 @@ public class DataFrame3D {
 //		System.out.println("[DEBUG] found "+(count-1)+" commas -> new String["+count+"]");
 		return out;
 	}
-	private String[] break_line(String _in, String _del) {
-		List<String> parts = new ArrayList<String>();
-		String temp = ""+_in;
-		int occ = temp.indexOf(_del);
-		while(occ>=0) { parts.add(temp.substring(0, occ).trim()); temp = temp.substring(occ+_del.length()); occ = temp.indexOf(_del); }
-		parts.add(temp.trim());
-//		String debug = ""+parts.get(0);
-//		for(int s=1; s<parts.size(); s++) debug +=" | "+parts.get(s);
-//		System.out.println("[DEBUG] break_line: "+debug);
-		return parts.toArray(new String[0]);
-	}
+//	private String[] break_line(String _in, String _del) {
+//		List<String> parts = new ArrayList<String>();
+//		String temp = ""+_in;
+//		int occ = temp.indexOf(_del);
+//		while(occ>=0) { parts.add(temp.substring(0, occ).trim()); temp = temp.substring(occ+_del.length()); occ = temp.indexOf(_del); }
+//		parts.add(temp.trim());
+////		String debug = ""+parts.get(0);
+////		for(int s=1; s<parts.size(); s++) debug +=" | "+parts.get(s);
+////		System.out.println("[DEBUG] break_line: "+debug);
+//		return parts.toArray(new String[0]);
+//	}
 	private boolean set_boolean(String _s) {
 		boolean b = Boolean.FALSE;
 		try { b = Boolean.parseBoolean(_s); } catch(NullPointerException | NumberFormatException np_nf_e) { b = Boolean.FALSE; }
@@ -1755,18 +1767,18 @@ public class DataFrame3D {
 		minmax_mean_sill[2][dlen] = _mean;
 		minmax_mean_sill[3][dlen] = _sill;
 	}
-	private String createTitle(String[] _all_titles) {
-		int tnum = 1; int clen = _all_titles.length;
-		String test_title = "Column_"+Integer.toHexString(tnum);
-		boolean exists = true;
-		while(exists) {
-			exists = false;
-			for(int tt=0; tt<clen; tt++) {
-				if(_all_titles[tt]==null) continue;
-				if(_all_titles[tt].equals(test_title)) { exists = true; break; }
-			}
-			tnum++;
-		}
-		return test_title;
-	}
+//	private String createTitle(String[] _all_titles) {
+//		int tnum = 1; int clen = _all_titles.length;
+//		String test_title = "Column_"+Integer.toHexString(tnum);
+//		boolean exists = true;
+//		while(exists) {
+//			exists = false;
+//			for(int tt=0; tt<clen; tt++) {
+//				if(_all_titles[tt]==null) continue;
+//				if(_all_titles[tt].equals(test_title)) { exists = true; break; }
+//			}
+//			tnum++;
+//		}
+//		return test_title;
+//	}
 }

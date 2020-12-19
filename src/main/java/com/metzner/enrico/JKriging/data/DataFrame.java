@@ -1430,6 +1430,7 @@ public class DataFrame {
 
 
 
+	public int getNumberOfDatapoints() { return datalength; }
 	public int getVariableCount() { return titles.length; }
 	public String getVarname(int _var_id) {
 		int vi = _var_id - Constants.FIRST_IDX;
