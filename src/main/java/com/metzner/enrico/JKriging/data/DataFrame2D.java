@@ -964,32 +964,6 @@ public class DataFrame2D {
 //		FormatHelper.printTable(2, indices);
 		dimension_one = new double[dimlen[0]];
 		dimension_two = new double[dimlen[1]];
-		for(int dimid=0; dimid<2; dimid++) {
-			Variable var = netcdf_file.findVariable(dims.get(dimid).getFullNameEscaped());
-			boolean was_succesful = false;
-			if(var!=null) {
-				Array a = null;
-				try {
-					a = var.read();
-					if(dimid==0)
-						for(int dl=0; dl<dimlen[0]; dl++)
-							dimension_one[dl] = a.getDouble(dl);
-					if(dimid==1)
-						for(int dl=0; dl<dimlen[1]; dl++)
-							dimension_two[dl] = a.getDouble(dl);
-					dimension_names[dimid] = var.getFullName();
-					was_succesful = true;
-				} catch (IOException e) {
-					System.out.println("WARNING: could not read dimension \""+dims.get(dimid).getFullName()+"\": add as index-array to dataframe");
-				} catch (NumberFormatException nfe) {
-					System.out.println("WARNING: could not read dimension \""+dims.get(dimid).getFullName()+"\": add as index-array to dataframe");
-				}
-			}
-			if(!was_succesful) {
-				if(dimid==0) for(int dl=0; dl<dimension_one.length; dl++) dimension_one[dl] = dl+1d;
-				if(dimid==1) for(int dl=0; dl<dimension_two.length; dl++) dimension_two[dl] = dl+1d;
-			}
-		}
 		for(int vi=0; vi<var_exist.length; vi++) {
 			if(!var_exist[vi]) continue;
 			Variable var = netcdf_file.findVariable(variable[vi]);
@@ -1109,6 +1083,32 @@ public class DataFrame2D {
 								", so the variable is not added to the dataframe");
 						break;
 				}
+			}
+		}
+		for(int dimid=0; dimid<2; dimid++) {
+			Variable var = netcdf_file.findVariable(dims.get(dimid).getFullNameEscaped());
+			boolean was_succesful = false;
+			if(var!=null) {
+				Array a = null;
+				try {
+					a = var.read();
+					if(dimid==0)
+						for(int dl=0; dl<dimlen[0]; dl++)
+							dimension_one[dl] = a.getDouble(dl);
+					if(dimid==1)
+						for(int dl=0; dl<dimlen[1]; dl++)
+							dimension_two[dl] = a.getDouble(dl);
+					dimension_names[dimid] = var.getFullName();
+					was_succesful = true;
+				} catch (IOException e) {
+					System.out.println("WARNING: could not read dimension \""+dims.get(dimid).getFullName()+"\": add as index-array to dataframe");
+				} catch (NumberFormatException nfe) {
+					System.out.println("WARNING: could not read dimension \""+dims.get(dimid).getFullName()+"\": add as index-array to dataframe");
+				}
+			}
+			if(!was_succesful) {
+				if(dimid==0) for(int dl=0; dl<dimension_one.length; dl++) dimension_one[dl] = dl+1d;
+				if(dimid==1) for(int dl=0; dl<dimension_two.length; dl++) dimension_two[dl] = dl+1d;
 			}
 		}
 	}
