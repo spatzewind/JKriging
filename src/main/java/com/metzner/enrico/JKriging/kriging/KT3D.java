@@ -701,13 +701,40 @@ public class KT3D {
 	}
 	
 	public DataFrame kt3d() {
-		return (DataFrame) kt3d_df(1);
+		if(!kt3d_df())
+			return null;
+		DataFrame result = new DataFrame();
+		for(int n_est=0; n_est<num_krig_res; n_est++)
+			result.addColumn(estimate_titles[n_est], estimates[n_est]);
+		return result;
 	}
 	public DataFrame3D kt3d_asDataFrame3D() {
-		return (DataFrame3D) kt3d_df(3);
+		if(!kt3d_df())
+			return null;
+		int xn=nx, yn=ny, zn=nz;
+		if(xn*yn*zn!=estimates[0].length) { nx=estimates[0].length; ny=1; nz=1; }
+		DataFrame3D result = new DataFrame3D();
+		for(int n_est=0; n_est<num_krig_res; n_est++) {
+			double[][][] estimates3D = new double[zn][yn][xn];
+			for(int z_=0; z_<zn; z_++) for(int y_=0; y_<yn; y_++) for(int x_=0; x_<xn; x_++)
+				estimates3D[z_][y_][x_] = estimates[n_est][xn*yn*z_ + xn*y_ + x_];
+			result.addColumn(estimate_titles[n_est], estimates3D);
+		}
+		if(nx*ny*nz==estimates[0].length) {
+			double[] dimension_x = new double[nx];
+			for(int x_=0; x_<nx; x_++) dimension_x[x_] = xmn + x_*xsiz;
+			double[] dimension_y = new double[ny];
+			for(int y_=0; y_<ny; y_++) dimension_y[y_] = ymn + y_*xsiz;
+			double[] dimension_z = new double[nz];
+			for(int z_=0; z_<nz; z_++) dimension_z[z_] = zmn + z_*xsiz;
+			result.setDimension(0+Constants.FIRST_IDX, dimension_z, z_var);
+			result.setDimension(1+Constants.FIRST_IDX, dimension_y, y_var);
+			result.setDimension(2+Constants.FIRST_IDX, dimension_x, x_var);
+		}
+		return result;
 	}
 	
-	private Object kt3d_df(int _dataframe_dims) { //TODO beginning of KT3D
+	private boolean kt3d_df() { //TODO beginning of KT3D
 		boolean someParamIsMissing = false;
 		for(int pcl=0; pcl<8; pcl++) if(!paramchecklist[pcl]) {
 			if(!someParamIsMissing)
@@ -716,7 +743,7 @@ public class KT3D {
 			someParamIsMissing = true;
 		}
 		if(someParamIsMissing)
-			return null;
+			return false;
 		numOctants = Math.max(1, Math.min(8, numOctants));
 		if(noct>0)
 			numOctants = 8;
@@ -859,7 +886,7 @@ public class KT3D {
 			System.err.println("ERROR KT3D: The rescaling value is wrong "+resc+"\n"
 					+          "            Maximum covariance: "+covmax+"\n"
 					+          "            search radius:      "+radius);
-			return null;
+			return false;
 		}
 		resc = 1d / resc;
 //		System.out.println("[DEBUG] Maximum covariance: "+covmax);
@@ -890,7 +917,7 @@ public class KT3D {
 			if(ktype==SIMPLE_KRIGING || ktype==SIMPLE_NON_STATIONARY_KRIGING) idrif[i] = 0;
 			if(idrif[i]<0 || idrif[i]>1) {
 				System.err.println("ERROR KT3D: invalid drift term "+idrif[i]);
-				return null;
+				return false;
 			}
 			mdt += idrif[i];
 		}
@@ -912,7 +939,7 @@ public class KT3D {
 		if(ndb>MAXDIS) {
 			System.err.println("ERROR KT3D: Too many discretization points "+ndb+"\n"
 					+          "            Increase MAXDIS or lower n[xyz]dis");
-			return null;
+			return false;
 		}
 		double xdis = xsiz  / Math.max(nxdis,1d);
 		double ydis = ysiz  / Math.max(nydis,1d);
@@ -1022,7 +1049,7 @@ public class KT3D {
 				Thread.sleep(1000L);
 			} catch(InterruptedException ie) {
 				ie.printStackTrace();
-				return null;
+				return false;
 			}
 		}
 
@@ -1070,7 +1097,7 @@ public class KT3D {
 			}
 		}
 		
-		//TODO error-messaging
+		//error-messaging
 		List<String> errmsg = new ArrayList<String>();
 		for(int aic=0; aic<ai.length; aic++)
 			ai[aic] = 0;
@@ -1095,41 +1122,8 @@ public class KT3D {
 			}
 		}
 		
-//        c
-//        c All finished the kriging:
-//        c
-		if(_dataframe_dims==1) {
-			DataFrame result = new DataFrame();
-			for(int n_est=0; n_est<num_krig_res; n_est++)
-				result.addColumn(estimate_titles[n_est], estimates[n_est]);
-			return result;
-		}
-		if(_dataframe_dims==3) {
-			int xn=nx, yn=ny, zn=nz;
-			if(xn*yn*zn!=estimates[0].length) { nx=estimates[0].length; ny=1; nz=1; }
-			DataFrame3D result = new DataFrame3D();
-			for(int n_est=0; n_est<num_krig_res; n_est++) {
-				double[][][] estimates3D = new double[zn][yn][xn];
-				for(int z_=0; z_<zn; z_++) for(int y_=0; y_<yn; y_++) for(int x_=0; x_<xn; x_++)
-					estimates3D[z_][y_][x_] = estimates[n_est][xn*yn*z_ + xn*y_ + x_];
-				result.addColumn(estimate_titles[n_est], estimates3D);
-			}
-			if(nx*ny*nz==estimates[0].length) {
-				double[] dimension_x = new double[nx];
-				for(int x_=0; x_<nx; x_++) dimension_x[x_] = xmn + x_*xsiz;
-				double[] dimension_y = new double[ny];
-				for(int y_=0; y_<ny; y_++) dimension_y[y_] = ymn + y_*xsiz;
-				double[] dimension_z = new double[nz];
-				for(int z_=0; z_<nz; z_++) dimension_z[z_] = zmn + z_*xsiz;
-				result.setDimension(0+Constants.FIRST_IDX, dimension_z, z_var);
-				result.setDimension(1+Constants.FIRST_IDX, dimension_y, y_var);
-				result.setDimension(2+Constants.FIRST_IDX, dimension_x, x_var);
-			}
-			return result;
-		}
-		
-		return null;
-//		 96   stop 'ERROR in jackknife file!'
+		//finish kriging
+		return true;
 	}
 
 	private class Worker extends Thread {
