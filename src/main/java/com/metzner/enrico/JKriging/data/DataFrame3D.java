@@ -1028,10 +1028,12 @@ public class DataFrame3D {
 					case LONG: long gnol = a.getLong(0); long[][][] long_arr = new long[dimlen[0]][dimlen[1]][dimlen[2]];
 						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) long_arr[w][v][u] = gnol;
 						addColumn(var.getFullName(), long_arr); break;
-					case FLOAT: float taolf = a.getFloat(0); float[][][] float_arr = new float[dimlen[0]][dimlen[1]][dimlen[2]];
+					case FLOAT: float f_fill = Float.NaN; if(var.hasAttribute("_FillValue")) f_fill = (float) var.findAttribute("_FillValue").getNumericValue();
+						float taolf = a.getFloat(0)==f_fill ? Float.NaN : a.getFloat(0); float[][][] float_arr = new float[dimlen[0]][dimlen[1]][dimlen[2]];
 						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) float_arr[w][v][u] = taolf;
 						addColumn(var.getFullName(), float_arr); break;
-					case DOUBLE: double elbuod = a.getDouble(0); double[][][] double_arr = new double[dimlen[0]][dimlen[1]][dimlen[2]];
+					case DOUBLE: double d_fill = Double.NaN; if(var.hasAttribute("_FillValue")) d_fill = (double) var.findAttribute("_FillValue").getNumericValue();
+						double elbuod = a.getDouble(0)==d_fill ? Double.NaN : a.getDouble(0); double[][][] double_arr = new double[dimlen[0]][dimlen[1]][dimlen[2]];
 						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) double_arr[w][v][u] = elbuod;
 						addColumn(var.getFullName(), double_arr); break;
 //					case CHAR:
@@ -1103,13 +1105,17 @@ public class DataFrame3D {
 							long_arr[w][v][u] = arr_long[w*wf+v*vf+u*uf];
 						addColumn(var.getFullName(), long_arr);
 						arr_long = null; long_arr = null; break;
-					case FLOAT: float[] arr_float = (float[]) a.get1DJavaArray(ucar.ma2.DataType.FLOAT);
+					case FLOAT: float f_fill = Float.NaN; if(var.hasAttribute("_FillValue")) f_fill = (float) var.findAttribute("_FillValue").getNumericValue();
+						float[] arr_float = (float[]) a.get1DJavaArray(ucar.ma2.DataType.FLOAT);
+						for(int ff=0; ff<arr_float.length; ff++) if(arr_float[ff]==f_fill) arr_float[ff] = Float.NaN;
 						float[][][] float_arr = new float[dimlen[0]][dimlen[1]][dimlen[2]];
 						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++)
 							float_arr[w][v][u] = arr_float[w*wf+v*vf+u*uf];
 						addColumn(var.getFullName(), float_arr);
 						arr_float = null; float_arr = null; break;
-					case DOUBLE: double[] arr_double = (double[]) a.get1DJavaArray(ucar.ma2.DataType.DOUBLE);
+					case DOUBLE: double d_fill = Double.NaN; if(var.hasAttribute("_FillValue")) d_fill = (double) var.findAttribute("_FillValue").getNumericValue();
+						double[] arr_double = (double[]) a.get1DJavaArray(ucar.ma2.DataType.DOUBLE);
+						for(int dd=0; dd<arr_double.length; dd++) if(arr_double[dd]==d_fill) arr_double[dd] = Double.NaN;
 						double[][][] double_arr = new double[dimlen[0]][dimlen[1]][dimlen[2]];
 						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++)
 							double_arr[w][v][u] = arr_double[w*wf+v*vf+u*uf];
@@ -1402,7 +1408,7 @@ public class DataFrame3D {
 						for(int dl0=0; dl0<datalength[0]; dl0++)
 							for(int dl1=0; dl1<datalength[1]; dl1++)
 								for(int dl2=0; dl2<datalength[2]; dl2++)
-									float_arr.set(dl0,dl1,dl2, float_source[dl0][dl1][dl2]);
+									float_arr.set(dl0,dl1,dl2, Float.isNaN(float_source[dl0][dl1][dl2])?Constants.FILL_VALUE_F:float_source[dl0][dl1][dl2]);
 						ncdfWriter.write(vars[iv+3], float_arr);
 						break;
 					case DOUBLE:
@@ -1411,7 +1417,7 @@ public class DataFrame3D {
 						for(int dl0=0; dl0<datalength[0]; dl0++)
 							for(int dl1=0; dl1<datalength[1]; dl1++)
 								for(int dl2=0; dl2<datalength[2]; dl2++)
-									double_arr.set(dl0,dl1,dl2, double_source[dl0][dl1][dl2]);
+									double_arr.set(dl0,dl1,dl2, Double.isNaN(double_source[dl0][dl1][dl2])?Constants.FILL_VALUE_D:double_source[dl0][dl1][dl2]);
 						ncdfWriter.write(vars[iv+3], double_arr);
 						break;
 					case STRING:
