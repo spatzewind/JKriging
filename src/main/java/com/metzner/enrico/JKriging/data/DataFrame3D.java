@@ -24,7 +24,6 @@ import ucar.ma2.ArrayInt;
 import ucar.ma2.ArrayLong;
 import ucar.ma2.ArrayShort;
 import ucar.ma2.ArrayString;
-import ucar.ma2.Index;
 import ucar.ma2.InvalidRangeException;
 import ucar.nc2.Attribute;
 import ucar.nc2.Dimension;
@@ -41,6 +40,7 @@ public class DataFrame3D {
 	private DataType[] types;
 	private String[] dimension_names;
 	private double[] dimension_one, dimension_two, dimension_thr;
+	private Map<String, String> attribs_dim_one, attribs_dim_two, attribs_dim_thr;
 	private double[][] minmax_mean_sill;
 	private Map<String, boolean[][][]> bool_column;
 	private Map<String, byte[][][]>    byte_column;
@@ -63,9 +63,9 @@ public class DataFrame3D {
 		String currentDateString = currentDate[0]+FormatHelper.nf(currentDate[1], 2,'0')+FormatHelper.nf(currentDate[2],2,'0');
 		currentDateString += FormatHelper.nf(currentDate[3],2,'0')+FormatHelper.nf(currentDate[4],2,'0')+FormatHelper.nf(currentDate[5],2,'0');
 		dimension_names = new String[] {"Dim"+currentDateString+"A0","Dim"+currentDateString+"B1","Dim"+currentDateString+"C2"};
-		dimension_one = new double[0];
-		dimension_two = new double[0];
-		dimension_thr = new double[0];
+		dimension_one = new double[0]; attribs_dim_one = new HashMap<>();
+		dimension_two = new double[0]; attribs_dim_two = new HashMap<>();
+		dimension_thr = new double[0]; attribs_dim_thr = new HashMap<>();
 		minmax_mean_sill = new double[4][0];
 		bool_column =   new HashMap<>();
 		byte_column =   new HashMap<>();
@@ -318,6 +318,7 @@ public class DataFrame3D {
 		if(di<0 || di>2) {
 			System.err.println("Number of dimension must be between 1 and 3 for DataFrame3D!");
 			DataHelper.printStackTrace(System.err);
+			return;
 		}
 		boolean change_name   = (_dim_name_c!=null);
 		boolean change_values = (dim_values!=null);
@@ -325,11 +326,13 @@ public class DataFrame3D {
 			if(_dim_name_c.equals(dimension_names[(di+1)%3]) || _dim_name_c.equals(dimension_names[(di+2)%3]) || hasVariable(_dim_name_c)) {
 				System.err.println("Cannot rename dimension "+(di+Constants.FIRST_IDX)+", an other dimension or variable has the same name!");
 				DataHelper.printStackTrace(System.err);
+				return;
 			}
 		if(change_values)
 			if(dim_values.length!=datalength[di] && datalength[di]>0) {
 				System.err.println("Number of values must match corresponding dimension length:\n    expect "+datalength[di]+" but got "+dim_values.length);
 				DataHelper.printStackTrace(System.err);
+				return;
 			}
 		if(change_name) dimension_names[di] = _dim_name_c;
 		if(change_values) {
@@ -347,10 +350,40 @@ public class DataFrame3D {
 				for(int dn=0; dn<datalength[2]; dn++) dimension_thr[dn] = dim_values[dn];
 		}
 	}
+	public void addAttributeToDimension(int dim_num, String name, String value) {
+		int di = dim_num - Constants.FIRST_IDX;
+		if(di<0 || di>2) {
+			System.err.println("Number of dimension must be between "+(Constants.FIRST_IDX)+" and "+
+							   (2+Constants.FIRST_IDX)+" for DataFrame3D!");
+			DataHelper.printStackTrace(System.err);
+			return;
+		}
+		Map<String,String> att = (di<2 ? (di<1 ? attribs_dim_one : attribs_dim_two) : attribs_dim_thr);
+		if(att.containsKey(name))
+			System.out.println("[WARNING] override key \""+name+"\" for dimension "+(di+Constants.FIRST_IDX));
+		att.put(name, value);
+	}
+	public void setDimensionsAttributes(int dim_num, Map<String, String> attributes) {
+		int di = dim_num - Constants.FIRST_IDX;
+		if(di<0 || di>2) {
+			System.err.println("Number of dimension must be between "+(Constants.FIRST_IDX)+" and "+
+							   (2+Constants.FIRST_IDX)+" for DataFrame3D!");
+			DataHelper.printStackTrace(System.err);
+			return;
+		}
+		switch(di) {
+			case 0: attribs_dim_one.clear(); attribs_dim_one.putAll(attributes); break;
+			case 1: attribs_dim_one.clear(); attribs_dim_one.putAll(attributes); break;
+			case 2: attribs_dim_one.clear(); attribs_dim_one.putAll(attributes); break;
+		}
+	}
 	public void copyDimensionsFrom(DataFrame3D otherDF) {
 		this.setDimension(0+Constants.FIRST_IDX, otherDF.getDimensionValues(0+Constants.FIRST_IDX), otherDF.getDimensionName(0+Constants.FIRST_IDX));
+		this.setDimensionsAttributes(0+Constants.FIRST_IDX, otherDF.getAttributesFromDimension(0+Constants.FIRST_IDX));
 		this.setDimension(1+Constants.FIRST_IDX, otherDF.getDimensionValues(1+Constants.FIRST_IDX), otherDF.getDimensionName(1+Constants.FIRST_IDX));
+		this.setDimensionsAttributes(1+Constants.FIRST_IDX, otherDF.getAttributesFromDimension(1+Constants.FIRST_IDX));
 		this.setDimension(2+Constants.FIRST_IDX, otherDF.getDimensionValues(2+Constants.FIRST_IDX), otherDF.getDimensionName(2+Constants.FIRST_IDX));
+		this.setDimensionsAttributes(2+Constants.FIRST_IDX, otherDF.getAttributesFromDimension(2+Constants.FIRST_IDX));
 	}
 
 	public void renameVariable(int _old_var_id, String _new_name) {
@@ -977,30 +1010,28 @@ public class DataFrame3D {
 				System.out.println("WARNING: could not read variable \""+variable[vi]+"\": does not at to the dataframe!");
 				continue;
 			}
-			Index ind = a.getIndex();
 			Dimension[] vardims = var.getDimensions().toArray(new Dimension[0]);
 			if(vardims.length==0) {
-				ind.set(new int[0]);
 				switch(var.getDataType()) {
-					case BOOLEAN: boolean bool = a.getBoolean(ind); boolean[][][] bool_arr = new boolean[dimlen[0]][dimlen[1]][dimlen[2]];
+					case BOOLEAN: boolean bool = a.getBoolean(0); boolean[][][] bool_arr = new boolean[dimlen[0]][dimlen[1]][dimlen[2]];
 						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) bool_arr[w][v][u] = bool;
 						addColumn(var.getFullName(), bool_arr); break;
-					case BYTE: byte etyb = a.getByte(ind); byte[][][] byte_arr = new byte[dimlen[0]][dimlen[1]][dimlen[2]];
+					case BYTE: byte etyb = a.getByte(0); byte[][][] byte_arr = new byte[dimlen[0]][dimlen[1]][dimlen[2]];
 						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) byte_arr[w][v][u] = etyb;
 						addColumn(var.getFullName(), byte_arr); break;
-					case SHORT: short trohs = a.getShort(ind); short[][][] short_arr = new short[dimlen[0]][dimlen[1]][dimlen[2]];
+					case SHORT: short trohs = a.getShort(0); short[][][] short_arr = new short[dimlen[0]][dimlen[1]][dimlen[2]];
 						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) short_arr[w][v][u] = trohs;
 						addColumn(var.getFullName(), short_arr); break;
-					case INT: int tni = a.getInt(ind); int[][][] int_arr = new int[dimlen[0]][dimlen[1]][dimlen[2]];
+					case INT: int tni = a.getInt(0); int[][][] int_arr = new int[dimlen[0]][dimlen[1]][dimlen[2]];
 						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) int_arr[w][v][u] = tni;
 						addColumn(var.getFullName(), int_arr); break;
-					case LONG: long gnol = a.getLong(ind); long[][][] long_arr = new long[dimlen[0]][dimlen[1]][dimlen[2]];
+					case LONG: long gnol = a.getLong(0); long[][][] long_arr = new long[dimlen[0]][dimlen[1]][dimlen[2]];
 						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) long_arr[w][v][u] = gnol;
 						addColumn(var.getFullName(), long_arr); break;
-					case FLOAT: float taolf = a.getFloat(ind); float[][][] float_arr = new float[dimlen[0]][dimlen[1]][dimlen[2]];
+					case FLOAT: float taolf = a.getFloat(0); float[][][] float_arr = new float[dimlen[0]][dimlen[1]][dimlen[2]];
 						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) float_arr[w][v][u] = taolf;
 						addColumn(var.getFullName(), float_arr); break;
-					case DOUBLE: double elbuod = a.getDouble(ind); double[][][] double_arr = new double[dimlen[0]][dimlen[1]][dimlen[2]];
+					case DOUBLE: double elbuod = a.getDouble(0); double[][][] double_arr = new double[dimlen[0]][dimlen[1]][dimlen[2]];
 						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) double_arr[w][v][u] = elbuod;
 						addColumn(var.getFullName(), double_arr); break;
 //					case CHAR:
@@ -1011,132 +1042,174 @@ public class DataFrame3D {
 								", so the variable is not added to the dataframe");
 						break;
 				}
-			} else if(vardims.length==1) {
-				int uf=0, vf=0, wf=1; Dimension d = var.getDimension(0);
-				if(d.equals(dims.get(1))) { uf=0; vf=1; wf=0; }
-				if(d.equals(dims.get(2))) { uf=1; vf=0; wf=0; }
-				switch(var.getDataType()) {
-					case BOOLEAN: boolean[][][] bool_arr = new boolean[dimlen[0]][dimlen[1]][dimlen[2]];
-						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
-							ind.set(w*wf+v*vf+u*uf); bool_arr[w][v][u] = a.getBoolean(ind); }
-						addColumn(var.getFullName(), bool_arr); break;
-					case BYTE: byte[][][] byte_arr = new byte[dimlen[0]][dimlen[1]][dimlen[2]];
-						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
-							ind.set(w*wf+v*vf+u*uf); byte_arr[w][v][u] = a.getByte(ind); }
-						addColumn(var.getFullName(), byte_arr); break;
-					case SHORT: short[][][] short_arr = new short[dimlen[0]][dimlen[1]][dimlen[2]];
-						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
-							ind.set(w*wf+v*vf+u*uf); short_arr[w][v][u] = a.getShort(ind); }
-						addColumn(var.getFullName(), short_arr); break;
-					case INT: int[][][] int_arr = new int[dimlen[0]][dimlen[1]][dimlen[2]];
-						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
-							ind.set(w*wf+v*vf+u*uf); int_arr[w][v][u] = a.getInt(ind); }
-						addColumn(var.getFullName(), int_arr); break;
-					case LONG: long[][][] long_arr = new long[dimlen[0]][dimlen[1]][dimlen[2]];
-						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
-							ind.set(w*wf+v*vf+u*uf); long_arr[w][v][u] = a.getLong(ind); }
-						addColumn(var.getFullName(), long_arr); break;
-					case FLOAT: float[][][] float_arr = new float[dimlen[0]][dimlen[1]][dimlen[2]];
-						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
-							ind.set(w*wf+v*vf+u*uf); float_arr[w][v][u] = a.getFloat(ind); }
-						addColumn(var.getFullName(), float_arr); break;
-					case DOUBLE: double[][][] double_arr = new double[dimlen[0]][dimlen[1]][dimlen[2]];
-						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
-							ind.set(w*wf+v*vf+u*uf); double_arr[w][v][u] = a.getDouble(ind); }
-						addColumn(var.getFullName(), double_arr); break;
-//					case CHAR:
-//					case STRING:
-//						break;
-					default:
-						System.out.println("WARNING: does not this datatype: "+var.getDataType().name()+
-								", so the variable is not added to the dataframe");
-						break;
-				}
-			} else if(vardims.length==2) {
-				int au=0,av=0,aw=0, bu=0,bv=0,bw=0; Dimension d0=var.getDimension(0), d1=var.getDimension(1);
-				if(d0.equals(dims.get(0))) aw=1; if(d0.equals(dims.get(1))) av=1; if(d0.equals(dims.get(2))) au=1;
-				if(d1.equals(dims.get(0))) bw=1; if(d1.equals(dims.get(1))) bv=1; if(d1.equals(dims.get(2))) bu=1;
-				switch(var.getDataType()) {
-					case BOOLEAN: boolean[][][] bool_arr = new boolean[dimlen[0]][dimlen[1]][dimlen[2]];
-						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
-							ind.set(w*aw+v*av+u*au,w*bw+v*bv+u*bu); bool_arr[w][v][u] = a.getBoolean(ind); }
-						addColumn(var.getFullName(), bool_arr); break;
-					case BYTE: byte[][][] byte_arr = new byte[dimlen[0]][dimlen[1]][dimlen[2]];
-						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
-							ind.set(w*aw+v*av+u*au,w*bw+v*bv+u*bu); byte_arr[w][v][u] = a.getByte(ind); }
-						addColumn(var.getFullName(), byte_arr); break;
-					case SHORT: short[][][] short_arr = new short[dimlen[0]][dimlen[1]][dimlen[2]];
-						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
-							ind.set(w*aw+v*av+u*au,w*bw+v*bv+u*bu); short_arr[w][v][u] = a.getShort(ind); }
-						addColumn(var.getFullName(), short_arr); break;
-					case INT: int[][][] int_arr = new int[dimlen[0]][dimlen[1]][dimlen[2]];
-						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
-							ind.set(w*aw+v*av+u*au,w*bw+v*bv+u*bu); int_arr[w][v][u] = a.getInt(ind); }
-						addColumn(var.getFullName(), int_arr); break;
-					case LONG: long[][][] long_arr = new long[dimlen[0]][dimlen[1]][dimlen[2]];
-						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
-							ind.set(w*aw+v*av+u*au,w*bw+v*bv+u*bu); long_arr[w][v][u] = a.getLong(ind); }
-						addColumn(var.getFullName(), long_arr); break;
-					case FLOAT: float[][][] float_arr = new float[dimlen[0]][dimlen[1]][dimlen[2]];
-						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
-							ind.set(w*aw+v*av+u*au,w*bw+v*bv+u*bu); float_arr[w][v][u] = a.getFloat(ind); }
-						addColumn(var.getFullName(), float_arr); break;
-					case DOUBLE: double[][][] double_arr = new double[dimlen[0]][dimlen[1]][dimlen[2]];
-						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
-							ind.set(w*aw+v*av+u*au,w*bw+v*bv+u*bu); double_arr[w][v][u] = a.getDouble(ind); }
-						addColumn(var.getFullName(), double_arr); break;
-//					case CHAR:
-//					case STRING:
-//						break;
-					default:
-						System.out.println("WARNING: does not this datatype: "+var.getDataType().name()+
-								", so the variable is not added to the dataframe");
-						break;
-				}
 			} else {
-				int au=0,av=0,aw=0, bu=0,bv=0,bw=0, cu=0,cv=0,cw=0;
-				Dimension d0=var.getDimension(0), d1=var.getDimension(1), d2=var.getDimension(2);
-				if(d0.equals(dims.get(0))) aw=1; if(d0.equals(dims.get(1))) av=1; if(d0.equals(dims.get(2))) au=1;
-				if(d1.equals(dims.get(0))) bw=1; if(d1.equals(dims.get(1))) bv=1; if(d1.equals(dims.get(2))) bu=1;
-				if(d2.equals(dims.get(0))) cw=1; if(d2.equals(dims.get(1))) cv=1; if(d2.equals(dims.get(2))) cu=1;
+				int uf=0, vf=0, wf=1; Dimension d = var.getDimension(0);
+				if(vardims.length==1) {
+					if(d.equals(dims.get(1))) { uf=0; vf=1; wf=0; }
+					if(d.equals(dims.get(2))) { uf=1; vf=0; wf=0; }
+				}
+				if(vardims.length==2) {
+					Dimension d2 = var.getDimension(1);
+					if(d.equals(dims.get(0))) {      // w,?
+						if(d2.equals(dims.get(1))) { wf=dimlen[1]; vf=1; uf=0; }   // w,v
+						if(d2.equals(dims.get(2))) { wf=dimlen[2]; vf=0; uf=1; } } // w,u
+					else if(d.equals(dims.get(1))) { // v,?
+						if(d2.equals(dims.get(0))) { wf=1; vf=dimlen[0]; uf=0; }   // v,w
+						if(d2.equals(dims.get(2))) { wf=0; vf=dimlen[2]; uf=1; } } // v,u
+					else {                           // u,?
+						if(d2.equals(dims.get(0))) { wf=1; vf=0; uf=dimlen[0]; }   // u,w
+						if(d2.equals(dims.get(1))) { wf=0; vf=1; uf=dimlen[1]; } } // u,v
+				}
+				if(vardims.length==3) {
+					Dimension d2 = var.getDimension(1);
+					if(d.equals(dims.get(0))) {      // w,?,?
+						if(d2.equals(dims.get(1))) { wf=dimlen[1]*dimlen[2]; vf=dimlen[2]; uf=1; }   // w,v,u
+						if(d2.equals(dims.get(2))) { wf=dimlen[2]*dimlen[1]; vf=1; uf=dimlen[1]; } } // w,u,v
+					else if(d.equals(dims.get(1))) { // v,?,?
+						if(d2.equals(dims.get(0))) { wf=dimlen[2]; vf=dimlen[0]*dimlen[2]; uf=1; }   // v,w,u
+						if(d2.equals(dims.get(2))) { wf=1; vf=dimlen[2]*dimlen[0]; uf=dimlen[0]; } } // v,u,w
+					else {                           // u,?,?
+						if(d2.equals(dims.get(0))) { wf=dimlen[1]; vf=1; uf=dimlen[0]*dimlen[1]; }   // u,w,v
+						if(d2.equals(dims.get(1))) { wf=1; vf=dimlen[0]; uf=dimlen[1]*dimlen[0]; } } // u,v,w
+				}
 				switch(var.getDataType()) {
-					case BOOLEAN: boolean[][][] bool_arr = new boolean[dimlen[0]][dimlen[1]][dimlen[2]];
-						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
-							ind.set(w*aw+v*av+u*au, w*bw+v*bv+u*bu, w*cw+v*cv+u*cu); bool_arr[w][v][u] = a.getBoolean(ind); }
-						addColumn(var.getFullName(), bool_arr); break;
-					case BYTE: byte[][][] byte_arr = new byte[dimlen[0]][dimlen[1]][dimlen[2]];
-						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
-							ind.set(w*aw+v*av+u*au, w*bw+v*bv+u*bu, w*cw+v*cv+u*cu); byte_arr[w][v][u] = a.getByte(ind); }
-						addColumn(var.getFullName(), byte_arr); break;
-					case SHORT: short[][][] short_arr = new short[dimlen[0]][dimlen[1]][dimlen[2]];
-						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
-							ind.set(w*aw+v*av+u*au, w*bw+v*bv+u*bu, w*cw+v*cv+u*cu); short_arr[w][v][u] = a.getShort(ind); }
-						addColumn(var.getFullName(), short_arr); break;
-					case INT: int[][][] int_arr = new int[dimlen[0]][dimlen[1]][dimlen[2]];
-						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
-							ind.set(w*aw+v*av+u*au, w*bw+v*bv+u*bu, w*cw+v*cv+u*cu); int_arr[w][v][u] = a.getInt(ind); }
-						addColumn(var.getFullName(), int_arr); break;
-					case LONG: long[][][] long_arr = new long[dimlen[0]][dimlen[1]][dimlen[2]];
-						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
-							ind.set(w*aw+v*av+u*au, w*bw+v*bv+u*bu, w*cw+v*cv+u*cu); long_arr[w][v][u] = a.getLong(ind); }
+					case BOOLEAN: boolean[] arr_bool = (boolean[]) a.get1DJavaArray(ucar.ma2.DataType.BOOLEAN);
+						boolean[][][] bool_arr = new boolean[dimlen[0]][dimlen[1]][dimlen[2]];
+						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++)
+							bool_arr[w][v][u] = arr_bool[w*wf+v*vf+u*uf];
+						addColumn(var.getFullName(), bool_arr);
+						arr_bool = null; bool_arr = null; break;
+					case BYTE: byte[] arr_byte = (byte[]) a.get1DJavaArray(ucar.ma2.DataType.BYTE);
+						byte[][][] byte_arr = new byte[dimlen[0]][dimlen[1]][dimlen[2]];
+						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++)
+							byte_arr[w][v][u] = arr_byte[w*wf+v*vf+u*uf];
+						addColumn(var.getFullName(), byte_arr);
+						arr_byte = null; byte_arr = null; break;
+					case SHORT: short[] arr_short = (short[]) a.get1DJavaArray(ucar.ma2.DataType.SHORT);
+						short[][][] short_arr = new short[dimlen[0]][dimlen[1]][dimlen[2]];
+						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++)
+							short_arr[w][v][u] = arr_short[w*wf+v*vf+u*uf];
+						addColumn(var.getFullName(), short_arr);
+						arr_short = null; short_arr = null; break;
+					case INT: int[] arr_int = (int[]) a.get1DJavaArray(ucar.ma2.DataType.INT);
+						int[][][] int_arr = new int[dimlen[0]][dimlen[1]][dimlen[2]];
+						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++)
+							int_arr[w][v][u] = arr_int[w*wf+v*vf+u*uf];
+						addColumn(var.getFullName(), int_arr);
+						arr_int = null; int_arr = null; break;
+					case LONG: long[] arr_long = (long[]) a.get1DJavaArray(ucar.ma2.DataType.LONG);
+						long[][][] long_arr = new long[dimlen[0]][dimlen[1]][dimlen[2]];
+						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++)
+							long_arr[w][v][u] = arr_long[w*wf+v*vf+u*uf];
 						addColumn(var.getFullName(), long_arr);
-					case FLOAT: float[][][] float_arr = new float[dimlen[0]][dimlen[1]][dimlen[2]];
-						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
-							ind.set(w*aw+v*av+u*au, w*bw+v*bv+u*bu, w*cw+v*cv+u*cu); float_arr[w][v][u] = a.getFloat(ind); }
-						addColumn(var.getFullName(), float_arr); break;
-					case DOUBLE: double[][][] double_arr = new double[dimlen[0]][dimlen[1]][dimlen[2]];
-						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
-							ind.set(w*aw+v*av+u*au, w*bw+v*bv+u*bu, w*cw+v*cv+u*cu); double_arr[w][v][u] = a.getDouble(ind); }
-						addColumn(var.getFullName(), double_arr); break;
-	//				case CHAR:
-	//				case STRING:
-	//					break;
+						arr_long = null; long_arr = null; break;
+					case FLOAT: float[] arr_float = (float[]) a.get1DJavaArray(ucar.ma2.DataType.FLOAT);
+						float[][][] float_arr = new float[dimlen[0]][dimlen[1]][dimlen[2]];
+						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++)
+							float_arr[w][v][u] = arr_float[w*wf+v*vf+u*uf];
+						addColumn(var.getFullName(), float_arr);
+						arr_float = null; float_arr = null; break;
+					case DOUBLE: double[] arr_double = (double[]) a.get1DJavaArray(ucar.ma2.DataType.DOUBLE);
+						double[][][] double_arr = new double[dimlen[0]][dimlen[1]][dimlen[2]];
+						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++)
+							double_arr[w][v][u] = arr_double[w*wf+v*vf+u*uf];
+						addColumn(var.getFullName(), double_arr);
+						arr_double = null; double_arr = null; break;
+//					case CHAR:
+//					case STRING:
+//						break;
 					default:
 						System.out.println("WARNING: does not this datatype: "+var.getDataType().name()+
 								", so the variable is not added to the dataframe");
 						break;
 				}
 			}
+//			else if(vardims.length==2) {
+//				int au=0,av=0,aw=0, bu=0,bv=0,bw=0; Dimension d0=var.getDimension(0), d1=var.getDimension(1);
+//				if(d0.equals(dims.get(0))) aw=1; if(d0.equals(dims.get(1))) av=1; if(d0.equals(dims.get(2))) au=1;
+//				if(d1.equals(dims.get(0))) bw=1; if(d1.equals(dims.get(1))) bv=1; if(d1.equals(dims.get(2))) bu=1;
+//				switch(var.getDataType()) {
+//					case BOOLEAN: boolean[][][] bool_arr = new boolean[dimlen[0]][dimlen[1]][dimlen[2]];
+//						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
+//							ind.set(w*aw+v*av+u*au,w*bw+v*bv+u*bu); bool_arr[w][v][u] = a.getBoolean(ind); }
+//						addColumn(var.getFullName(), bool_arr); break;
+//					case BYTE: byte[][][] byte_arr = new byte[dimlen[0]][dimlen[1]][dimlen[2]];
+//						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
+//							ind.set(w*aw+v*av+u*au,w*bw+v*bv+u*bu); byte_arr[w][v][u] = a.getByte(ind); }
+//						addColumn(var.getFullName(), byte_arr); break;
+//					case SHORT: short[][][] short_arr = new short[dimlen[0]][dimlen[1]][dimlen[2]];
+//						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
+//							ind.set(w*aw+v*av+u*au,w*bw+v*bv+u*bu); short_arr[w][v][u] = a.getShort(ind); }
+//						addColumn(var.getFullName(), short_arr); break;
+//					case INT: int[][][] int_arr = new int[dimlen[0]][dimlen[1]][dimlen[2]];
+//						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
+//							ind.set(w*aw+v*av+u*au,w*bw+v*bv+u*bu); int_arr[w][v][u] = a.getInt(ind); }
+//						addColumn(var.getFullName(), int_arr); break;
+//					case LONG: long[][][] long_arr = new long[dimlen[0]][dimlen[1]][dimlen[2]];
+//						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
+//							ind.set(w*aw+v*av+u*au,w*bw+v*bv+u*bu); long_arr[w][v][u] = a.getLong(ind); }
+//						addColumn(var.getFullName(), long_arr); break;
+//					case FLOAT: float[][][] float_arr = new float[dimlen[0]][dimlen[1]][dimlen[2]];
+//						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
+//							ind.set(w*aw+v*av+u*au,w*bw+v*bv+u*bu); float_arr[w][v][u] = a.getFloat(ind); }
+//						addColumn(var.getFullName(), float_arr); break;
+//					case DOUBLE: double[][][] double_arr = new double[dimlen[0]][dimlen[1]][dimlen[2]];
+//						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
+//							ind.set(w*aw+v*av+u*au,w*bw+v*bv+u*bu); double_arr[w][v][u] = a.getDouble(ind); }
+//						addColumn(var.getFullName(), double_arr); break;
+//	//				case CHAR:
+//	//				case STRING:
+//	//					break;
+//					default:
+//						System.out.println("WARNING: does not this datatype: "+var.getDataType().name()+
+//								", so the variable is not added to the dataframe");
+//						break;
+//				}
+//			}
+//			else {
+//				int au=0,av=0,aw=0, bu=0,bv=0,bw=0, cu=0,cv=0,cw=0;
+//				Dimension d0=var.getDimension(0), d1=var.getDimension(1), d2=var.getDimension(2);
+//				if(d0.equals(dims.get(0))) aw=1; if(d0.equals(dims.get(1))) av=1; if(d0.equals(dims.get(2))) au=1;
+//				if(d1.equals(dims.get(0))) bw=1; if(d1.equals(dims.get(1))) bv=1; if(d1.equals(dims.get(2))) bu=1;
+//				if(d2.equals(dims.get(0))) cw=1; if(d2.equals(dims.get(1))) cv=1; if(d2.equals(dims.get(2))) cu=1;
+//				switch(var.getDataType()) {
+//					case BOOLEAN: boolean[][][] bool_arr = new boolean[dimlen[0]][dimlen[1]][dimlen[2]];
+//						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
+//							ind.set(w*aw+v*av+u*au, w*bw+v*bv+u*bu, w*cw+v*cv+u*cu); bool_arr[w][v][u] = a.getBoolean(ind); }
+//						addColumn(var.getFullName(), bool_arr); break;
+//					case BYTE: byte[][][] byte_arr = new byte[dimlen[0]][dimlen[1]][dimlen[2]];
+//						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
+//							ind.set(w*aw+v*av+u*au, w*bw+v*bv+u*bu, w*cw+v*cv+u*cu); byte_arr[w][v][u] = a.getByte(ind); }
+//						addColumn(var.getFullName(), byte_arr); break;
+//					case SHORT: short[][][] short_arr = new short[dimlen[0]][dimlen[1]][dimlen[2]];
+//						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
+//							ind.set(w*aw+v*av+u*au, w*bw+v*bv+u*bu, w*cw+v*cv+u*cu); short_arr[w][v][u] = a.getShort(ind); }
+//						addColumn(var.getFullName(), short_arr); break;
+//					case INT: int[][][] int_arr = new int[dimlen[0]][dimlen[1]][dimlen[2]];
+//						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
+//							ind.set(w*aw+v*av+u*au, w*bw+v*bv+u*bu, w*cw+v*cv+u*cu); int_arr[w][v][u] = a.getInt(ind); }
+//						addColumn(var.getFullName(), int_arr); break;
+//					case LONG: long[][][] long_arr = new long[dimlen[0]][dimlen[1]][dimlen[2]];
+//						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
+//							ind.set(w*aw+v*av+u*au, w*bw+v*bv+u*bu, w*cw+v*cv+u*cu); long_arr[w][v][u] = a.getLong(ind); }
+//						addColumn(var.getFullName(), long_arr);
+//					case FLOAT: float[][][] float_arr = new float[dimlen[0]][dimlen[1]][dimlen[2]];
+//						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
+//							ind.set(w*aw+v*av+u*au, w*bw+v*bv+u*bu, w*cw+v*cv+u*cu); float_arr[w][v][u] = a.getFloat(ind); }
+//						addColumn(var.getFullName(), float_arr); break;
+//					case DOUBLE: double[][][] double_arr = new double[dimlen[0]][dimlen[1]][dimlen[2]];
+//						for(int w=0; w<dimlen[0]; w++) for(int v=0; v<dimlen[1]; v++) for(int u=0; u<dimlen[2]; u++) {
+//							ind.set(w*aw+v*av+u*au, w*bw+v*bv+u*bu, w*cw+v*cv+u*cu); double_arr[w][v][u] = a.getDouble(ind); }
+//						addColumn(var.getFullName(), double_arr); break;
+//	//				case CHAR:
+//	//				case STRING:
+//	//					break;
+//					default:
+//						System.out.println("WARNING: does not this datatype: "+var.getDataType().name()+
+//								", so the variable is not added to the dataframe");
+//						break;
+//				}
+//			}
 		}
 		for(int dimid=0; dimid<3; dimid++) {
 			Variable var = netcdf_file.findVariable(dims.get(dimid).getFullNameEscaped());
@@ -1145,28 +1218,35 @@ public class DataFrame3D {
 				Array a = null;
 				try {
 					a = var.read();
-					Index ind = a.getIndex();
 					if(dimid==0)
-						for(int dl=0; dl<dimlen[0]; dl++) {
-							ind.set(dl);
-							dimension_one[dl] = a.getDouble(ind);
-						}
+						for(int dl=0; dl<dimlen[0]; dl++)
+							dimension_one[dl] = a.getDouble(dl);
 					if(dimid==1)
-						for(int dl=0; dl<dimlen[1]; dl++) {
-							ind.set(dl);
-							dimension_two[dl] = a.getDouble(ind);
-						}
+						for(int dl=0; dl<dimlen[1]; dl++)
+							dimension_two[dl] = a.getDouble(dl);
 					if(dimid==2)
-						for(int dl=0; dl<dimlen[2]; dl++) {
-							ind.set(dl);
-							dimension_thr[dl] = a.getDouble(ind);
-						}
+						for(int dl=0; dl<dimlen[2]; dl++)
+							dimension_thr[dl] = a.getDouble(dl);
 					dimension_names[dimid] = var.getFullName();
-					double[] dimarray = ( dimid==0 ? dimension_one : (dimid==1 ? dimension_two : dimension_thr));
-					String dim_vals = ""+dimarray[0];
-					for(int dl=1; dl<dimarray.length; dl++)
-						dim_vals += ", "+dimarray[dl];
-					System.out.println("[DF3D - NDread] read dimension \""+dimension_names[dimid]+"\": "+dim_vals);
+					//double[] dimarray = ( dimid==0 ? dimension_one : (dimid==1 ? dimension_two : dimension_thr));
+					//String dim_vals = ""+dimarray[0];
+					//for(int dl=1; dl<dimarray.length; dl++)
+					//	dim_vals += ", "+dimarray[dl];
+					//System.out.println("[DF3D - NDread] read dimension \""+dimension_names[dimid]+"\": "+dim_vals);
+					switch(dimid) {
+						case 0: attribs_dim_one.clear(); break;
+						case 1: attribs_dim_two.clear(); break;
+						case 2: attribs_dim_thr.clear(); break;
+						default: break;
+					}
+					for(Attribute att: var.getAttributes()) {
+						switch(dimid) {
+							case 0: attribs_dim_one.put(att.getFullNameEscaped(), ""+(att.isString()?att.getStringValue():att.getNumericValue())); break;
+							case 1: attribs_dim_two.put(att.getFullNameEscaped(), ""+(att.isString()?att.getStringValue():att.getNumericValue())); break;
+							case 2: attribs_dim_thr.put(att.getFullNameEscaped(), ""+(att.isString()?att.getStringValue():att.getNumericValue())); break;
+							default: break;
+						}
+					}
 					was_succesful = true;
 				} catch (IOException e) {
 					System.out.println("WARNING: could not read dimension \""+dims.get(dimid).getFullName()+"\": add as index-array to dataframe");
@@ -1212,10 +1292,25 @@ public class DataFrame3D {
 			List<Dimension> dims = new ArrayList<>(); dims.add(dim0);
 			Variable[] vars = new Variable[titles.length+3];
 			vars[0] = ncdfWriter.addVariable(null, dimension_names[0], ucar.ma2.DataType.DOUBLE, dims);
+			for(String k: attribs_dim_one.keySet())
+				if(k.equals("_FillValue"))
+					vars[0].addAttribute(new Attribute(k, Double.parseDouble(attribs_dim_one.get(k))));
+				else
+					vars[0].addAttribute(new Attribute(k, attribs_dim_one.get(k)));
 			dims.remove(0); dims.add(dim1);
 			vars[1] = ncdfWriter.addVariable(null, dimension_names[1], ucar.ma2.DataType.DOUBLE, dims);
+			for(String k: attribs_dim_two.keySet())
+				if(k.equals("_FillValue"))
+					vars[1].addAttribute(new Attribute(k, Double.parseDouble(attribs_dim_two.get(k))));
+				else
+					vars[1].addAttribute(new Attribute(k, attribs_dim_two.get(k)));
 			dims.remove(0); dims.add(dim2);
 			vars[2] = ncdfWriter.addVariable(null, dimension_names[2], ucar.ma2.DataType.DOUBLE, dims);
+			for(String k: attribs_dim_thr.keySet())
+				if(k.equals("_FillValue"))
+					vars[2].addAttribute(new Attribute(k, Double.parseDouble(attribs_dim_thr.get(k))));
+				else
+					vars[2].addAttribute(new Attribute(k, attribs_dim_thr.get(k)));
 			dims.remove(0); dims.add(dim0); dims.add(dim1); dims.add(dim2);
 			for(int iv=0; iv<titles.length; iv++) {
 				ucar.ma2.DataType dataType = null;
@@ -1352,6 +1447,21 @@ public class DataFrame3D {
 		int di = dim_id - Constants.FIRST_IDX;
 		if(di<0 || di>2) return null;
 		return dimension_names[di];
+	}
+	public Map<String, String> getAttributesFromDimension(int dim_num) {
+		int di = dim_num - Constants.FIRST_IDX;
+		if(di<0 || di>2) {
+			System.err.println("Number of dimension must be between "+(Constants.FIRST_IDX)+" and "+
+							   (2+Constants.FIRST_IDX)+" for DataFrame3D!");
+			DataHelper.printStackTrace(System.err);
+			return null;
+		}
+		switch(di) {
+			case 0: return attribs_dim_one;
+			case 1: return attribs_dim_two;
+			case 2: return attribs_dim_thr;
+			default: return null;
+		}
 	}
 	public int getVariableCount() { return titles.length; }
 	public String getVarname(int _var_id) {
@@ -1672,6 +1782,9 @@ public class DataFrame3D {
 		dimension_one = new double[0];
 		dimension_two = new double[0];
 		dimension_thr = new double[0];
+		attribs_dim_one.clear();
+		attribs_dim_two.clear();
+		attribs_dim_thr.clear();
 		minmax_mean_sill = new double[4][0];
 		datalength = new int[] {0, 0};
 		bool_column.clear();
