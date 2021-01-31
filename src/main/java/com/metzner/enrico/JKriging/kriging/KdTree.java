@@ -1,6 +1,17 @@
 package com.metzner.enrico.JKriging.kriging;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.metzner.enrico.JKriging.data.Constants;
 import com.metzner.enrico.JKriging.helper.DataHelper;
+import com.metzner.enrico.JKriging.helper.FormatHelper;
 //import com.metzner.enrico.JKriging.helper.FormatHelper;
 import com.metzner.enrico.JKriging.helper.MathHelper;
 
@@ -10,12 +21,15 @@ public class KdTree {
 	private int dimensions;
 	private double progress;
 	private double[][] identity_matrix;
+	private int debug_level;
+	private String debug_entry;
 	
 	public KdTree() {
 		root = null;
 		dimensions = 0;
 		progress = 0d;
 		identity_matrix = new double[0][0];
+		debug_level = 0;
 	}
 	
 	public void build(boolean _polar, boolean _degree, double[]... coords) {
@@ -56,38 +70,102 @@ public class KdTree {
 				internalCoords[2][p] = Math.sin(lat);
 			}
 		}
-		int indexdim = internalCoords.length-1;
-		for(int p=0; p<npoints; p++) internalCoords[indexdim][p] = p + 0.001d;
+		dimensions = internalCoords.length-1; //index column should not be part of later space transformation
+		for(int p=0; p<npoints; p++) internalCoords[dimensions][p] = p + 0.1d;
 		
 		root = build(internalCoords, 0, npoints-1, 0);
 
 		dimensions = internalCoords.length-1; //index column should not be part of later space transformation
-		identity_matrix = new double[dimensions][dimensions];
-		for(int j=0; j<dimensions; j++)
-			for(int i=0; i<dimensions; i++)
-				identity_matrix[j][i] = (i==j ? 1d : 0d);
+		identity_matrix = MathHelper.identity(dimensions);
 	}
 	private KdTreeNode build(double[][] coords, int index_start, int index_end, int axis) {
+		int dims = coords.length - 1; // coords contain index column, not part of "position"
 		if(index_start!=index_end) {
-			int dimensions = coords.length - 1; // coords contain index column, not part of "position"
 			double[] temp = new double[coords[axis].length];
 			for(int v=0; v<temp.length; v++) temp[v] = coords[axis][v];
 			DataHelper.sortem(temp, index_start, index_end, false, coords);
 			int i = (index_start+index_end)/2; //<- this is may not be the original index, so the original index is carried in the last column of coords.
-			double[] pos = new double[dimensions];
-			for(int p=0; p<dimensions; p++) pos[p] = coords[p][i];
-			int index = (int) coords[dimensions][i];
+			double[] pos = new double[dims];
+			for(int p=0; p<dims; p++) pos[p] = coords[p][i];
+			int index = (int) coords[dims][i];
 			KdTreeNode node = new KdTreeNode(index, pos);
-			node.setChildren(index_start<i ? build(coords, index_start, i-1, (axis+1)%dimensions): null,
-					         i<index_end ? build(coords, i+1, index_end, (axis+1)%dimensions) : null);
+			node.setChildren(index_start<i ? build(coords, index_start, i-1, (axis+1)%dims): null,
+					         i<index_end ? build(coords, i+1, index_end, (axis+1)%dims) : null);
 			return node;
 		} else {
-			double[] pos = new double[dimensions];
-			for(int p=0; p<dimensions; p++) pos[p] = coords[p][index_start];
-			int index = (int) coords[dimensions][index_start];
+			double[] pos = new double[dims];
+			for(int p=0; p<dims; p++) pos[p] = coords[p][index_start];
+			int index = (int) coords[dims][index_start];
 			KdTreeNode leaf = new KdTreeNode(index, pos);
 			return leaf;
 		}
+	}
+	
+	
+	public void setDebugLevel(int level) {
+		debug_level = Math.max(0, Math.min(3, level));
+	}
+	public void open(String sourcePath) {
+		try {
+			//System.out.println("read in jsonfile:");
+			List<String> txt = Files.readAllLines(new File(sourcePath).toPath());
+			String jsontxt = "";
+			for(String s: txt) {
+				//System.out.println(s);
+				jsontxt += " "+s;
+			}
+			root = new KdTreeNode();
+			root.setFromJson(jsontxt.trim());
+			dimensions = root.getPosition().length;
+			identity_matrix = MathHelper.identity(dimensions);
+		} catch (IOException ioe) {
+			System.err.println("Could not read json file; No KdTree filled.");
+			ioe.printStackTrace();
+		}
+	}
+	public void save(String savePath) {
+		File sf = new File(savePath);
+		if(sf.exists())
+			System.out.println("[WARNING] Override existing file! No backup will be done!");
+		try(BufferedWriter bw = new BufferedWriter(new FileWriter(sf))) {
+			bw.append(root.toJson());
+			bw.newLine();
+			bw.flush();
+		} catch (IOException ioe) {
+			ioe.printStackTrace();
+		}
+	}
+	public void printFirstEntries() {
+		System.out.print(printFirstEntries(root, 3, ""));
+	}
+	public void printFirstEntries(int level) {
+		System.out.print(printFirstEntries(root, level, ""));
+	}
+	public void printFirstEntries(KdTreeNode entry) {
+		System.out.print(printFirstEntries(entry, 3, ""));
+	}
+	private String printFirstEntries(KdTreeNode entry, int level, String off) {
+		if(entry==null)
+			return " null\n";
+		String res = "";
+		res = entry.equals(root) ? "root:\n" : "\n";
+		res += "  "+off+"|-> index: "+entry.getIndex()+"\n";
+		double[] pos = entry.getPosition();
+		String posString = "";
+		for(int p=0; p<pos.length; p++)
+			posString += (p==0?" ":", ")+FormatHelper.nf(pos[p],6,4);
+		res += "  "+off+"|-> pos: ["+posString+" ]\n";
+		res += "  "+off+"|-> left:";
+		if(level>0)
+			res += printFirstEntries(entry.getLeftChild(), level-1, off+"|   ");
+		else
+			res += "\n";
+		res += "  "+off+"'-> right:";
+		if(level>0)
+			res += printFirstEntries(entry.getRightChild(), level-1, off+"    ");
+		else
+			res += "\n";
+		return res;
 	}
 	
 	public int getIndexOfClosestPointTo(boolean use_polar_coordinates, boolean is_in_degree, double... coords) {
@@ -105,12 +183,13 @@ public class KdTree {
 	public int[] getIndexOfNClosestPointsTo(int min_points, int max_points, int minOcts, double maximum_distance, double[][] rotation_matrix, boolean use_polar_coordinates, boolean is_in_degree, double... coords) {
 		//System.out.println("[KDTREE] Search for Indices of N points:\n"+
 		//                   "            N = "+number_of_points); //TODO DEBUG remove
+		debug_entry = " nothing\n";
 		int nump = Math.max(min_points*minOcts, max_points);
 		int[] indices = new int[nump+1];
 		for(int i=0; i<nump; i++) indices[i+1] = -1;
 		indices[0] = 0;
 		if(root==null) {
-			System.err.println("no k-d-tree was build or an other error occured! Return -1."); DataHelper.printStackTrace(System.err);
+			System.err.println("no k-d-tree was build or an other error occured! Return [-1,...]."); DataHelper.printStackTrace(System.err);
 			return indices; }
 		int rm_len = rotation_matrix.length;
 		if(rm_len!=rotation_matrix[0].length) {
@@ -126,7 +205,7 @@ public class KdTree {
 		int pc = use_polar_coordinates ? 1 : 0;
 		int givenCount = coords.length;
 		if(dimcount!= givenCount+pc) {
-			System.err.println("too "+(dimcount<givenCount+pc?"much":"few")+" points coordinates are given, "+
+			System.err.println("too "+(dimcount<givenCount+pc?"much":"few")+" point coordinates are given, "+
 					           "expected "+(dimcount-pc)+" but got "+givenCount);
 			DataHelper.printStackTrace(System.err);
 			return indices;
@@ -137,9 +216,8 @@ public class KdTree {
 			pivot[c] = coords[p];
 		}
 		if(use_polar_coordinates) {
-			double d2r = Math.PI / 180d;
-			double lon = coords[0] * (is_in_degree ? d2r : 1d);
-			double lat = coords[1] * (is_in_degree ? d2r : 1d);
+			double lon = coords[0] * (is_in_degree ? Constants.DEG2RAD : 1d);
+			double lat = coords[1] * (is_in_degree ? Constants.DEG2RAD : 1d);
 			pivot[0] = Math.cos(lat) * Math.cos(lon);
 			pivot[1] = Math.cos(lat) * Math.sin(lon);
 			pivot[2] = Math.sin(lat);
@@ -166,7 +244,14 @@ public class KdTree {
 			}
 			//System.out.println("            point "+(i+1)+":"); //TODO DEBUG remove
 			//System.out.println("                -- min-dist = "+minimum_distance);
-			KdTreeNode closest = closestNode(pivot, indices, exOctants, pivot, max_dist_squared, rotation_matrix, transposed_inverse_rotation_matrix, root, 0);
+			KdTreeNode closest = null;
+			try {
+				closest = closestNode(pivot, indices, exOctants, pivot, max_dist_squared, rotation_matrix, transposed_inverse_rotation_matrix, root, 0);
+			} catch(ArrayIndexOutOfBoundsException aioobe) {
+				aioobe.printStackTrace();
+				System.err.println();
+				throw new RuntimeException("Traceback of last entry:"+debug_entry);
+			}
 			if(closest==null) break;
 			indices[i+1] = closest.getIndex();
 			indices[0]++;
@@ -184,7 +269,8 @@ public class KdTree {
 	
 	private KdTreeNode closestNode(double[] _pivot, int[] nodesToExclude, int[] octantsToExclode, double[] centerOfOctants, double max_sqr_dist, double[][] rotmat, double[][] trpinvrotmat, KdTreeNode current_branch, int axis) {
 		if(current_branch == null) return null;
-		
+		if(debug_level>2)
+			debug_entry = printFirstEntries(current_branch, 1, "");
 		KdTreeNode next_branch = null;
 		KdTreeNode opp_branch = null;
 		
@@ -281,6 +367,9 @@ public class KdTree {
 		int index;
 		KdTreeNode leftChild, rightChild;
 		
+		public KdTreeNode() {
+			this(-1, null);
+		}
 		public KdTreeNode(int _idx, double... _pos) {
 			pos = _pos;
 			index = _idx;
@@ -297,15 +386,129 @@ public class KdTree {
 		public KdTreeNode getLeftChild() { return leftChild; }
 		public KdTreeNode getRightChild() { return rightChild; }
 		
+		public void setFromJson(String json) {
+			String txt = json.trim();
+			if(txt.charAt(0)=='{')
+				txt = (txt.substring(1, txt.length()-1)).trim();
+			Map<String,String> entries = new HashMap<>();
+			boolean foundEntries = true;
+			while(foundEntries) {
+				foundEntries = false;
+				int idxKe = txt.indexOf("\":");
+				if(idxKe>-1) {
+					int idxKs = txt.substring(0, idxKe).indexOf("\"")+1;
+					String key = txt.substring(idxKs, idxKe);
+					String posval = txt.substring(idxKe+2).trim();
+					char pvc = posval.charAt(0);
+					if(pvc=='[') {
+						int c=1;
+						for(int p=1; p<posval.length(); p++) {
+							if(posval.charAt(p)=='[') c++;
+							if(posval.charAt(p)==']') c--;
+							if(c==0) {
+								entries.put(key, posval.substring(1, p));
+								txt = posval.substring(p+1+(posval.charAt(Math.min(p+1,posval.length()-1))==','?1:0));
+								foundEntries = true;
+								break;
+							}
+						}
+					}
+					else if(pvc=='{') {
+						int o=1;
+						for(int p=1; p<posval.length(); p++) {
+							if(posval.charAt(p)=='{') o++;
+							if(posval.charAt(p)=='}') o--;
+							if(o==0) {
+								entries.put(key, posval.substring(1, p));
+								txt = posval.substring(p+1+(posval.charAt(Math.min(p+1,posval.length()-1))==','?1:0));
+								foundEntries = true;
+								break;
+							}
+						}
+					}
+					else if(pvc=='n') {
+						if(posval.startsWith("null")) {
+							entries.put(key, "null");
+							txt = "";
+							foundEntries = true;
+							break;
+						}
+					}
+					else if("0123456789".contains(""+pvc)) {
+						for(int p=1; p<posval.length(); p++) {
+							if(posval.charAt(p)==',') {
+								entries.put(key, posval.substring(0, p));
+								txt = posval.substring(p+1);
+								foundEntries = true;
+								break;
+							}
+						}
+					}
+				}
+			}
+			if(txt.length()>1) {
+				System.err.println("There seams to be an error while reading KdTreeNode-data from json file...");
+				DataHelper.printStackTrace(System.err);
+				return;
+			}
+			KdTreeNode temp_left = null;
+			KdTreeNode temp_right = null;
+			int checkIfMinimumDataIsSet = 2;
+			for(String k: entries.keySet()) {
+				if(k.equals("point")) {
+					String[] coords = entries.get(k).split(",");
+					pos = new double[coords.length];
+					for(int p=0; p<pos.length; p++)
+						pos[p] = Double.parseDouble(coords[p].trim());
+					checkIfMinimumDataIsSet--;
+				} else
+				if(k.equals("index")) {
+					index = Integer.parseInt(entries.get(k).trim());
+					checkIfMinimumDataIsSet--;
+				} else
+				if(k.equals("left")) {
+					if(!entries.get(k).startsWith("null")) {
+						temp_left = new KdTreeNode();
+						temp_left.setFromJson(entries.get(k));
+					}
+				} else
+				if(k.equals("right")) {
+					if(!entries.get(k).startsWith("null")) {
+						temp_right = new KdTreeNode();
+						temp_right.setFromJson(entries.get(k));
+					}
+				}
+				else {
+					System.out.println("WARNING: found unusable key entry: \""+k+"\"=\""+entries.get(k)+"\"");
+				}
+			}
+			this.setChildren(temp_left, temp_right);
+			if(checkIfMinimumDataIsSet>0) {
+				System.err.println("Could not read all necessary data from json-File!");
+				this.index = -1;
+				this.pos = null;
+				this.leftChild = null;
+				this.rightChild = null;
+				DataHelper.printStackTrace(System.err);
+			}
+		}
 		public String toJson() {
 			String json = "{";
 			json += "\"index\": "+index+", ";
 			json += "\"point\": ["+pos[0];
 			for(int c=1; c<pos.length; c++)
 				json += ", "+pos[c];
-			json += "]";
-			if(leftChild!=null) json += ", \"left\": "+leftChild.toJson();
-			if(rightChild!=null) json += ", \"right\": "+rightChild.toJson();
+			json += "], ";
+			if(leftChild!=null) {
+				json += "\"left\": "+leftChild.toJson()+", ";
+			} else {
+				json += "\"left\": null, ";
+			}
+			if(rightChild!=null) {
+				json += "\"right\": "+rightChild.toJson();
+			} else {
+				json += "\"right\": null";
+			}
 			json += "}";
 			return json;
 		}
