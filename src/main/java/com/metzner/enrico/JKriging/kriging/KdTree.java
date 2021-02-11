@@ -61,10 +61,9 @@ public class KdTree {
 			}
 		}
 		if(_polar) {
-			double d2r = Math.PI / 180d;
 			for(int p=0; p<npoints; p++) {
-				double lon = coords[0][p] * (_degree ? d2r : 1d);
-				double lat = coords[1][p] * (_degree ? d2r : 1d);
+				double lon = coords[0][p] * (_degree ? Constants.DEG2RAD : 1d);
+				double lat = coords[1][p] * (_degree ? Constants.DEG2RAD : 1d);
 				internalCoords[0][p] = Math.cos(lat) * Math.cos(lon);
 				internalCoords[1][p] = Math.cos(lat) * Math.sin(lon);
 				internalCoords[2][p] = Math.sin(lat);
@@ -255,13 +254,13 @@ public class KdTree {
 			if(closest==null) break;
 			indices[i+1] = closest.getIndex();
 			indices[0]++;
-			int closestOctant = 0;
+			int octantOfClosest = 0;
 			double[] closestPos = closest.getPosition();
 			for(int d=0; d<pivot.length; d++) {
 				int j = 1<<d;
-				if(closestPos[d]<pivot[d]) closestOctant |= j;
+				if(closestPos[d]<pivot[d]) octantOfClosest |= j;
 			}
-			octants[closestOctant]++;
+			octants[octantOfClosest]++;
 		}
 		return indices;
 	}
@@ -283,7 +282,7 @@ public class KdTree {
 			opp_branch  = current_branch.getLeftChild();
 		}
 		
-		KdTreeNode best = closer_point(
+		KdTreeNode best = closer_node(
 					_pivot,
 					closestNode(_pivot, nodesToExclude, octantsToExclode, centerOfOctants, max_sqr_dist, rotmat, trpinvrotmat, next_branch, (axis+1)%_pivot.length),
 					current_branch,
@@ -313,7 +312,7 @@ public class KdTree {
 		// if point is closer to the dividing plane as to the nearest neighbour so far,
 		//   then the opposite branch could contain a point which is even closer
 		if ( planedist < dist )
-			best = closer_point(
+			best = closer_node(
 					_pivot,
 					closestNode(_pivot, nodesToExclude, octantsToExclode, centerOfOctants, max_sqr_dist, rotmat, trpinvrotmat, opp_branch, (axis+1)%_pivot.length),
 					best,
@@ -321,7 +320,7 @@ public class KdTree {
 		
 		return best;
 	}
-	private KdTreeNode closer_point(double[] piv, KdTreeNode p1, KdTreeNode p2, int[] excluded_nodes, int[] exclude_octants, double[] octant_center, double maximum_squared_distance, double[][] rotation_matrix) {
+	private KdTreeNode closer_node(double[] piv, KdTreeNode p1, KdTreeNode p2, int[] excluded_nodes, int[] exclude_octants, double[] octant_center, double maximum_squared_distance, double[][] rotation_matrix) {
 		if(p2==null) return p1;
 		if(p1==null) return p2;
 		double[] p1p = p1.getPosition();
