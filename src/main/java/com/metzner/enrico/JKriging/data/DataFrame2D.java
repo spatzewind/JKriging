@@ -32,6 +32,7 @@ import ucar.nc2.NetcdfFileWriter;
 import ucar.nc2.NetcdfFileWriter.Version;
 import ucar.nc2.Variable;
 
+@SuppressWarnings("deprecation")
 public class DataFrame2D {
 
 	private int[] datalength;
@@ -940,10 +941,24 @@ public class DataFrame2D {
 
 	/**
 	 * Read selected variable data from a Netcdf file
-	 * if on variable isn't in the file, it woould not be read to this dataframe
+	 * if on variable isn't in the file, it would not be read to this dataframe
 	 * and a warning would be printed to the command line
-	 * @param netcdf_file
-	 * @param variables
+	 * @param filepath path to the NetCDF file
+	 * @param variable name(s) of variable(s)
+	 */
+	public void readFromNetcdf(String filepath, String... variable) {
+		try(NetcdfFile nc = NetcdfFile.open(filepath)) {
+			this.readFromNetcdf(nc, variable);
+		} catch(IOException ioe) {
+			ioe.printStackTrace();
+		}
+	}
+	/**
+	 * Read selected variable data from a Netcdf file
+	 * if on variable isn't in the file, it would not be read to this dataframe
+	 * and a warning would be printed to the command line
+	 * @param netcdf_file NetCDF object with the data to read
+	 * @param variable    name(s) of variable(s)
 	 */
 	public void readFromNetcdf(NetcdfFile netcdf_file, String... variable) {
 		clear();
@@ -1692,6 +1707,7 @@ public class DataFrame2D {
 		string_column.clear();
 	}
 
+	@SuppressWarnings("unused")
 	private String[] null_line(String _in, String _del) {
 		int count = 1;
 		int occ = _in.indexOf(_del);

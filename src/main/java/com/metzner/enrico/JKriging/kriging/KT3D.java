@@ -36,8 +36,8 @@ public class KT3D {
 	public static final int INDEX_KRIGING_NO  = 0;
 	public static final int INDEX_KRIGING_YES = 1;
 	
-
 	private int iktype, ncut, koption, idbg;
+	private boolean[] withSAHE = new boolean[MAXNST];
 	private int[] idrif = new int[MAXDT], it = new int[MAXNST];
 	private double[] bv = new double[9], cc = new double[MAXNST], aa = new double[MAXNST],
 			ang1 = new double[MAXNST], ang2 = new double[MAXNST], ang3 = new double[MAXNST], anis1 = new double[MAXNST],
@@ -70,13 +70,13 @@ public class KT3D {
 	private double progressNPoints;
 
 	private boolean[] paramchecklist = new boolean[8];
-	String[] param_descriptions = { "dataframe", "variable-cooredinates and kriging variable", "kriging field/points",
+	String[] param_descriptions = { "dataframe", "co-ordinate variables and kriging variable", "kriging field/points",
 			"kriging search parameters", "debugging setting", "usage of jackknife file",
 			"external drift file and parameters", "variogram model(s)" };
 
 	private int numberOfWorker; //used for multithreading
 	private AtomicInteger indexOffset;
-	
+
 	public KT3D() {
 		variograms = new ArrayList<double[]>();
 		indexOffset = new AtomicInteger(0);
@@ -117,7 +117,7 @@ public class KT3D {
 		paramchecklist[6] = false; // external drift is set/unset
 		paramchecklist[7] = false; // variogram model ist set;
 	}
-	
+
 	public KT3D setKrigingOptionAndDataframe(DataFrame _data, int kriging_option, int kriging_type, double simplekriging_mean, boolean use_indicator_kriging, double[] category_upper_bounds) {
 		dataframe = _data;
 		if(dataframe==null) {
@@ -294,16 +294,36 @@ public class KT3D {
 			double azimuth, double dip, double roll, double h_max, double h_min, double h_vert) {
 		if(h_max<0d) {
 			System.err.println("search radius must be greater than zero!");
-		} else if (variogram_type == 4 && (h_max < 0d || h_min > 2d)) {
-			System.err.println("INVALID power variogram");
-		} else {
-			double anis1 = h_min / Math.max(h_max, EPSLON);
-			double anis2 = h_vert / Math.max(h_max, EPSLON);
-			System.out.println("search anisotropy angles = " + azimuth + " " + dip + " " + roll);
-			System.out.println(" a1 a2 a3 =  " + h_max + " " + h_min + " " + h_vert);
-			variograms.add(new double[] {variogram_type+0.1d, covariance, azimuth, dip, roll, h_max, anis1, anis2});
-			paramchecklist[7] = true;
+			return this;
 		}
+		if (variogram_type == Covariance.VARIOGRAM_POWER && (h_max < 0d || h_min > 2d)) {
+			System.err.println("INVALID power variogram!");
+			return this;
+		}
+		if (variogram_type == Covariance.VARIOGRAM_SINGLE_AXIS_HE) {
+			if (variograms.size()==0) {
+				System.err.println("There is no previous variogram to apply the single-axis hole effec!");
+				return this;
+			}
+			double[] pre_vario = variograms.get(variograms.size()-1);
+			if(Covariance.VARIOGRAM_HOLE_EFFECT == (int) pre_vario[0]) {
+				System.err.println("Cannot apply single-axis hole effect to \"hole effect\"-variogram model!");
+				return this;
+			}
+			if(pre_vario[0]-(int)pre_vario[0] > 0.5d) {
+				System.err.println("Cannot apply second single-axis hole effect to variogram model!");
+				return this;
+			}
+			variograms.set(variograms.size()-1, setSingleAxisHoleEffect(pre_vario,
+					azimuth,dip,roll, h_max, h_min, h_vert));
+			return this;
+		}
+		double anis1 = h_min / Math.max(h_max, EPSLON);
+		double anis2 = h_vert / Math.max(h_max, EPSLON);
+		System.out.println("search anisotropy angles = " + azimuth + " " + dip + " " + roll);
+		System.out.println(" a1 a2 a3 =  " + h_max + " " + h_min + " " + h_vert);
+		variograms.add(new double[] {variogram_type+0.0001d, covariance, azimuth, dip, roll, h_max, anis1, anis2});
+		paramchecklist[7] = true;
 		return this;
 	}
 	public KT3D setThreadNumber(int max_number_of_threads_to_use) {
@@ -695,11 +715,128 @@ public class KT3D {
 			}
 		}
 	}
-
+	private double[] setSingleAxisHoleEffect(double[] pre_vario, double azimuth, double dip, double roll, double h_max, double h_min, double h_vert) {
+		//calc cross section of ellipsoid (previous varigoram) and plane (perpendicular to he-axis)
+		// vecX... is vector of ellipsoid, S... scale matrix, R... rotation matrix
+		// vecN... is unit-vector of plane normal
+		// vecU... vector of unit-sphere:
+		// I:  vecU = S*R*x with |vecU| = 1  <-- sphere
+		// II: vecN*(vecX) = 0        <-- plane
+		// put sphere (I) into plane (II) equation:
+		// vecN * (S^-1 * vecU) = (S^-T * vecN) * vecU = 0
+		double[][] preRot = MathHelper.matmul(
+				MathHelper.setrot3Dmath(pre_vario[2], pre_vario[3], pre_vario[4], pre_vario[6], pre_vario[7], 1, 1, new double[1][3][3])[0],
+				1d/pre_vario[5]);
+		double[][] Sm1t = { { pre_vario[5],              0d, 0d },
+							{ 0d, pre_vario[5]*pre_vario[6], 0d },
+							{ 0d, 0d, pre_vario[5]*pre_vario[7] } };
+		double[] n0 = MathHelper.matmul(MathHelper.inverse(MathHelper.setrot3Dmath(azimuth, dip, roll, 1d, 1d, 1, 1, new double[1][3][3])[0]),
+										new double[] {1d,0d,0d});
+		// get vecM = (S^-T * vecN) / |S^-T * vecN| as hesse-form of plane equation
+		double[] m = MathHelper.matmul(Sm1t, n0);
+		// now get defining vectors for cross-ellipse: vecE1,vecE2
+		// if vecM[z] = +/- 1 than: vecE1 = (1,0,0)T, vecE2 = (0,1,0)T
+		// else:                    vecE1 = (vecM[y],-vecM[x],0)T / sqrt(vecM[x]²+vecM[y]²), vecE2 = vecM x vecE1
+		double[] e1= {1d,0d,0d}, e2={0d,1d,0d};
+		double mr = Math.sqrt(m[0]*m[0]+m[1]*m[1]);
+		if(mr>1.0e-12d)
+		{
+			//set e1
+			e1[0] = m[1]/mr; e1[1] = -m[0]/mr;
+			//e2 = m x e1
+			e2[0] = -m[2]*e1[1]/mr; e2[1] = m[2]*e1[0]/mr; e2[2] = (m[0]*e1[1]-m[1]*e1[0])/mr;
+		}
+		// back-transform to original space:
+		// x = R^1 * S^-1 * vecU
+		// --> vecF1 = (S*R)^-1 * vecE1
+		//     vecF2 = (S*R)^-1 * vecE2
+		double[][] infPreRot = MathHelper.inverse(preRot);
+		double[] f1 = MathHelper.matmul(infPreRot, e1);
+		double[] f2 = MathHelper.matmul(infPreRot, e2);
+		// transform to "Scheitelform":
+		// p(t) = -vecF1 * sin(t) + vecF2 * cos(t)
+		// cot(2*t0) = (<vecF1,vecF1>-<vecF2,vecF2>) / (2 * <vecF1,vecF2>), with t0=0 if <vecF1,vecF2>=0
+		double scp_f1f2 = MathHelper.matmul(MathHelper.transpose(f1), f2)[0];
+		double magF1 = f1[0]*f1[0] + f1[1]*f1[1] + f1[2]*f1[2];
+		double magF2 = f2[0]*f2[0] + f2[1]*f2[1] + f2[2]*f2[2];
+		double t0 = 0d;
+		if(Math.abs(scp_f1f2)>1.0e-12d)
+		{
+			t0 = 0.25d * Math.PI;
+			if(Math.abs(magF1-magF2)>1.0e-12d)
+				t0 = 0.5d * Math.atan(scp_f1f2 / (magF1-magF2));
+		}
+		// extrem - points are now:
+		// p(t0+{-1,0,1,2}*pi/2)
+		// or:
+		// vecEx1 = +/- (vecF2 * cos(t0) - vecF1 * sin(t0))
+		// vecEx2 = +/- (vecF2 * sin(t0) - vecF2 * cos(t0))
+		double ct=Math.cos(t0), st=Math.sin(t0);
+		double[] p0 = { f1[0]*ct+f2[0]*st, f1[1]*ct+f2[1]*st, f1[2]*ct+f2[2]*st };
+		double[] p1 = { f2[0]*ct-f1[0]*st, f2[1]*ct-f1[1]*st, f2[2]*ct-f1[2]*st };
+		//extract rotation matrix from new ellipse-extrem-points
+		double p0r = Math.sqrt(p0[0]*p0[0] + p0[1]*p0[1] + p0[2]*p0[2]);
+		double p1r = Math.sqrt(p1[0]*p1[0] + p1[1]*p1[1] + p1[2]*p1[2]);
+		if(p0r<p1r) {
+			double temp = p0r; p0r = p1r; p1r = temp;
+			temp = p0[0]; p0[0] = p1[0]; p1[0] = temp;
+			temp = p0[1]; p0[1] = p1[1]; p1[1] = temp;
+			temp = p0[2]; p0[2] = p1[2]; p1[2] = temp;
+		}
+		double[] p2 = { p0[1]*p1[2]-p0[2]*p1[1], p0[2]*p1[0]-p0[0]*p1[2], p0[0]*p1[1]-p0[1]*p1[0] };
+		double p2r = Math.sqrt(p2[0]*p2[0] + p2[1]*p2[1] + p2[2]*p2[2]);
+		double[][] invRM = { { p0[0]/p0r, p1[0]/p1r, p2[0]/p2r },
+							 { p0[1]/p0r, p1[1]/p1r, p2[1]/p2r },
+							 { p0[2]/p0r, p1[2]/p1r, p2[2]/p2r } };
+		double[][] newRM = MathHelper.inverse(invRM);
+		//get angles from rotation matrix
+		double temp = Math.sqrt(newRM[0][0]*newRM[0][0]+newRM[0][1]*newRM[0][1]) * (newRM[0][0]<0d && newRM[0][1]<0d ? -1d : 1d);
+		double alpha = Constants.RAD2DEG * Math.acos(Math.max(-1d,Math.min(1d,newRM[0][0]/temp))) * (newRM[0][1]/temp<0d ? -1d : 1d);
+		if(alpha<-90d) alpha += 180d;
+		if(alpha>90d) alpha -= 180d;
+		double beta  = Constants.RAD2DEG * Math.asin(newRM[0][2]);
+		//System.out.println("  ... \u03b1="+alpha+" and \u03b2="+beta);
+		double[][] ab = MathHelper.setrot3Dmath(alpha, beta, 0d, 1d, 1d, 1, 1, new double[1][3][3])[0];
+		//FormatHelper.printMat(System.out, ab);
+		//System.out.println("{Det = "+MathHelper.determinante(ab)+"}");
+		newRM = MathHelper.matmul(newRM, MathHelper.transpose(ab));
+		if(newRM[0][0]<0d)
+			newRM = MathHelper.matmul(newRM, -1d);
+		//System.out.println("  ... resulting in matrix for gamma:");
+		FormatHelper.printMat(System.out, newRM);
+		System.out.println("{Det = "+MathHelper.determinante(newRM)+"}");
+		double gamma = Constants.RAD2DEG * Math.acos(Math.min(1d,0.5d*(Math.abs(newRM[1][1])+Math.abs(newRM[2][2]))));
+		gamma *= (Math.abs(newRM[1][2])<Math.abs(newRM[2][1]) ? -newRM[2][1] : newRM[1][2])<0d ? -1d : 1d;
+//		mp[m][4] = alpha;
+//		mp[m][5] = beta;
+//		mp[m][6] = gamma;
+		boolean check1 = newRM[0][0]>1d-1.e-10d;
+		boolean check2 = Math.abs(newRM[0][1])<1.e-10d && Math.abs(newRM[0][2])<1.e-10d &&
+						 Math.abs(newRM[1][0])<1.e-10d && Math.abs(newRM[2][0])<1.e-10d;
+		boolean check3 = Math.abs(newRM[1][1]-newRM[2][2])<1.e-10d && Math.abs(newRM[1][2]+newRM[2][1])<1.e-10d
+						&& newRM[1][1]>-1.e-10d;
+		if(!check1 || !check2 || !check3)
+		{
+			//System.out.println("For check (k="+k3+"):");
+			//FormatHelper.printMat(System.out, rm);
+			if(!check1) System.err.println("Check for 1 top left failed.");
+			if(!check2) System.err.println("Check for 0s top and left failed.");
+			if(!check3) System.err.println("Check for cos and sin failed.");
+		}
+		pre_vario[0] += 0.5d;
+		pre_vario[2] = alpha;
+		pre_vario[3] = beta;
+		pre_vario[4] = gamma;
+		pre_vario[5] = p0r;
+		pre_vario[6] = p1r / p0r;
+		pre_vario[7] = h_max * Constants.SAHE_FAC / p0r;
+		return pre_vario;
+	}
+	
 	public double getProgress() {
 		return progressNPoints;
 	}
-	
+
 	public DataFrame kt3d() {
 		if(!kt3d_df())
 			return null;
@@ -733,7 +870,7 @@ public class KT3D {
 		}
 		return result;
 	}
-	
+
 	private boolean kt3d_df() { //TODO beginning of KT3D
 		boolean someParamIsMissing = false;
 		for(int pcl=0; pcl<8; pcl++) if(!paramchecklist[pcl]) {
@@ -825,15 +962,17 @@ public class KT3D {
 		double max_rad = radius;
 		for(int i=0; i<nst[0]; i++) {
 			double[] vario = variograms.get(i);
-			it[i]    = (int) vario[0];
-			cc[i]    = vario[1]; c0[0] -= cc[i];
-			ang1[i]  = vario[2];
-			ang2[i]  = vario[3];
-			ang3[i]  = vario[4];
-			aa[i]    = vario[5];
-			anis1[i] = vario[6];
-			anis2[i] = vario[7];
+			it[i]       = (int) vario[0];
+			withSAHE[i] = (vario[0]-it[i]>0.5d);
+			cc[i]       = vario[1]; c0[0] -= cc[i];
+			ang1[i]     = vario[2];
+			ang2[i]     = vario[3];
+			ang3[i]     = vario[4];
+			aa[i]       = vario[5];
+			anis1[i]    = vario[6];
+			anis2[i]    = vario[7];
 			if(it[i]==Covariance.VARIOGRAM_SPHERICAL && aa[i]<max_rad) max_rad = aa[i];
+			if(withSAHE[i] && aa[i]*anis2[i]>max_rad) max_rad = aa[i]*anis2[i];
 		}
 		//to avoid including basepoints outside the range-ellipsoide:
 		//reduces null-matrices;
@@ -966,7 +1105,7 @@ public class KT3D {
 
 //        c Calculate Block Covariance. Check for point kriging.
 		double cov = Covariance.cova3(xdb[0], ydb[0], zdb[0], xdb[0], ydb[0], zdb[0],
-				1, nst, MAXNST, c0, it, cc, aa, 1, MAXROT, rotmat)[0];
+				1, nst, MAXNST, c0, it, withSAHE, cc, aa, 1, MAXROT, rotmat)[0];
 
 //        c Set the ``unbias'' variable so that the matrix solution is more stable
 		double unbias = cov;
@@ -976,7 +1115,7 @@ public class KT3D {
 			for(int i=0; i<ndb; i++) {
 				for(int j=0; j<ndb; j++) {
 					cov = Covariance.cova3(xdb[i], ydb[i], zdb[i], xdb[j], ydb[j], zdb[j],
-							1, nst, MAXNST, c0, it, cc, aa, 1, MAXROT, rotmat)[0];
+							1, nst, MAXNST, c0, it, withSAHE, cc, aa, 1, MAXROT, rotmat)[0];
 		//                  call cova3(xdb(i),ydb(i),zdb(i),xdb(j),ydb(j),zdb(j),
 		//     +               1,nst,MAXNST,c0,it,cc,aa,1,MAXROT,rotmat,cmax,cov)
 					if(i==j) cov -= c0[0];
@@ -1317,12 +1456,12 @@ public class KT3D {
 								pre_e = ve[ind];
 								if(ndb<=1) {
 									pre_cov = Covariance.cova3(pre_x, pre_y, pre_z, xdb[0], ydb[0], zdb[0],
-											1, nst, MAXNST, c0, it, cc, aa, 1, MAXROT, rotmat)[0];
+											1, nst, MAXNST, c0, it, withSAHE, cc, aa, 1, MAXROT, rotmat)[0];
 								} else {
 									pre_cov  = 0d;
 									for(int j=0; j<ndb; j++) {
 										cov = Covariance.cova3(pre_x, pre_y, pre_z, xdb[j], ydb[j], zdb[j],
-												1, nst, MAXNST, c0, it, cc, aa, 1, MAXROT, rotmat)[0];
+												1, nst, MAXNST, c0, it, withSAHE, cc, aa, 1, MAXROT, rotmat)[0];
 										pre_cov += cov;
 										double dx = pre_x - xdb[j];
 										double dy = pre_y - ydb[j];
@@ -1393,17 +1532,17 @@ public class KT3D {
 
 //		        c Handle the situation of only one sample:
 						cb1 = Covariance.cova3(xa[0], ya[0], za[0], xa[0], ya[0], za[0],
-								1, nst, MAXNST, c0, it, cc, aa, 1, MAXROT, rotmat)[0];
+								1, nst, MAXNST, c0, it, withSAHE, cc, aa, 1, MAXROT, rotmat)[0];
 
 //		        c Establish Right Hand Side Covariance:
 						if(ndb<=1) {
 							cb = Covariance.cova3(xa[0], ya[0], za[0], xdb[0], ydb[0], zdb[0],
-									1, nst, MAXNST, c0, it, cc, aa, 1, MAXROT, rotmat)[0];
+									1, nst, MAXNST, c0, it, withSAHE, cc, aa, 1, MAXROT, rotmat)[0];
 						} else {
 							cb  = 0d;
 							for(int i=0; i<ndb; i++) {
 								cov = Covariance.cova3(xa[0], ya[0], za[0], xdb[i], ydb[i], zdb[i],
-										1, nst, MAXNST, c0, it, cc, aa, 1, MAXROT, rotmat)[0];
+										1, nst, MAXNST, c0, it, withSAHE, cc, aa, 1, MAXROT, rotmat)[0];
 								cb += cov;
 								double dx = xa[0] - xdb[i];
 								double dy = ya[0] - ydb[i];
@@ -1440,7 +1579,7 @@ public class KT3D {
 //		        c Fill in the kriging matrix:
 					for(int i=0; i<n_accepted; i++) for(int j=i; j<n_accepted; j++) {
 						cov = Covariance.cova3(xa[i], ya[i], za[i], xa[j], ya[j], za[j],
-								1, nst, MAXNST, c0, it, cc, aa, 1, MAXROT, rotmat)[0];
+								1, nst, MAXNST, c0, it, withSAHE, cc, aa, 1, MAXROT, rotmat)[0];
 						a[neq*i+j] = cov;
 						a[neq*j+i] = cov;
 					}
@@ -1460,7 +1599,7 @@ public class KT3D {
 					for(int i=0; i<n_accepted; i++) {
 						if(ndb<=1) {
 							cb = Covariance.cova3(xa[i],ya[i],za[i], xdb[0],ydb[0],zdb[0],
-									1,nst,MAXNST, c0,it,cc,aa, 1,MAXROT,rotmat)[0];
+									1,nst,MAXNST, c0,it, withSAHE,cc,aa, 1,MAXROT,rotmat)[0];
 							//System.out.println("         xyz={"+FormatHelper.nf(xa[i],10,6)+" "+FormatHelper.nf(ya[i],10,6)+" "+FormatHelper.nf(za[i],10,6)+"}  "+
 							//		"abc={"+FormatHelper.nf(xdb[0],10,6)+" "+FormatHelper.nf(ydb[0],10,6)+" "+FormatHelper.nf(zdb[0],10,6)+"}  "+
 							//		FormatHelper.nf(cb,10,6));
@@ -1469,7 +1608,7 @@ public class KT3D {
 							//String tempstr = "";
 							for(int j=0; j<ndb; j++) {
 								cov = Covariance.cova3(xa[i], ya[i], za[i], xdb[j], ydb[j], zdb[j],
-										1, nst, MAXNST, c0, it, cc, aa, 1, MAXROT, rotmat)[0];
+										1, nst, MAXNST, c0, it, withSAHE, cc, aa, 1, MAXROT, rotmat)[0];
 								cb += cov;
 								//tempstr += " "+FormatHelper.nf(cov,8,6);
 								double dx = xa[i] - xdb[j];

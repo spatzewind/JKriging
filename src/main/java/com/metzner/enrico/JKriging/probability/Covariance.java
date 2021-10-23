@@ -1,15 +1,17 @@
 package com.metzner.enrico.JKriging.probability;
 
+import com.metzner.enrico.JKriging.data.Constants;
 import com.metzner.enrico.JKriging.helper.MathHelper;
 
 public class Covariance {
 
-	public static final int VARIOGRAM_SPHERICAL   = 1;
-	public static final int VARIOGRAM_EXPONENTIAL = 2;
-	public static final int VARIOGRAM_GAUSSIAN    = 3;
-	public static final int VARIOGRAM_POWER       = 4;
-	public static final int VARIOGRAM_HOLE_EFFECT = 5;
-	public static final int VARIOGRAM_LINEAR      = 6;
+	public static final int VARIOGRAM_SPHERICAL      = 1;
+	public static final int VARIOGRAM_EXPONENTIAL    = 2;
+	public static final int VARIOGRAM_GAUSSIAN       = 3;
+	public static final int VARIOGRAM_POWER          = 4;
+	public static final int VARIOGRAM_HOLE_EFFECT    = 5;
+	public static final int VARIOGRAM_LINEAR         = 6;
+	public static final int VARIOGRAM_SINGLE_AXIS_HE = 7;
 
 	/**
 	 * Covariance between two points (2-D version)
@@ -154,7 +156,7 @@ public class Covariance {
 	 * @return
 	 */
 	public static double[] cova3(double x1, double y1, double z1, double x2, double y2, double z2,
-			int ivarg, int[] nst, int maxnst, double[] c0, int[] it, double[] cc, double[] aa, int irot, int maxrot, double[][][] rotmat) {
+			int ivarg, int[] nst, int maxnst, double[] c0, int[] it, boolean[] sahe, double[] cc, double[] aa, int irot, int maxrot, double[][][] rotmat) {
 		double cmax, cova;
 //        c-----------------------------------------------------------------------
 //        c
@@ -238,7 +240,7 @@ public class Covariance {
 //        c Loop over all the structures:
 //        c
 		cova = 0d;
-		int ir;
+		int ir = Math.min(irot-1, maxrot);
 		double h;
 		for(int is=0; is<nst[ivarg-1]; is++) {
 			ist = istart + is - 1;
@@ -249,8 +251,14 @@ public class Covariance {
 				ir   = Math.min((irot+is-1),maxrot);
 				hsqd = MathHelper.sqdist3D(x1,y1,z1,x2,y2,z2,rotmat[ir-1]);
 			}
-			h = Math.sqrt(hsqd);
-			cova += covariance(it[ist], cmax, cc[ist], h, aa[ist]);
+			if(sahe[ir]) {
+				double[] hh = MathHelper.matmul(rotmat[ir-1], new double[] {x2-x1,y2-y1,z2-z1});
+				h = Math.sqrt(hh[0]*hh[0]+hh[1]*hh[1]);
+				cova += covariance(it[ist], cmax, cc[ist], h, aa[ist]) * covariance(VARIOGRAM_SINGLE_AXIS_HE, cmax, 1d, hh[2]*Constants.SAHE_FAC, 1d);
+			} else {
+				h = Math.sqrt(hsqd);
+				cova += covariance(it[ist], cmax, cc[ist], h, aa[ist]);
+			}
 		}
 //        c
 //        c Finished:
@@ -273,6 +281,8 @@ public class Covariance {
 				return cc_cova_coeff * Math.exp(-0.3d*hr) * Math.cos(hr*Math.PI);
 			case VARIOGRAM_LINEAR:
 				return cc_cova_coeff * (hr<1d ? 1d-hr : 0d);
+			case VARIOGRAM_SINGLE_AXIS_HE:
+				return cc_cova_coeff * Math.cos(hr*Math.PI);
 			default: return 0d;
 		}
 	}
@@ -310,6 +320,11 @@ public class Covariance {
 				return new double[] {
 							(hr<1d ? 1d-hr : 0d),
 							cc_cova_coeff * (hr<1d ? -hr_d : 0d)
+						};
+			case VARIOGRAM_SINGLE_AXIS_HE:
+				return new double[] {
+							Math.cos(hr*Math.PI),
+							-cc_cova_coeff * Math.PI * Math.sin(hr*Math.PI) * hr_d
 						};
 			default: return new double[] {0d, 0d};
 		}

@@ -40,7 +40,7 @@ dependencies {
   	runtime "org.slf4j:slf4j-jdk14:1.7.30"
   	
   	//Need matrix decomposition for eigenvalues and eigenvectors
-  	compile group: 'org.ejml', name: 'ejml-all', version: '0.39'
+  	//compile group: 'org.ejml', name: 'ejml-all', version: '0.39'
 }
 
 tasks.withType(JavaCompile) {

@@ -32,6 +32,7 @@ import ucar.nc2.NetcdfFileWriter;
 import ucar.nc2.NetcdfFileWriter.Version;
 import ucar.nc2.Variable;
 
+@SuppressWarnings("deprecation")
 public class DataFrame3D {
 
 	private int[] datalength;
@@ -414,6 +415,204 @@ public class DataFrame3D {
 	public void renameVariable(String _old_name, String _new_name) {
 		renameVariable(getVariableID(_old_name), _new_name);
 	}
+	public void setVariableContent(int _var_id, byte[][][] new_bytes) throws ArrayIndexOutOfBoundsException {
+		int ovi = _var_id - Constants.FIRST_IDX;
+		if(ovi<0 || ovi>=titles.length) {
+			System.err.println("Can not find and set variable with ID "+_var_id+"!");
+			return;
+		}
+		int l1=dimension_one.length,
+			l2=dimension_two.length,
+			l3=dimension_thr.length;
+		if(new_bytes.length!=l1 || new_bytes[0].length!=l2 || new_bytes[0][0].length!=l3)
+			throw new ArrayIndexOutOfBoundsException("Size of array does not match size of dataframe-content. Expected shape ("+l1+","+l2+","+l3+").");
+		
+		String vn = getVarname(ovi);
+		DataType ovt = types[ovi];
+		switch(types[ovi]) {
+			case BYTE: byte[][][] arrb = byte_column.get(vn);
+				for(int z=0; z<l1; z++) for(int y=0; y<l2; y++) for(int x=0; x<l3; x++) arrb[z][y][x] = new_bytes[z][y][x];
+				break;
+			case SHORT: short[][][] arrs = short_column.get(vn);
+				for(int z=0; z<l1; z++) for(int y=0; y<l2; y++) for(int x=0; x<l3; x++) arrs[z][y][x] = new_bytes[z][y][x];
+				break;
+			case INT: int[][][] arri = int_column.get(vn);
+				for(int z=0; z<l1; z++) for(int y=0; y<l2; y++) for(int x=0; x<l3; x++) arri[z][y][x] = new_bytes[z][y][x];
+				break;
+			case LONG: long[][][] arrl = long_column.get(vn);
+				for(int z=0; z<l1; z++) for(int y=0; y<l2; y++) for(int x=0; x<l3; x++) arrl[z][y][x] = new_bytes[z][y][x];
+				break;
+			case FLOAT: float[][][] arrf = float_column.get(vn);
+				for(int z=0; z<l1; z++) for(int y=0; y<l2; y++) for(int x=0; x<l3; x++) arrf[z][y][x] = new_bytes[z][y][x];
+				break;
+			case DOUBLE: double[][][] arrd = double_column.get(vn);
+				for(int z=0; z<l1; z++) for(int y=0; y<l2; y++) for(int x=0; x<l3; x++) arrd[z][y][x] = new_bytes[z][y][x];
+				break;
+			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from byte-array.");
+				break;
+		}
+	}
+	public void setVariableContent(String _var_name, byte[][][] new_bytes) {
+		setVariableContent(getVariableID(_var_name), new_bytes);
+	}
+	public void setVariableContent(int _var_id, short[][][] new_shorts) throws ArrayIndexOutOfBoundsException {
+		int ovi = _var_id - Constants.FIRST_IDX;
+		if(ovi<0 || ovi>=titles.length) {
+			System.err.println("Can not find and set variable with ID "+_var_id+"!");
+			return;
+		}
+		int l1=dimension_one.length,
+			l2=dimension_two.length,
+			l3=dimension_thr.length;
+		if(new_shorts.length!=l1 || new_shorts[0].length!=l2 || new_shorts[0][0].length!=l3)
+			throw new ArrayIndexOutOfBoundsException("Size of array does not match size of dataframe-content. Expected shape ("+l1+","+l2+","+l3+").");
+		
+		String vn = getVarname(ovi);
+		DataType ovt = types[ovi];
+		switch(types[ovi]) {
+			case SHORT: short[][][] arrs = short_column.get(vn);
+				for(int z=0; z<l1; z++) for(int y=0; y<l2; y++) for(int x=0; x<l3; x++) arrs[z][y][x] = new_shorts[z][y][x];
+				break;
+			case INT: int[][][] arri = int_column.get(vn);
+				for(int z=0; z<l1; z++) for(int y=0; y<l2; y++) for(int x=0; x<l3; x++) arri[z][y][x] = new_shorts[z][y][x];
+				break;
+			case LONG: long[][][] arrl = long_column.get(vn);
+				for(int z=0; z<l1; z++) for(int y=0; y<l2; y++) for(int x=0; x<l3; x++) arrl[z][y][x] = new_shorts[z][y][x];
+				break;
+			case FLOAT: float[][][] arrf = float_column.get(vn);
+				for(int z=0; z<l1; z++) for(int y=0; y<l2; y++) for(int x=0; x<l3; x++) arrf[z][y][x] = new_shorts[z][y][x];
+				break;
+			case DOUBLE: double[][][] arrd = double_column.get(vn);
+				for(int z=0; z<l1; z++) for(int y=0; y<l2; y++) for(int x=0; x<l3; x++) arrd[z][y][x] = new_shorts[z][y][x];
+				break;
+			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from short-array.");
+				break;
+		}
+	}
+	public void setVariableContent(String _var_name, short[][][] new_shorts) {
+		setVariableContent(getVariableID(_var_name), new_shorts);
+	}
+	public void setVariableContent(int _var_id, int[][][] new_ints) throws ArrayIndexOutOfBoundsException {
+		int ovi = _var_id - Constants.FIRST_IDX;
+		if(ovi<0 || ovi>=titles.length) {
+			System.err.println("Can not find and set variable with ID "+_var_id+"!");
+			return;
+		}
+		int l1=dimension_one.length,
+			l2=dimension_two.length,
+			l3=dimension_thr.length;
+		if(new_ints.length!=l1 || new_ints[0].length!=l2 || new_ints[0][0].length!=l3)
+			throw new ArrayIndexOutOfBoundsException("Size of array does not match size of dataframe-content. Expected shape ("+l1+","+l2+","+l3+").");
+		
+		String vn = getVarname(ovi);
+		DataType ovt = types[ovi];
+		switch(types[ovi]) {
+			case INT: int[][][] arri = int_column.get(vn);
+				for(int z=0; z<l1; z++) for(int y=0; y<l2; y++) for(int x=0; x<l3; x++) arri[z][y][x] = new_ints[z][y][x];
+				break;
+			case LONG: long[][][] arrl = long_column.get(vn);
+				for(int z=0; z<l1; z++) for(int y=0; y<l2; y++) for(int x=0; x<l3; x++) arrl[z][y][x] = new_ints[z][y][x];
+				break;
+			case FLOAT: float[][][] arrf = float_column.get(vn);
+				for(int z=0; z<l1; z++) for(int y=0; y<l2; y++) for(int x=0; x<l3; x++) arrf[z][y][x] = new_ints[z][y][x];
+				break;
+			case DOUBLE: double[][][] arrd = double_column.get(vn);
+				for(int z=0; z<l1; z++) for(int y=0; y<l2; y++) for(int x=0; x<l3; x++) arrd[z][y][x] = new_ints[z][y][x];
+				break;
+			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from int-array.");
+				break;
+		}
+	}
+	public void setVariableContent(String _var_name, int[][][] new_ints) {
+		setVariableContent(getVariableID(_var_name), new_ints);
+	}
+	public void setVariableContent(int _var_id, long[][][] new_longs) throws ArrayIndexOutOfBoundsException {
+		int ovi = _var_id - Constants.FIRST_IDX;
+		if(ovi<0 || ovi>=titles.length) {
+			System.err.println("Can not find and set variable with ID "+_var_id+"!");
+			return;
+		}
+		int l1=dimension_one.length,
+			l2=dimension_two.length,
+			l3=dimension_thr.length;
+		if(new_longs.length!=l1 || new_longs[0].length!=l2 || new_longs[0][0].length!=l3)
+			throw new ArrayIndexOutOfBoundsException("Size of array does not match size of dataframe-content. Expected shape ("+l1+","+l2+","+l3+").");
+		
+		String vn = getVarname(ovi);
+		DataType ovt = types[ovi];
+		switch(types[ovi]) {
+			case LONG: long[][][] arrl = long_column.get(vn);
+				for(int z=0; z<l1; z++) for(int y=0; y<l2; y++) for(int x=0; x<l3; x++) arrl[z][y][x] = new_longs[z][y][x];
+				break;
+			case FLOAT: float[][][] arrf = float_column.get(vn);
+				for(int z=0; z<l1; z++) for(int y=0; y<l2; y++) for(int x=0; x<l3; x++) arrf[z][y][x] = new_longs[z][y][x];
+				break;
+			case DOUBLE: double[][][] arrd = double_column.get(vn);
+				for(int z=0; z<l1; z++) for(int y=0; y<l2; y++) for(int x=0; x<l3; x++) arrd[z][y][x] = new_longs[z][y][x];
+				break;
+			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from long-array.");
+				break;
+		}
+	}
+	public void setVariableContent(String _var_name, long[][][] new_longs) {
+		setVariableContent(getVariableID(_var_name), new_longs);
+	}
+	public void setVariableContent(int _var_id, float[][][] new_floats) throws ArrayIndexOutOfBoundsException {
+		int ovi = _var_id - Constants.FIRST_IDX;
+		if(ovi<0 || ovi>=titles.length) {
+			System.err.println("Can not find and set variable with ID "+_var_id+"!");
+			return;
+		}
+		int l1=dimension_one.length,
+			l2=dimension_two.length,
+			l3=dimension_thr.length;
+		if(new_floats.length!=l1 || new_floats[0].length!=l2 || new_floats[0][0].length!=l3)
+			throw new ArrayIndexOutOfBoundsException("Size of array does not match size of dataframe-content. Expected shape ("+l1+","+l2+","+l3+").");
+		
+		String vn = getVarname(ovi);
+		DataType ovt = types[ovi];
+		switch(types[ovi]) {
+			case FLOAT: float[][][] arrf = float_column.get(vn);
+				for(int z=0; z<l1; z++) for(int y=0; y<l2; y++) for(int x=0; x<l3; x++) arrf[z][y][x] = new_floats[z][y][x];
+				break;
+			case DOUBLE: double[][][] arrd = double_column.get(vn);
+				for(int z=0; z<l1; z++) for(int y=0; y<l2; y++) for(int x=0; x<l3; x++) arrd[z][y][x] = new_floats[z][y][x];
+				break;
+			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from float-array.");
+				break;
+		}
+	}
+	public void setVariableContent(String _var_name, float[][][] new_floats) {
+		setVariableContent(getVariableID(_var_name), new_floats);
+	}
+	public void setVariableContent(int _var_id, double[][][] new_doubles) throws ArrayIndexOutOfBoundsException {
+		int ovi = _var_id - Constants.FIRST_IDX;
+		if(ovi<0 || ovi>=titles.length) {
+			System.err.println("Can not find and set variable with ID "+_var_id+"!");
+			return;
+		}
+		int l1=dimension_one.length,
+			l2=dimension_two.length,
+			l3=dimension_thr.length;
+		if(new_doubles.length!=l1 || new_doubles[0].length!=l2 || new_doubles[0][0].length!=l3)
+			throw new ArrayIndexOutOfBoundsException("Size of array does not match size of dataframe-content. Expected shape ("+l1+","+l2+","+l3+").");
+		
+		String vn = getVarname(ovi);
+		DataType ovt = types[ovi];
+		switch(types[ovi]) {
+			case FLOAT: float[][][] arrf = float_column.get(vn);
+				for(int z=0; z<l1; z++) for(int y=0; y<l2; y++) for(int x=0; x<l3; x++) arrf[z][y][x] = (float) new_doubles[z][y][x];
+				break;
+			case DOUBLE: double[][][] arrd = double_column.get(vn);
+				for(int z=0; z<l1; z++) for(int y=0; y<l2; y++) for(int x=0; x<l3; x++) arrd[z][y][x] = new_doubles[z][y][x];
+				break;
+			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from double-array.");
+				break;
+		}
+	}
+	public void setVariableContent(String _var_name, double[][][] new_doubles) {
+		setVariableContent(getVariableID(_var_name), new_doubles);
+	}
 	public void removeVariable(int _var_id) {
 		int vi = _var_id - Constants.FIRST_IDX;
 		if(vi<0 || vi>=titles.length) {
@@ -717,6 +916,105 @@ public class DataFrame3D {
 		datalength += df2.datalength;
 		return this;
 	} */
+	public DataFrame2D toDataFrame2D(String dim_name, int selectedIndex) {
+		int dim = -1;
+		if(dimension_names[0].equals(dim_name)) dim = 0;
+		if(dimension_names[1].equals(dim_name)) dim = 1;
+		if(dimension_names[2].equals(dim_name)) dim = 2;
+		if(dim<0) {
+			System.err.println("DataFrame3D has no dimension \""+dim_name+"\".");
+			DataHelper.printStackTrace(System.err);
+			return null;
+		}
+		dim += Constants.FIRST_IDX;
+		return toDataFrame2D(dim, selectedIndex);
+	}
+	public DataFrame2D toDataFrame2D(int dim_id, int selectedIndex) {
+		DataFrame2D res2D = new DataFrame2D();
+		int dim = dim_id - Constants.FIRST_IDX;
+		if(dim<0 || dim>2) {
+			System.err.println("DataFrame3D has no dimension "+dim_id+". Index has to be from "+
+					(Constants.FIRST_IDX)+" to "+(2+Constants.FIRST_IDX)+".");
+			DataHelper.printStackTrace(System.err);
+			return res2D;
+		}
+		int ilen = getDimensionValues(dim_id).length;
+		if(selectedIndex-Constants.FIRST_IDX<0 || selectedIndex-Constants.FIRST_IDX>=ilen) {
+			System.err.println("selected index out of range!");
+			DataHelper.printStackTrace(System.err);
+			return res2D;
+		}
+		//first create new arrays as input res2D from this DataFram3D
+		String dim0name = getDimensionName((dim==0?1:0)+Constants.FIRST_IDX);
+		double[] dim0 = getDimensionValues((dim==0?1:0)+Constants.FIRST_IDX);
+		int dim0len = dim0.length;
+		String dim1name = getDimensionName((dim==2?1:2)+Constants.FIRST_IDX);
+		double[] dim1 = getDimensionValues((dim==2?1:2)+Constants.FIRST_IDX);
+		int dim1len = dim1.length;
+		int[] wf = {dim==0 ? 0 : 1,          0,     dim==0 ? selectedIndex-Constants.FIRST_IDX : 0};
+		int[] vf = {dim==0 ? 1 : 0, dim==2 ? 1 : 0, dim==1 ? selectedIndex-Constants.FIRST_IDX : 0};
+		int[] uf = {         0,     dim==2 ? 0 : 1, dim==2 ? selectedIndex-Constants.FIRST_IDX : 0};
+		//check if the DataFrame contain these dimensions!
+		//for each other variable than the dimensions create a 3D-array
+		for(int iv=0; iv<titles.length; iv++) {
+			switch(types[iv]) {
+				case BOOL: boolean[][][] oarr = bool_column.get(titles[iv]);
+					boolean[][] bool_arr = new boolean[dim0len][dim1len];
+					for(int a=0; a<dim0len; a++) for(int b=0; b<dim1len; b++)
+						bool_arr[a][b] = oarr[a*wf[0]+b*wf[1]+wf[2]][a*vf[0]+b*vf[1]+vf[2]][a*uf[0]+b*uf[1]+uf[2]];
+					res2D.addColumn(titles[iv], bool_arr);
+					break;
+				case BYTE: byte[][][] barr = byte_column.get(titles[iv]);
+					byte[][] byte_arr = new byte[dim0len][dim1len];
+					for(int a=0; a<dim0len; a++) for(int b=0; b<dim1len; b++)
+						byte_arr[a][b] = barr[a*wf[0]+b*wf[1]+wf[2]][a*vf[0]+b*vf[1]+vf[2]][a*uf[0]+b*uf[1]+uf[2]];
+					res2D.addColumn(titles[iv], byte_arr);
+					break;
+				case SHORT: short[][][] rarr = short_column.get(titles[iv]);
+					short[][] short_arr = new short[dim0len][dim1len];
+					for(int a=0; a<dim0len; a++) for(int b=0; b<dim1len; b++)
+						short_arr[a][b] = rarr[a*wf[0]+b*wf[1]+wf[2]][a*vf[0]+b*vf[1]+vf[2]][a*uf[0]+b*uf[1]+uf[2]];
+					res2D.addColumn(titles[iv], short_arr);
+					break;
+				case INT: int[][][] iarr = int_column.get(titles[iv]);
+					int[][] int_arr = new int[dim0len][dim1len];
+					for(int a=0; a<dim0len; a++) for(int b=0; b<dim1len; b++)
+						int_arr[a][b] = iarr[a*wf[0]+b*wf[1]+wf[2]][a*vf[0]+b*vf[1]+vf[2]][a*uf[0]+b*uf[1]+uf[2]];
+					res2D.addColumn(titles[iv], int_arr);
+					break;
+				case LONG: long[][][] larr = long_column.get(titles[iv]);
+					long[][] long_arr = new long[dim0len][dim1len];
+					for(int a=0; a<dim0len; a++) for(int b=0; b<dim1len; b++)
+						long_arr[a][b] = larr[a*wf[0]+b*wf[1]+wf[2]][a*vf[0]+b*vf[1]+vf[2]][a*uf[0]+b*uf[1]+uf[2]];
+					res2D.addColumn(titles[iv], long_arr);
+					break;
+				case FLOAT: float[][][] farr = float_column.get(titles[iv]);
+					float[][] float_arr = new float[dim0len][dim1len];
+					for(int a=0; a<dim0len; a++) for(int b=0; b<dim1len; b++)
+						float_arr[a][b] = farr[a*wf[0]+b*wf[1]+wf[2]][a*vf[0]+b*vf[1]+vf[2]][a*uf[0]+b*uf[1]+uf[2]];
+					res2D.addColumn(titles[iv], float_arr);
+					break;
+				case DOUBLE: double[][][] darr = double_column.get(titles[iv]);
+					double[][] double_arr = new double[dim0len][dim1len];
+					for(int a=0; a<dim0len; a++) for(int b=0; b<dim1len; b++)
+						double_arr[a][b] = darr[a*wf[0]+b*wf[1]+wf[2]][a*vf[0]+b*vf[1]+vf[2]][a*uf[0]+b*uf[1]+uf[2]];
+					res2D.addColumn(titles[iv], double_arr);
+					break;
+				case STRING: String[][][] sarr = string_column.get(titles[iv]);
+					String[][] string_arr = new String[dim0len][dim1len];
+					for(int a=0; a<dim0len; a++) for(int b=0; b<dim1len; b++)
+						string_arr[a][b] = sarr[a*wf[0]+b*wf[1]+wf[2]][a*vf[0]+b*vf[1]+vf[2]][a*uf[0]+b*uf[1]+uf[2]];
+					res2D.addColumn(titles[iv], string_arr);
+					break;
+				default:
+					System.err.println("An unexpected datatype occure!");
+					return new DataFrame2D();
+			}
+		}
+		res2D.setDimension(0+Constants.FIRST_IDX, dim0, dim0name);
+		res2D.setDimension(1+Constants.FIRST_IDX, dim1, dim1name);
+		return res2D;
+	}
 
 	public void setDefaultDatatype(String _type) { default_data_type = DataType.getDataType(_type, default_data_type); }
 	public String getDefaultDatatype() { return default_data_type.toString(); }
@@ -946,10 +1244,24 @@ public class DataFrame3D {
 
 	/**
 	 * Read selected variable data from a Netcdf file
+	 * if on variable isn't in the file, it would not be read to this dataframe
+	 * and a warning would be printed to the command line
+	 * @param filepath path to the NetCDF file
+	 * @param variable name(s) of variable(s)
+	 */
+	public void readFromNetcdf(String filepath, String... variable) {
+		try(NetcdfFile nc = NetcdfFile.open(filepath)) {
+			this.readFromNetcdf(nc, variable);
+		} catch(IOException ioe) {
+			ioe.printStackTrace();
+		}
+	}
+	/**
+	 * Read selected variable data from a Netcdf file
 	 * if on variable isn't in the file, it woould not be read to this dataframe
 	 * and a warning would be printed to the command line
-	 * @param netcdf_file
-	 * @param variables
+	 * @param netcdf_file NetCDF object with the data to read
+	 * @param variable    name(s) of variable(s)
 	 */
 	public void readFromNetcdf(NetcdfFile netcdf_file, String... variable) {
 		clear();
@@ -1471,8 +1783,9 @@ public class DataFrame3D {
 	}
 	public int getVariableCount() { return titles.length; }
 	public String getVarname(int _var_id) {
-		if(_var_id<0 || _var_id>=titles.length) return null;
-		return titles[_var_id];
+		int vi = _var_id-Constants.FIRST_IDX;
+		if(vi<0 || vi>=titles.length) return null;
+		return titles[vi];
 	}
 	public int getVariableID(String _var_name) {
 		return DataHelper.strings_index(titles, _var_name);
@@ -1803,6 +2116,7 @@ public class DataFrame3D {
 		string_column.clear();
 	}
 
+	@SuppressWarnings("unused")
 	private String[] null_line(String _in, String _del) {
 		int count = 1;
 		int occ = _in.indexOf(_del);

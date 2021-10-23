@@ -33,6 +33,7 @@ import ucar.nc2.NetcdfFileWriter;
 import ucar.nc2.NetcdfFileWriter.Version;
 import ucar.nc2.Variable;
 
+@SuppressWarnings("deprecation")
 public class DataFrame {
 
 	private int datalength;
@@ -257,6 +258,186 @@ public class DataFrame {
 	}
 	public void renameVariable(String _old_name, String _new_name) {
 		renameVariable(getVariableID(_old_name), _new_name);
+	}
+	public void setVariableContent(int _var_id, byte[] new_bytes) throws ArrayIndexOutOfBoundsException {
+		int ovi = _var_id - Constants.FIRST_IDX;
+		if(ovi<0 || ovi>=titles.length) {
+			System.err.println("Can not find and set variable with ID "+_var_id+"!");
+			return;
+		}
+		if(new_bytes.length!=datalength)
+			throw new ArrayIndexOutOfBoundsException("Size of array does not match size of dataframe-content. Expected shape ("+datalength+").");
+		
+		String vn = getVarname(ovi);
+		DataType ovt = types[ovi];
+		switch(types[ovi]) {
+			case BYTE: byte[] arrb = byte_column.get(vn);
+				for(int x=0; x<datalength; x++) arrb[x] = new_bytes[x];
+				break;
+			case SHORT: short[] arrs = short_column.get(vn);
+				for(int x=0; x<datalength; x++) arrs[x] = new_bytes[x];
+				break;
+			case INT: int[] arri = int_column.get(vn);
+				for(int x=0; x<datalength; x++) arri[x] = new_bytes[x];
+				break;
+			case LONG: long[] arrl = long_column.get(vn);
+				for(int x=0; x<datalength; x++) arrl[x] = new_bytes[x];
+				break;
+			case FLOAT: float[] arrf = float_column.get(vn);
+				for(int x=0; x<datalength; x++) arrf[x] = new_bytes[x];
+				break;
+			case DOUBLE: double[] arrd = double_column.get(vn);
+				for(int x=0; x<datalength; x++) arrd[x] = new_bytes[x];
+				break;
+			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from byte-array.");
+				break;
+		}
+	}
+	public void setVariableContent(String _var_name, byte[] new_bytes) {
+		setVariableContent(getVariableID(_var_name), new_bytes);
+	}
+	public void setVariableContent(int _var_id, short[] new_shorts) throws ArrayIndexOutOfBoundsException {
+		int ovi = _var_id - Constants.FIRST_IDX;
+		if(ovi<0 || ovi>=titles.length) {
+			System.err.println("Can not find and set variable with ID "+_var_id+"!");
+			return;
+		}
+		if(new_shorts.length!=datalength)
+			throw new ArrayIndexOutOfBoundsException("Size of array does not match size of dataframe-content. Expected shape ("+datalength+").");
+		
+		String vn = getVarname(ovi);
+		DataType ovt = types[ovi];
+		switch(types[ovi]) {
+			case SHORT: short[] arrs = short_column.get(vn);
+				for(int x=0; x<datalength; x++) arrs[x] = new_shorts[x];
+				break;
+			case INT: int[] arri = int_column.get(vn);
+				for(int x=0; x<datalength; x++) arri[x] = new_shorts[x];
+				break;
+			case LONG: long[] arrl = long_column.get(vn);
+				for(int x=0; x<datalength; x++) arrl[x] = new_shorts[x];
+				break;
+			case FLOAT: float[] arrf = float_column.get(vn);
+				for(int x=0; x<datalength; x++) arrf[x] = new_shorts[x];
+				break;
+			case DOUBLE: double[] arrd = double_column.get(vn);
+				for(int x=0; x<datalength; x++) arrd[x] = new_shorts[x];
+				break;
+			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from short-array.");
+				break;
+		}
+	}
+	public void setVariableContent(String _var_name, short[] new_shorts) {
+		setVariableContent(getVariableID(_var_name), new_shorts);
+	}
+	public void setVariableContent(int _var_id, int[] new_ints) throws ArrayIndexOutOfBoundsException {
+		int ovi = _var_id - Constants.FIRST_IDX;
+		if(ovi<0 || ovi>=titles.length) {
+			System.err.println("Can not find and set variable with ID "+_var_id+"!");
+			return;
+		}
+		if(new_ints.length!=datalength)
+			throw new ArrayIndexOutOfBoundsException("Size of array does not match size of dataframe-content. Expected shape ("+datalength+").");
+		
+		String vn = getVarname(ovi);
+		DataType ovt = types[ovi];
+		switch(types[ovi]) {
+			case INT: int[] arri = int_column.get(vn);
+				for(int x=0; x<datalength; x++) arri[x] = new_ints[x];
+				break;
+			case LONG: long[] arrl = long_column.get(vn);
+				for(int x=0; x<datalength; x++) arrl[x] = new_ints[x];
+				break;
+			case FLOAT: float[] arrf = float_column.get(vn);
+				for(int x=0; x<datalength; x++) arrf[x] = new_ints[x];
+				break;
+			case DOUBLE: double[] arrd = double_column.get(vn);
+				for(int x=0; x<datalength; x++) arrd[x] = new_ints[x];
+				break;
+			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from int-array.");
+				break;
+		}
+	}
+	public void setVariableContent(String _var_name, int[] new_ints) {
+		setVariableContent(getVariableID(_var_name), new_ints);
+	}
+	public void setVariableContent(int _var_id, long[] new_longs) throws ArrayIndexOutOfBoundsException {
+		int ovi = _var_id - Constants.FIRST_IDX;
+		if(ovi<0 || ovi>=titles.length) {
+			System.err.println("Can not find and set variable with ID "+_var_id+"!");
+			return;
+		}
+		if(new_longs.length!=datalength)
+			throw new ArrayIndexOutOfBoundsException("Size of array does not match size of dataframe-content. Expected shape ("+datalength+").");
+		
+		String vn = getVarname(ovi);
+		DataType ovt = types[ovi];
+		switch(types[ovi]) {
+			case LONG: long[] arrl = long_column.get(vn);
+				for(int x=0; x<datalength; x++) arrl[x] = new_longs[x];
+				break;
+			case FLOAT: float[] arrf = float_column.get(vn);
+				for(int x=0; x<datalength; x++) arrf[x] = new_longs[x];
+				break;
+			case DOUBLE: double[] arrd = double_column.get(vn);
+				for(int x=0; x<datalength; x++) arrd[x] = new_longs[x];
+				break;
+			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from long-array.");
+				break;
+		}
+	}
+	public void setVariableContent(String _var_name, long[] new_longs) {
+		setVariableContent(getVariableID(_var_name), new_longs);
+	}
+	public void setVariableContent(int _var_id, float[] new_floats) throws ArrayIndexOutOfBoundsException {
+		int ovi = _var_id - Constants.FIRST_IDX;
+		if(ovi<0 || ovi>=titles.length) {
+			System.err.println("Can not find and set variable with ID "+_var_id+"!");
+			return;
+		}
+		if(new_floats.length!=datalength)
+			throw new ArrayIndexOutOfBoundsException("Size of array does not match size of dataframe-content. Expected shape ("+datalength+").");
+		
+		String vn = getVarname(ovi);
+		DataType ovt = types[ovi];
+		switch(types[ovi]) {
+			case FLOAT: float[] arrf = float_column.get(vn);
+				for(int x=0; x<datalength; x++) arrf[x] = new_floats[x];
+				break;
+			case DOUBLE: double[] arrd = double_column.get(vn);
+				for(int x=0; x<datalength; x++) arrd[x] = new_floats[x];
+				break;
+			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from float-array.");
+				break;
+		}
+	}
+	public void setVariableContent(String _var_name, float[] new_floats) {
+		setVariableContent(getVariableID(_var_name), new_floats);
+	}
+	public void setVariableContent(int _var_id, double[] new_doubles) throws ArrayIndexOutOfBoundsException {
+		int ovi = _var_id - Constants.FIRST_IDX;
+		if(ovi<0 || ovi>=titles.length) {
+			System.err.println("Can not find and set variable with ID "+_var_id+"!");
+			return;
+		}
+		if(new_doubles.length!=datalength)
+			throw new ArrayIndexOutOfBoundsException("Size of array does not match size of dataframe-content. Expected shape ("+datalength+").");
+		
+		String vn = getVarname(ovi);
+		DataType ovt = types[ovi];
+		switch(types[ovi]) {
+			case FLOAT: float[] arrf = float_column.get(vn);
+				for(int x=0; x<datalength; x++) arrf[x] = (float) new_doubles[x];
+				break;
+			case DOUBLE: double[] arrd = double_column.get(vn);
+				for(int x=0; x<datalength; x++) arrd[x] = new_doubles[x];
+				break;
+			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from double-array.");
+				break;
+		}
+	}
+	public void setVariableContent(String _var_name, double[] new_doubles) {
+		setVariableContent(getVariableID(_var_name), new_doubles);
 	}
 	public void removeVariable(int _var_id) {
 		int vi = _var_id - Constants.FIRST_IDX;
@@ -534,47 +715,47 @@ public class DataFrame {
 			switch(dt) {
 				case BOOL: boolean[] bool_arr = bool_column.get(titles[dimID]);
 					for(int dl=0; dl<datalength; dl++) {
-						Double e = new Double(bool_arr[dl] ? 1d : 0d);
-						if ( to_fill.containsKey(e) ) { to_fill.get(e).add(new Integer(dl)); }
-						else { List<Integer> l = new ArrayList<>(); l.add(new Integer(dl)); to_fill.put(e, l); }
+						Double e = bool_arr[dl] ? 1d : 0d;
+						if ( to_fill.containsKey(e) ) { to_fill.get(e).add(dl); }
+						else { List<Integer> l = new ArrayList<>(); l.add(dl); to_fill.put(e, l); }
 					} break;
 				case BYTE: byte[] byte_arr = byte_column.get(titles[dimID]);
 					for(int dl=0; dl<datalength; dl++) {
-						Double e = new Double(byte_arr[dl]);
-						if ( to_fill.containsKey(e) ) { to_fill.get(e).add(new Integer(dl)); }
-						else { List<Integer> l = new ArrayList<>(); l.add(new Integer(dl)); to_fill.put(e, l); }
+						Double e = (double) byte_arr[dl];
+						if ( to_fill.containsKey(e) ) { to_fill.get(e).add(dl); }
+						else { List<Integer> l = new ArrayList<>(); l.add(dl); to_fill.put(e, l); }
 					} break;
 				case SHORT: short[] short_arr = short_column.get(titles[dimID]);
 					for(int dl=0; dl<datalength; dl++) {
-						Double e = new Double(short_arr[dl]);
-						if ( to_fill.containsKey(e) ) { to_fill.get(e).add(new Integer(dl)); }
-						else { List<Integer> l = new ArrayList<>(); l.add(new Integer(dl)); to_fill.put(e, l); }
+						Double e = (double) short_arr[dl];
+						if ( to_fill.containsKey(e) ) { to_fill.get(e).add(dl); }
+						else { List<Integer> l = new ArrayList<>(); l.add(dl); to_fill.put(e, l); }
 					} break;
 				case INT: int[] int_arr = int_column.get(titles[dimID]);
 					for(int dl=0; dl<datalength; dl++) {
-						Double e = new Double(int_arr[dl]);
-						if ( to_fill.containsKey(e) ) { to_fill.get(e).add(new Integer(dl)); }
-						else { List<Integer> l = new ArrayList<>(); l.add(new Integer(dl)); to_fill.put(e, l); }
+						Double e = (double) int_arr[dl];
+						if ( to_fill.containsKey(e) ) { to_fill.get(e).add(dl); }
+						else { List<Integer> l = new ArrayList<>(); l.add(dl); to_fill.put(e, l); }
 					} break;
 				case LONG: long[] long_arr = long_column.get(titles[dimID]);
 					for(int dl=0; dl<datalength; dl++) {
-						Double e = new Double(long_arr[dl]);
-						if ( to_fill.containsKey(e) ) { to_fill.get(e).add(new Integer(dl)); }
-						else { List<Integer> l = new ArrayList<>(); l.add(new Integer(dl)); to_fill.put(e, l); }
+						Double e = (double) long_arr[dl];
+						if ( to_fill.containsKey(e) ) { to_fill.get(e).add(dl); }
+						else { List<Integer> l = new ArrayList<>(); l.add(dl); to_fill.put(e, l); }
 					} break;
 				case FLOAT: float[] float_arr = float_column.get(titles[dimID]);
 					for(int dl=0; dl<datalength; dl++) {
 						if(Float.isNaN(float_arr[dl])) { System.out.println("WARNING: dimension variable contains missing value"); continue;}
-						Double e = new Double(float_arr[dl]);
-						if ( to_fill.containsKey(e) ) { to_fill.get(e).add(new Integer(dl)); }
-						else { List<Integer> l = new ArrayList<>(); l.add(new Integer(dl)); to_fill.put(e, l); }
+						Double e = (double) float_arr[dl];
+						if ( to_fill.containsKey(e) ) { to_fill.get(e).add(dl); }
+						else { List<Integer> l = new ArrayList<>(); l.add(dl); to_fill.put(e, l); }
 					} break;
 				case DOUBLE: double[] double_arr = double_column.get(titles[dimID]);
 					for(int dl=0; dl<datalength; dl++) {
 						if(Double.isNaN(double_arr[dl])) { System.out.println("WARNING: dimension variable contains missing values"); continue;}
-						Double e = new Double(double_arr[dl]);
-						if ( to_fill.containsKey(e) ) { to_fill.get(e).add(new Integer(dl)); }
-						else { List<Integer> l = new ArrayList<>(); l.add(new Integer(dl)); to_fill.put(e, l); }
+						Double e = double_arr[dl];
+						if ( to_fill.containsKey(e) ) { to_fill.get(e).add(dl); }
+						else { List<Integer> l = new ArrayList<>(); l.add(dl); to_fill.put(e, l); }
 					} break;
 				case STRING:
 				default:
@@ -608,8 +789,8 @@ public class DataFrame {
 		DataHelper.sortem(dimension_two);
 		//create index array for mapping from 1D to 3D
 		int[][] indices = new int[dim_lengths[0]][dim_lengths[1]];
-		for(int v=0; v<dim_lengths[0]; v++) { List<Integer> lv = values_dim_one.get(new Double(dimension_one[v]));
-			for(int u=0; u<dim_lengths[1]; u++) { List<Integer> lu = values_dim_two.get(new Double(dimension_two[u]));
+		for(int v=0; v<dim_lengths[0]; v++) { List<Integer> lv = values_dim_one.get(dimension_one[v]);
+			for(int u=0; u<dim_lengths[1]; u++) { List<Integer> lu = values_dim_two.get(dimension_two[u]);
 				indices[v][u] = -1;
 				for(Integer i: lv)
 					if(lu.contains(i)) { indices[v][u] = i.intValue(); break; }
@@ -698,47 +879,47 @@ public class DataFrame {
 			switch(dt) {
 				case BOOL: boolean[] bool_arr = bool_column.get(titles[dimID]);
 					for(int dl=0; dl<datalength; dl++) {
-						Double e = new Double(bool_arr[dl] ? 1d : 0d);
-						if ( to_fill.containsKey(e) ) { ((List<Integer>)to_fill.get(e)).add(new Integer(dl)); }
-						else { List<Integer> l = new ArrayList<>(); l.add(new Integer(dl)); to_fill.put(e, l); }
+						Double e = bool_arr[dl] ? 1d : 0d;
+						if ( to_fill.containsKey(e) ) { ((List<Integer>)to_fill.get(e)).add(dl); }
+						else { List<Integer> l = new ArrayList<>(); l.add(dl); to_fill.put(e, l); }
 					} break;
 				case BYTE: byte[] byte_arr = byte_column.get(titles[dimID]);
 					for(int dl=0; dl<datalength; dl++) {
-						Double e = new Double(byte_arr[dl]);
-						if ( to_fill.containsKey(e) ) { ((List<Integer>)to_fill.get(e)).add(new Integer(dl)); }
-						else { List<Integer> l = new ArrayList<>(); l.add(new Integer(dl)); to_fill.put(e, l); }
+						Double e = (double) byte_arr[dl];
+						if ( to_fill.containsKey(e) ) { ((List<Integer>)to_fill.get(e)).add(dl); }
+						else { List<Integer> l = new ArrayList<>(); l.add(dl); to_fill.put(e, l); }
 					} break;
 				case SHORT: short[] short_arr = short_column.get(titles[dimID]);
 					for(int dl=0; dl<datalength; dl++) {
-						Double e = new Double(short_arr[dl]);
-						if ( to_fill.containsKey(e) ) { ((List<Integer>)to_fill.get(e)).add(new Integer(dl)); }
-						else { List<Integer> l = new ArrayList<>(); l.add(new Integer(dl)); to_fill.put(e, l); }
+						Double e = (double) short_arr[dl];
+						if ( to_fill.containsKey(e) ) { ((List<Integer>)to_fill.get(e)).add(dl); }
+						else { List<Integer> l = new ArrayList<>(); l.add(dl); to_fill.put(e, l); }
 					} break;
 				case INT: int[] int_arr = int_column.get(titles[dimID]);
 					for(int dl=0; dl<datalength; dl++) {
-						Double e = new Double(int_arr[dl]);
-						if ( to_fill.containsKey(e) ) { ((List<Integer>)to_fill.get(e)).add(new Integer(dl)); }
-						else { List<Integer> l = new ArrayList<>(); l.add(new Integer(dl)); to_fill.put(e, l); }
+						Double e = (double) int_arr[dl];
+						if ( to_fill.containsKey(e) ) { ((List<Integer>)to_fill.get(e)).add(dl); }
+						else { List<Integer> l = new ArrayList<>(); l.add(dl); to_fill.put(e, l); }
 					} break;
 				case LONG: long[] long_arr = long_column.get(titles[dimID]);
 					for(int dl=0; dl<datalength; dl++) {
-						Double e = new Double(long_arr[dl]);
-						if ( to_fill.containsKey(e) ) { ((List<Integer>)to_fill.get(e)).add(new Integer(dl)); }
-						else { List<Integer> l = new ArrayList<>(); l.add(new Integer(dl)); to_fill.put(e, l); }
+						Double e = (double) long_arr[dl];
+						if ( to_fill.containsKey(e) ) { ((List<Integer>)to_fill.get(e)).add(dl); }
+						else { List<Integer> l = new ArrayList<>(); l.add(dl); to_fill.put(e, l); }
 					} break;
 				case FLOAT: float[] float_arr = float_column.get(titles[dimID]);
 					for(int dl=0; dl<datalength; dl++) {
 						if(Float.isNaN(float_arr[dl])) { System.out.println("WARNING: dimension variable contains missing value"); continue;}
-						Double e = new Double(float_arr[dl]);
-						if ( to_fill.containsKey(e) ) { ((List<Integer>)to_fill.get(e)).add(new Integer(dl)); }
-						else { List<Integer> l = new ArrayList<>(); l.add(new Integer(dl)); to_fill.put(e, l); }
+						Double e = (double) float_arr[dl];
+						if ( to_fill.containsKey(e) ) { ((List<Integer>)to_fill.get(e)).add(dl); }
+						else { List<Integer> l = new ArrayList<>(); l.add(dl); to_fill.put(e, l); }
 					} break;
 				case DOUBLE: double[] double_arr = double_column.get(titles[dimID]);
 					for(int dl=0; dl<datalength; dl++) {
 						if(Double.isNaN(double_arr[dl])) { System.out.println("WARNING: dimension variable contains missing values"); continue;}
-						Double e = new Double(double_arr[dl]);
-						if ( to_fill.containsKey(e) ) { to_fill.get(e).add(new Integer(dl)); }
-						else { List<Integer> l = new ArrayList<>(); l.add(new Integer(dl)); to_fill.put(e, l); }
+						Double e = double_arr[dl];
+						if ( to_fill.containsKey(e) ) { to_fill.get(e).add(dl); }
+						else { List<Integer> l = new ArrayList<>(); l.add(dl); to_fill.put(e, l); }
 					} break;
 				default:
 				case STRING:
@@ -777,9 +958,9 @@ public class DataFrame {
 		int[][][] indices = new int[dim_lengths[0]][dim_lengths[1]][dim_lengths[2]];
 		for(int w=0; w<dim_lengths[0]; w++) for(int v=0; v<dim_lengths[1]; v++) for(int u=0; u<dim_lengths[2]; u++)
 			indices[w][v][u] = -1;
-		for(int w=0; w<dim_lengths[0]; w++) { List<Integer> lw = values_dim_one.get(new Double(dimension_one[w]));
-			for(int v=0; v<dim_lengths[1]; v++) { List<Integer> lv = values_dim_two.get(new Double(dimension_two[v]));
-				for(int u=0; u<dim_lengths[2]; u++) { List<Integer> lu = values_dim_three.get(new Double(dimension_thr[u]));
+		for(int w=0; w<dim_lengths[0]; w++) { List<Integer> lw = values_dim_one.get(dimension_one[w]);
+			for(int v=0; v<dim_lengths[1]; v++) { List<Integer> lv = values_dim_two.get(dimension_two[v]);
+				for(int u=0; u<dim_lengths[2]; u++) { List<Integer> lu = values_dim_three.get(dimension_thr[u]);
 					indices[w][v][u] = -1;
 					for(Integer i: lw)
 						if(lv.contains(i) && lu.contains(i)) { indices[w][v][u] = i.intValue(); break; }
@@ -1116,10 +1297,26 @@ public class DataFrame {
 
 	/**
 	 * Read selected variable data from a Netcdf file
-	 * if on variable isn't in the file, it woould not be read to this dataframe
+	 * if on variable isn't in the file, it would not be read to this dataframe
 	 * and a warning would be printed to the command line
-	 * @param netcdf_file
-	 * @param variables
+	 * @param filepath           path to the NetCDF file
+	 * @param include_dimensions wether dimensions of variables should be includes as extra data columns
+	 * @param variable           name(s) of variable(s)
+	 */
+	public void readFromNetdf(String filepath, boolean include_dimensions, String... variable) {
+		try(NetcdfFile nc = NetcdfFile.open(filepath)) {
+			this.readFromNetcdf(nc, include_dimensions, variable);
+		} catch(IOException ioe) {
+			ioe.printStackTrace();
+		}
+	}
+	/**
+	 * Read selected variable data from a Netcdf file
+	 * if on variable isn't in the file, it would not be read to this dataframe
+	 * and a warning would be printed to the command line
+	 * @param netcdf_file        NetCDF object with the data to read
+	 * @param include_dimensions wether dimensions of variables should be includes as extra data columns
+	 * @param variable           name(s) of variable(s)
 	 */
 	public void readFromNetcdf(NetcdfFile netcdf_file, boolean include_dimensions, String... variable) {
 		clear();

@@ -14,7 +14,16 @@ import com.metzner.enrico.JKriging.data.DataFrame;
 import com.metzner.enrico.JKriging.helper.FormatHelper;
 
 public class GAMV {
-
+	public final static int    SEMI_VARIOGRAM   =  1;
+	public final static int    CROSS_VARIOGRAM  =  2;
+	public final static int    COVARIANCE       =  3;
+	public final static int    CORRELOGRAM      =  4;
+	public final static int    GENERAL_RELATIVE =  5;
+	public final static int    PAIR_RELATIVE    =  6;
+	public final static int    VARIO_OF_LOG     =  7;
+	public final static int    SEMI_MADOGRAM    =  8;
+	public final static int    CONT_INDICATOR   =  9;
+	public final static int    CAT_INDICATOR    = 10;
 	public final static double VERSION  = 3.000d;
 	
 	private final static double D2R = Math.PI/180d;
@@ -145,7 +154,7 @@ public class GAMV {
 		System.out.println(" tail,head,type = "+dataframe.getVarname(tailID-1+Constants.FIRST_IDX)+", "+
 				dataframe.getVarname(headID-1+Constants.FIRST_IDX)+", "+variogramTypeById(type));
 		double cut = 0d;
-		if(type==9 || type==10) {
+		if(type==CONT_INDICATOR || type==CAT_INDICATOR) {
 			ncut++;
 			if(tmin<0d) throw new RuntimeException("tmin interferes with indicators!");
 			if(tmax<=1d) throw new RuntimeException("tmax interferes with indicators!");
@@ -153,8 +162,8 @@ public class GAMV {
 //			int jj = Integer.parseInt(parts[1].trim());
 //			int kk = Integer.parseInt(parts[2].trim());
 			cut = _cut;
-			if(type==9) indflag = addIntToArray(indflag, 1);
-			if(type==10) indflag = addIntToArray(indflag, 0);
+			if(type==CONT_INDICATOR) indflag = addIntToArray(indflag, 1);
+			if(type==CAT_INDICATOR) indflag = addIntToArray(indflag, 0);
 			ivc = addIntToArray(ivc, tailID);
 			tailID = nvar + ncut;
 			headID = nvar + ncut;
@@ -363,6 +372,11 @@ public class GAMV {
 		}
     }
 
+	public double getAllProgress() {
+		return Math.min(1d, progressNVario + 
+				progressNDir / variogram.size() + 
+				progressNPairs / (variogram.size() * direction.size()));
+	}
 	public double[] getProgress() {
 		return new double[] {progressNVario, progressNDir, progressNPairs};
 	}
@@ -622,8 +636,8 @@ public class GAMV {
 //        c Reject this pair on the basis of missing values:
 						if(Double.isNaN(pair[0]) || Double.isNaN(pair[1])) continue; // goto 6
 						if(pair[0]<tmin || pair[1]<tmin || pair[0]>tmax || pair[1]>tmax) continue; // goto 6
-						if(ivtype==2 && (Double.isNaN(pairpr[0]) || Double.isNaN(pairpr[1]))) continue; // goto 6
-						if(ivtype==2 && (pairpr[0]<tmin || pairpr[1]<tmin || pairpr[0]>tmax || pairpr[1]>tmax)) continue; // goto 6
+						if(ivtype==CROSS_VARIOGRAM && (Double.isNaN(pairpr[0]) || Double.isNaN(pairpr[1]))) continue; // goto 6
+						if(ivtype==CROSS_VARIOGRAM && (pairpr[0]<tmin || pairpr[1]<tmin || pairpr[0]>tmax || pairpr[1]>tmax)) continue; // goto 6
 
 //        c             COMPUTE THE APPROPRIATE "VARIOGRAM" MEASURE
 //        c
@@ -631,19 +645,19 @@ public class GAMV {
 //        c The Semivariogram:
 //        c
 						int index_off = id*nvarg*(nlag+2)+iv*(nlag+2);
-						if(ivtype==1 || ivtype==5 || ivtype>=9) {
+						if(ivtype==SEMI_VARIOGRAM || ivtype==GENERAL_RELATIVE || ivtype==CONT_INDICATOR || ivtype==CAT_INDICATOR) {
 							sub_semivariogram(index_off, h, pair,pairpr, lagbeg,lagend, omni);
-						} else if(ivtype==2) {
+						} else if(ivtype==CROSS_VARIOGRAM) {
 							sub_cross_semivariogram(index_off, h, pair,pairpr, lagbeg,lagend);
-						} else if(Math.abs(ivtype)==3) {
+						} else if(Math.abs(ivtype)==COVARIANCE) {
 							sub_covariance(index_off, h, pair,pairpr, lagbeg,lagend, omni);
-						} else if(Math.abs(ivtype)==4) {
+						} else if(Math.abs(ivtype)==CORRELOGRAM) {
 							sub_correlogram(index_off, h, pair,pairpr, lagbeg,lagend, omni);
-						} else if(ivtype==6) {
+						} else if(ivtype==PAIR_RELATIVE) {
 							sub_pairwise_relative(index_off, h, pair,pairpr, lagbeg,lagend, omni);
-						} else if(ivtype==7) {
+						} else if(ivtype==VARIO_OF_LOG) {
 							sub_log_variogram(index_off,h, pair,pairpr, lagbeg,lagend, omni);
-						} else if(ivtype==8) {
+						} else if(ivtype==SEMI_MADOGRAM) {
 							sub_madogram(index_off, h, pair,pairpr, lagbeg,lagend, omni);
 						}
 					}
@@ -687,7 +701,7 @@ public class GAMV {
 					if(isill==1) {
 						if(ivtail==ivhead) {
 							//if(DEBUG_MODE) System.out.println("sills["+names[iii]+"] = "+sills[iii]);
-							if((ivtype==1 || ivtype==9) && dataframe.getSill(ivtail)>0d)
+							if((ivtype==SEMI_VARIOGRAM || ivtype==CONT_INDICATOR) && dataframe.getSill(ivtail)>0d)
 								gam[i] /= dataframe.getSill(ivtail);
 						}
 					}
@@ -701,9 +715,9 @@ public class GAMV {
 //        c  7. report the semi(log variogram)
 //        c  8. report the semi(madogram)
 //        c
-					if(ivtype==1 || ivtype==2) {
+					if(ivtype==SEMI_VARIOGRAM || ivtype==CROSS_VARIOGRAM) {
 						gam[i] *= 0.5d;
-					} else if(Math.abs(ivtype)==3) {
+					} else if(Math.abs(ivtype)==COVARIANCE) {
 						gam[i] -= hm[i]*tm[i];
 						if(ivtype<0) {
 							if(dataframe.getSill(ivtail)<0d || dataframe.getSill(ivhead)<0d) {
@@ -713,7 +727,7 @@ public class GAMV {
 								gam[i] = variance - gam[i];
 							}
 						}
-					} else if(Math.abs(ivtype)==4) {
+					} else if(Math.abs(ivtype)==CORRELOGRAM) {
 						hv[i]  -= hm[i]*hm[i];
 						if(hv[i]<0d) hv[i] = 0d;
 						hv[i]  = Math.sqrt(hv[i]);
@@ -730,7 +744,7 @@ public class GAMV {
 //        c Square "hv" and "tv" so that we return the variance:
 						hv[i]  *= hv[i];
 						tv[i]  *= tv[i];
-					} else if(ivtype==5) {
+					} else if(ivtype==GENERAL_RELATIVE) {
 						double htave  = 0.5d*(hm[i]+tm[i]);
 						htave  *= htave;
 						if(htave<Constants.D_EPSLON) {
@@ -738,7 +752,7 @@ public class GAMV {
 						} else {
 							gam[i] /= htave;
 						}
-					} else if(ivtype==6) {
+					} else if(ivtype==PAIR_RELATIVE) {
 						gam[i] *= 0.5d;
 					}
 				}

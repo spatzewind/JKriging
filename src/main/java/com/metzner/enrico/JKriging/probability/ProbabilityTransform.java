@@ -342,7 +342,7 @@ public class ProbabilityTransform {
 		for(int j=0; j<nd[0]; j++) for(int i=0; i<nd[1]; i++) {
 			if(Double.isNaN(vr[j][i])) continue;
 			if(vr[j][i]<trims[0] || vr[j][i]>=trims[1]) continue;
-			Double d = new Double(vr[j][i]);
+			Double d = vr[j][i];
 			if(double_map.containsKey(d)) {
 				double[] nwt = double_map.get(d);
 				nwt[0] += wt[j][i];
@@ -471,7 +471,7 @@ public class ProbabilityTransform {
 		for(int k=0; k<nd[0]; k++) for(int j=0; j<nd[1]; j++) for(int i=0; i<nd[2]; i++) {
 			if(Double.isNaN(vr[k][j][i])) continue;
 			if(vr[k][j][i]<trims[0] || vr[k][j][i]>=trims[1]) continue;
-			Double d = new Double(vr[k][j][i]);
+			Double d = vr[k][j][i];
 			if(double_map.containsKey(d)) {
 				double[] nwt = double_map.get(d);
 				nwt[0] += wt[k][j][i];

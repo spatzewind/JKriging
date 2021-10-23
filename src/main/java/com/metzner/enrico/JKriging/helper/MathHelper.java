@@ -78,8 +78,9 @@ public class MathHelper {
 	    double[] res = new double[rlen];
 	    for(int r=0; r<rlen; r++) {
 	        res[r] = 0d;
-	        for(int k=0; k<klen; k++)
+	        for(int k=0; k<klen; k++) {
 	            res[r] += matLeft[r][k] * vecRight[k];
+	        }
 	    }
 	    return res;
 	}
@@ -98,6 +99,55 @@ public class MathHelper {
 	    }
 	    return res;
 	}
+	public static double[] nanmatmul(double[][] matLeft, double[] vecRight) {
+	    int rlen = matLeft.length;
+	    if(matLeft[0].length != vecRight.length)
+	        throw new RuntimeException("matrix and vector aren't multipliable, found m["+
+	                                   rlen+"x"+matLeft[0].length+"] * v["+vecRight.length+"]");
+	    int klen = vecRight.length;
+	    double[] res = new double[rlen];
+	    for(int r=0; r<rlen; r++) {
+	        res[r] = 0d;
+	        boolean hasAtLeastOnFinitePair = false;
+	        for(int k=0; k<klen; k++) {
+	            if(Double.isFinite(matLeft[r][k]) && Double.isFinite(vecRight[k])) {
+		            res[r] += matLeft[r][k] * vecRight[k];
+	            	hasAtLeastOnFinitePair = true;
+	            }
+	        }
+	        if(!hasAtLeastOnFinitePair)
+	        	res[r] = Double.NaN;
+	    }
+	    return res;
+	}
+	public static double[][] nanmatmul(double[][] matLeft, double[][] matRight) {
+	    int rlen = matLeft.length;
+	    int clen = matRight[0].length;
+	    if(matLeft[0].length != matRight.length)
+	        throw new RuntimeException("matrices aren't multipliable, found ["+
+	                                   rlen+"x"+matLeft[0].length+"] * ["+matRight.length+"x"+clen+"]");
+	    int klen = matRight.length;
+	    double[][] res = new double[rlen][clen];
+	    for(int r=0; r<rlen; r++) for(int c=0; c<clen; c++) {
+	        res[r][c] = 0d;
+	        boolean hasAtLeastOneFinitePair = false;
+	        for(int k=0; k<klen; k++) {
+	            if(Double.isFinite(matLeft[r][k]) && Double.isFinite(matRight[k][c])) {
+		            res[r][c] += matLeft[r][k] * matRight[k][c];
+	            	hasAtLeastOneFinitePair = true;
+	            }
+	        }
+	        if(!hasAtLeastOneFinitePair)
+	        	res[r][c] = Double.NaN;
+	    }
+	    return res;
+	}
+	public static double[] vecmul(double[] vec, double factor) {
+		double[] res = new double[vec.length];
+		for(int vi=0; vi<vec.length; vi++)
+			res[vi] = vec[vi] * factor;
+		return res;
+	}
 	public static double[][] adjunkte(double[][] mat, int i, int k) {
 	    int mlen = mat.length-1;
 	    double[][] res = new double[mlen][mlen];
@@ -112,6 +162,14 @@ public class MathHelper {
 	}
 	public static double[][] inverse(double[][] mat) {
 	    int mlen = mat.length;
+	    if(mlen==1)
+	    	return new double[][] { { 1d/mat[0][0] } };
+	    if(mlen<6)
+	    	return inverseDet(mat);
+	    return inverseGauss(mat);
+	}
+	private static double[][] inverseDet(double[][] mat) {
+		int mlen = mat.length;
 	    double[][] res = new double[mlen][mlen];
 	    double det = determinante(mat);
 	    for(int _k=0; _k<mlen; _k++) {
@@ -120,6 +178,60 @@ public class MathHelper {
 	        }
 	    }
 	    return res;
+	}
+	private static double[][] inverseGauss(double[][] mat) {
+		int mlen = mat.length;
+		double[][] cmat = new double[mlen][mlen];
+		double[][] res = new double[mlen][mlen];
+		for(int _j=0; _j<mlen; _j++)
+			for(int _i=0; _i<mlen; _i++) {
+				cmat[_j][_i] = mat[_j][_i];
+				res[_j][_i] = _j==_i ? 1d : 0d;
+			}
+		//create upper triangular matrix
+		for(int c=0; c<mlen; c++) {
+			int l = c;
+			double lv = Math.abs(cmat[c][c]);
+			for(int r=c+1; r<mlen; r++)
+				if(Math.abs(cmat[r][c])>lv) {
+					l = r;
+					lv = Math.abs(cmat[r][c]);
+				}
+			if(l!=c)
+				for(int k=0; k<mlen; k++) {
+					double t = cmat[l][k];
+					cmat[l][k] = cmat[c][k];
+					cmat[c][k] = t;
+					t = res[l][k];
+					res[l][k] = res[c][k];
+					res[c][k] = t;
+				}
+			if(Math.abs(cmat[c][c])<1.0e-32d)
+				return null;
+			for(int r=c+1; r<mlen; r++) {
+				double f = -cmat[r][c] / cmat[c][c];
+				for(int k=0; k<mlen; k++) {
+					cmat[r][k] += f*cmat[c][k];
+					res[r][k]  += f*res[c][k];
+				}
+			}
+		}
+		//create diagonal matrix with "1" at the diagonal
+		for(int c=mlen-1; c>=0; c--) {
+			double f = 1d/cmat[c][c];
+			for(int k=0; k<mlen; k++) {
+				cmat[c][k] *= f;
+				res[c][k]  *= f;
+			}
+			for(int r=c-1; r>=0; r--) {
+				f = -cmat[r][c];
+				for(int k=0; k<mlen; k++) {
+					cmat[r][k] += f*cmat[c][k];
+					res[r][k]  += f*res[c][k];
+				}
+			}
+		}
+		return res;
 	}
 	public static double[][] diag(double[][] mat) {
 	    return diag(mat, 1d);
@@ -1093,7 +1205,7 @@ public class MathHelper {
 	 *     
 	 *     After that following scheme is used:
 	 *     
-	 *                 -> * Scale(1,anis1,anis2)     -> * Rot(x-axis,theta)  -> * Rot(y-axis,beta)  _-> * Rot(z-axis,alpha) ->
+	 *                 -> * Scale(1,anis1,anis2)     -> * Rot(x-axis,theta)  -> * Rot(y-axis,beta)  -> * Rot(z-axis,alpha)  ->
 	 *         Sphere                                                                                                          Ellipsoid
 	 *                 <- * Scale(1,1/anis1,1/anis2) <- * Rot(x-axis,-theta) <- * Rot(y-axis,-beta) <- * Rot(z-axis,-alpha) <-
 	 *     
@@ -1117,8 +1229,8 @@ public class MathHelper {
 	 * @param ang1      Azimuth angle for principal direction in mathematical notation (N=90°, E=0°, S=270°, W=180°)
 	 * @param ang2      Dip angle for principal direction
 	 * @param ang3      Third rotation angle
-	 * @param anis1     First anisotropy ratio
-	 * @param anis2     Second anisotropy ratio
+	 * @param anis1     First anisotropy ratio (second largest over largest axis)
+	 * @param anis2     Second anisotropy ratio (smallest over largest axis)
 	 * @param ind       matrix indicator to initialize
 	 * @param maxrot    maximum number of rotation matrices dimensioned
 	 * @param rotmat    rotation matrices

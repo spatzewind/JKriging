@@ -12,7 +12,6 @@ import java.util.Map;
 import com.metzner.enrico.JKriging.data.Constants;
 import com.metzner.enrico.JKriging.helper.DataHelper;
 import com.metzner.enrico.JKriging.helper.FormatHelper;
-//import com.metzner.enrico.JKriging.helper.FormatHelper;
 import com.metzner.enrico.JKriging.helper.MathHelper;
 
 public class KdTree {

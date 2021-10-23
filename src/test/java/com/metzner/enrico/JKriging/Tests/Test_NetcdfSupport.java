@@ -8,6 +8,7 @@ import ucar.nc2.NetcdfFile;
 
 public class Test_NetcdfSupport {
 
+	@SuppressWarnings("deprecation")
 	public static void main(String[] args) {
 		
 		/* +--------------------------------------------+ *

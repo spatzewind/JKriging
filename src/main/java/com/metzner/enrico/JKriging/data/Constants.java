@@ -6,7 +6,7 @@ public class Constants {
 	public static final double RAD2DEG  = 180d/Math.PI;
 	public static final double DEG2RAD  = Math.PI/180d;
 	public static final double D_EPSLON = 1.0e-20d;
-
+	public static final double SAHE_FAC = 4.5d;
 
 
 
