@@ -27,17 +27,17 @@ jar {
 
 dependencies {
     // This dependency is exported to consumers, that is to say found on their compile classpath.
-    api 'org.apache.commons:commons-math3:3.6.1'
+    //api 'org.apache.commons:commons-math3:3.6.1'
 
     // This dependency is used internally, and not exposed to consumers on their own compile classpath.
-    implementation 'com.google.guava:guava:23.0'
+    //implementation 'com.google.guava:guava:23.0'
 
     // Use JUnit test framework
     testImplementation 'junit:junit:4.12'
     
     //JKriging should have Netcdf-support
-    compile "edu.ucar:cdm-core:5.3.3"
-  	runtime "org.slf4j:slf4j-jdk14:1.7.30"
+    compile "edu.ucar:cdm-core:5.4.2"
+  	//runtime "org.slf4j:slf4j-jdk14:1.7.30"
   	
   	//Need matrix decomposition for eigenvalues and eigenvectors
   	//compile group: 'org.ejml', name: 'ejml-all', version: '0.39'

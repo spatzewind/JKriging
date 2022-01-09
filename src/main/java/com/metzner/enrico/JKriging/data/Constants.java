@@ -1,6 +1,13 @@
 package com.metzner.enrico.JKriging.data;
 
+
 public class Constants {
+	
+	/* Project constants */
+	public static final String NAME = "JKriging";
+	public static final String VERSION = "0.0.3";
+	
+	
 	
 	/* Mathematical constants */
 	public static final double RAD2DEG  = 180d/Math.PI;
@@ -41,6 +48,6 @@ public class Constants {
 
 	/* Versions */
 	public static double GAMV_VERSION = 3.000d;
-	public static String NETCDF_VERSION = "5.3.3";
+	public static String NETCDF_VERSION = "5.4.2";
 
 }

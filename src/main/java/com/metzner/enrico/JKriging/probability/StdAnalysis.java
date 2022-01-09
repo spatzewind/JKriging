@@ -10,10 +10,12 @@ public class StdAnalysis {
 		for(int i: arr) { if(i<in) in=i; if(i>ax) ax=i; }    return new int[] {in,ax}; }
 	public static long[]   minmax(long[] arr)   { long in=Long.MAX_VALUE, ax=Long.MIN_VALUE;
 		for(long l: arr) { if(l<in) in=l; if(l>ax) ax=l; }   return new long[] {in,ax}; }
-	public static float[]  minmax(float[] arr)  { float in=Float.MAX_VALUE, ax=-Float.MIN_VALUE;
-		for(float f: arr) { if(Float.isNaN(f)) continue; if(f<in) in=f; if(f>ax) ax=f; }  return new float[] {in,ax}; }
-	public static double[] minmax(double[] arr) { double in=Double.MAX_VALUE, ax=-Double.MIN_VALUE;
-		for(double d: arr) { if(Double.isNaN(d)) continue; if(d<in) in=d; if(d>ax) ax=d; } return new double[] {in,ax}; }
+	public static float[]  minmax(float[] arr)  { float in=Float.POSITIVE_INFINITY, ax=Float.NEGATIVE_INFINITY;
+		for(float f: arr) { if(Float.isNaN(f)) continue; if(f<in) in=f; if(f>ax) ax=f; }
+		if(in>ax) { in=Float.NaN; ax=Float.NaN; } return new float[] {in,ax}; }
+	public static double[] minmax(double[] arr) { double in=Double.POSITIVE_INFINITY, ax=Double.NEGATIVE_INFINITY;
+		for(double d: arr) { if(Double.isNaN(d)) continue; if(d<in) in=d; if(d>ax) ax=d; }
+		if(in>ax) { in=Double.NaN; ax=Double.NaN; } return new double[] {in,ax}; }
 	public static byte[]   minmax(byte[][] arr)     { byte in=Byte.MAX_VALUE, ax=Byte.MIN_VALUE;
 		for(byte[] barr: arr) for(byte b: barr) { if(b<in) in=b; if(b>ax) ax=b; } return new byte[] {in,ax}; }
 	public static short[]  minmax(short[][] arr)    { short in=Short.MAX_VALUE, ax=Short.MIN_VALUE;
@@ -22,10 +24,12 @@ public class StdAnalysis {
 		for(int[] iarr: arr) for(int i: iarr) { if(i<in) in=i; if(i>ax) ax=i; } return new int[] {in,ax}; }
 	public static long[]   minmax(long[][] arr)     { long in=Long.MAX_VALUE, ax=Long.MIN_VALUE;
 		for(long[] larr: arr) for(long l: larr) { if(l<in) in=l; if(l>ax) ax=l; } return new long[] {in,ax}; }
-	public static float[]  minmax(float[][] arr)    { float in=Float.MAX_VALUE, ax=-Float.MAX_VALUE;
-		for(float[] farr: arr) for(float f: farr) { if(Float.isNaN(f)) continue; if(f<in) in=f; if(f>ax) ax=f; } return new float[] {in,ax}; }
-	public static double[] minmax(double[][] arr)   { double in=Double.MAX_VALUE, ax=-Double.MAX_VALUE;
-		for(double[] darr: arr) for(double d: darr) { if(Double.isNaN(d)) continue; if(d<in) in=d; if(d>ax) ax=d; } return new double[] {in,ax}; }
+	public static float[]  minmax(float[][] arr)    { float in=Float.POSITIVE_INFINITY, ax=Float.NEGATIVE_INFINITY;
+		for(float[] farr: arr) for(float f: farr) { if(Float.isNaN(f)) continue; if(f<in) in=f; if(f>ax) ax=f; }
+		if(in>ax) { in=Float.NaN; ax=Float.NaN; } return new float[] {in,ax}; }
+	public static double[] minmax(double[][] arr)   { double in=Double.POSITIVE_INFINITY, ax=Double.NEGATIVE_INFINITY;
+		for(double[] darr: arr) for(double d: darr) { if(Double.isNaN(d)) continue; if(d<in) in=d; if(d>ax) ax=d; }
+		if(in>ax) { in=Double.NaN; ax=Double.NaN; } return new double[] {in,ax}; }
 	public static byte[]   minmax(byte[][][] arr)     { byte in=Byte.MAX_VALUE, ax=Byte.MIN_VALUE;
 		for(byte[][] bbarr: arr) for(byte[] barr: bbarr) for(byte b: barr) { if(b<in) in=b; if(b>ax) ax=b; } return new byte[] {in,ax}; }
 	public static short[]  minmax(short[][][] arr)    { short in=Short.MAX_VALUE, ax=Short.MIN_VALUE;
@@ -34,10 +38,12 @@ public class StdAnalysis {
 		for(int[][] iiarr: arr) for(int[] iarr: iiarr) for(int i: iarr) { if(i<in) in=i; if(i>ax) ax=i; } return new int[] {in,ax}; }
 	public static long[]   minmax(long[][][] arr)     { long in=Long.MAX_VALUE, ax=Long.MIN_VALUE;
 		for(long[][] llarr: arr) for(long[] larr: llarr) for(long l: larr) { if(l<in) in=l; if(l>ax) ax=l; } return new long[] {in,ax}; }
-	public static float[]  minmax(float[][][] arr)    { float in=Float.MAX_VALUE, ax=-Float.MAX_VALUE;
-		for(float[][] ffarr: arr) for(float[] farr: ffarr) for(float f: farr) { if(Float.isNaN(f)) continue; if(f<in) in=f; if(f>ax) ax=f; } return new float[] {in,ax}; }
-	public static double[] minmax(double[][][] arr)   { double in=Double.MAX_VALUE, ax=-Double.MAX_VALUE;
-		for(double[][] ddarr: arr) for(double[] darr: ddarr) for(double d: darr) { if(Double.isNaN(d)) continue; if(d<in) in=d; if(d>ax) ax=d; } return new double[] {in,ax}; }
+	public static float[]  minmax(float[][][] arr)    { float in=Float.POSITIVE_INFINITY, ax=Float.NEGATIVE_INFINITY;
+		for(float[][] ffarr: arr) for(float[] farr: ffarr) for(float f: farr) { if(Float.isNaN(f)) continue; if(f<in) in=f; if(f>ax) ax=f; }
+		if(in>ax) { in=Float.NaN; ax=Float.NaN; } return new float[] {in,ax}; }
+	public static double[] minmax(double[][][] arr)   { double in=Double.POSITIVE_INFINITY, ax=Double.NEGATIVE_INFINITY;
+		for(double[][] ddarr: arr) for(double[] darr: ddarr) for(double d: darr) { if(Double.isNaN(d)) continue; if(d<in) in=d; if(d>ax) ax=d; }
+		if(in>ax) { in=Double.NaN; ax=Double.NaN; } return new double[] {in,ax}; }
 
 
 	public static byte[]   minmax(byte[] arr, byte _fillvalue)     { byte in=Byte.MAX_VALUE, ax=Byte.MIN_VALUE;
@@ -48,10 +54,12 @@ public class StdAnalysis {
 		for(int i: arr) { if(i==_fillvalue) continue; if(i<in) in=i; if(i>ax) ax=i; } return new int[] {in,ax}; }
 	public static long[]   minmax(long[] arr, long _fillvalue)     { long in=Long.MAX_VALUE, ax=Long.MIN_VALUE;
 		for(long l: arr) { if(l==_fillvalue) continue; if(l<in) in=l; if(l>ax) ax=l; } return new long[] {in,ax}; }
-	public static float[]  minmax(float[] arr, float _fillvalue)   { float in=Float.MAX_VALUE, ax=-Float.MAX_VALUE;
-		for(float f: arr) { if(Float.isNaN(f) || f==_fillvalue) continue; if(f<in) in=f; if(f>ax) ax=f; } return new float[] {in,ax}; }
-	public static double[] minmax(double[] arr, double _fillvalue) { double in=Double.MAX_VALUE, ax=-Double.MAX_VALUE;
-		for(double d: arr) { if(Double.isNaN(d) || d==_fillvalue) continue; if(d<in) in=d; if(d>ax) ax=d; } return new double[] {in,ax}; }
+	public static float[]  minmax(float[] arr, float _fillvalue)   { float in=Float.POSITIVE_INFINITY, ax=Float.NEGATIVE_INFINITY;
+		for(float f: arr) { if(Float.isNaN(f) || f==_fillvalue) continue; if(f<in) in=f; if(f>ax) ax=f; }
+		if(in>ax) { in=Float.NaN; ax=Float.NaN; } return new float[] {in,ax}; }
+	public static double[] minmax(double[] arr, double _fillvalue) { double in=Double.POSITIVE_INFINITY, ax=Double.NEGATIVE_INFINITY;
+		for(double d: arr) { if(Double.isNaN(d) || d==_fillvalue) continue; if(d<in) in=d; if(d>ax) ax=d; }
+		if(in>ax) { in=Double.NaN; ax=Double.NaN; } return new double[] {in,ax}; }
 	public static byte[]   minmax(byte[][] arr, byte _fillvalue)     { byte in=Byte.MAX_VALUE, ax=Byte.MIN_VALUE;
 		for(byte[] barr: arr) for(byte b: barr)  { if(b==_fillvalue) continue; if(b<in) in=b; if(b>ax) ax=b; } return new byte[] {in,ax}; }
 	public static short[]  minmax(short[][] arr, short _fillvalue)   { short in=Short.MAX_VALUE, ax=Short.MIN_VALUE;
@@ -60,10 +68,12 @@ public class StdAnalysis {
 		for(int[] iarr: arr) for(int i: iarr)  { if(i==_fillvalue) continue; if(i<in) in=i; if(i>ax) ax=i; } return new int[] {in,ax}; }
 	public static long[]   minmax(long[][] arr, long _fillvalue)     { long in=Long.MAX_VALUE, ax=Long.MIN_VALUE;
 		for(long[] larr: arr) for(long l: larr)  { if(l==_fillvalue) continue; if(l<in) in=l; if(l>ax) ax=l; } return new long[] {in,ax}; }
-	public static float[]  minmax(float[][] arr, float _fillvalue)   { float in=Float.MAX_VALUE, ax=-Float.MAX_VALUE;
-		for(float[] farr: arr) for(float f: farr)  { if(Float.isNaN(f) || f==_fillvalue) continue; if(f<in) in=f; if(f>ax) ax=f; } return new float[] {in,ax}; }
-	public static double[] minmax(double[][] arr, double _fillvalue) { double in=Double.MAX_VALUE, ax=-Double.MAX_VALUE;
-		for(double[] darr: arr) for(double d: darr)  { if(Double.isNaN(d) || d==_fillvalue) continue; if(d<in) in=d; if(d>ax) ax=d; } return new double[] {in,ax}; }
+	public static float[]  minmax(float[][] arr, float _fillvalue)   { float in=Float.POSITIVE_INFINITY, ax=Float.NEGATIVE_INFINITY;
+		for(float[] farr: arr) for(float f: farr)  { if(Float.isNaN(f) || f==_fillvalue) continue; if(f<in) in=f; if(f>ax) ax=f; }
+		if(in>ax) { in=Float.NaN; ax=Float.NaN; } return new float[] {in,ax}; }
+	public static double[] minmax(double[][] arr, double _fillvalue) { double in=Double.POSITIVE_INFINITY, ax=Double.NEGATIVE_INFINITY;
+		for(double[] darr: arr) for(double d: darr)  { if(Double.isNaN(d) || d==_fillvalue) continue; if(d<in) in=d; if(d>ax) ax=d; }
+		if(in>ax) { in=Double.NaN; ax=Double.NaN; } return new double[] {in,ax}; }
 	public static byte[]   minmax(byte[][][] arr, byte _fillvalue)     { byte in=Byte.MAX_VALUE, ax=Byte.MIN_VALUE;
 		for(byte[][] bbarr: arr) for(byte[] barr: bbarr) for(byte b: barr)  { if(b==_fillvalue) continue; if(b<in) in=b; if(b>ax) ax=b; } return new byte[] {in,ax}; }
 	public static short[]  minmax(short[][][] arr, short _fillvalue)   { short in=Short.MAX_VALUE, ax=Short.MIN_VALUE;
@@ -72,10 +82,12 @@ public class StdAnalysis {
 		for(int[][] iiarr: arr) for(int[] iarr: iiarr) for(int i: iarr)  { if(i==_fillvalue) continue; if(i<in) in=i; if(i>ax) ax=i; } return new int[] {in,ax}; }
 	public static long[]   minmax(long[][][] arr, long _fillvalue)     { long in=Long.MAX_VALUE, ax=Long.MIN_VALUE;
 		for(long[][] llarr: arr) for(long[] larr: llarr) for(long l: larr)  { if(l==_fillvalue) continue; if(l<in) in=l; if(l>ax) ax=l; } return new long[] {in,ax}; }
-	public static float[]  minmax(float[][][] arr, float _fillvalue)   { float in=Float.MAX_VALUE, ax=-Float.MAX_VALUE;
-		for(float[][] ffarr: arr) for(float[] farr: ffarr) for(float f: farr)  { if(Float.isNaN(f) || f==_fillvalue) continue; if(f<in) in=f; if(f>ax) ax=f; } return new float[] {in,ax}; }
-	public static double[] minmax(double[][][] arr, double _fillvalue) { double in=Double.MAX_VALUE, ax=-Double.MAX_VALUE;
-		for(double[][] ddarr: arr) for(double[] darr: ddarr) for(double d: darr)  { if(Double.isNaN(d) || d==_fillvalue) continue; if(d<in) in=d; if(d>ax) ax=d; } return new double[] {in,ax}; }
+	public static float[]  minmax(float[][][] arr, float _fillvalue)   { float in=Float.POSITIVE_INFINITY, ax=Float.NEGATIVE_INFINITY;
+		for(float[][] ffarr: arr) for(float[] farr: ffarr) for(float f: farr)  { if(Float.isNaN(f) || f==_fillvalue) continue; if(f<in) in=f; if(f>ax) ax=f; }
+		if(in>ax) { in=Float.NaN; ax=Float.NaN; } return new float[] {in,ax}; }
+	public static double[] minmax(double[][][] arr, double _fillvalue) { double in=Double.POSITIVE_INFINITY, ax=Double.NEGATIVE_INFINITY;
+		for(double[][] ddarr: arr) for(double[] darr: ddarr) for(double d: darr)  { if(Double.isNaN(d) || d==_fillvalue) continue; if(d<in) in=d; if(d>ax) ax=d; }
+		if(in>ax) { in=Double.NaN; ax=Double.NaN; } return new double[] {in,ax}; }
 
 
 	public static byte[]   mean_var(byte[] arr) {

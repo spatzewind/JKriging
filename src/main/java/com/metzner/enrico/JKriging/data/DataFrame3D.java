@@ -28,11 +28,11 @@ import ucar.ma2.InvalidRangeException;
 import ucar.nc2.Attribute;
 import ucar.nc2.Dimension;
 import ucar.nc2.NetcdfFile;
-import ucar.nc2.NetcdfFileWriter;
-import ucar.nc2.NetcdfFileWriter.Version;
+import ucar.nc2.NetcdfFiles;
 import ucar.nc2.Variable;
+import ucar.nc2.write.NetcdfFileFormat;
+import ucar.nc2.write.NetcdfFormatWriter;
 
-@SuppressWarnings("deprecation")
 public class DataFrame3D {
 
 	private int[] datalength;
@@ -1250,7 +1250,7 @@ public class DataFrame3D {
 	 * @param variable name(s) of variable(s)
 	 */
 	public void readFromNetcdf(String filepath, String... variable) {
-		try(NetcdfFile nc = NetcdfFile.open(filepath)) {
+		try(NetcdfFile nc = NetcdfFiles.open(filepath)) {
 			this.readFromNetcdf(nc, variable);
 		} catch(IOException ioe) {
 			ioe.printStackTrace();
@@ -1530,7 +1530,7 @@ public class DataFrame3D {
 //			}
 		}
 		for(int dimid=0; dimid<3; dimid++) {
-			Variable var = netcdf_file.findVariable(dims.get(dimid).getFullNameEscaped());
+			Variable var = netcdf_file.findVariable(dims.get(dimid).getName());
 			boolean was_succesful = false;
 			if(var!=null) {
 				Array a = null;
@@ -1557,19 +1557,19 @@ public class DataFrame3D {
 						case 2: attribs_dim_thr.clear(); break;
 						default: break;
 					}
-					for(Attribute att: var.getAttributes()) {
+					for(Attribute att: var.attributes()) {
 						switch(dimid) {
-							case 0: attribs_dim_one.put(att.getFullNameEscaped(), ""+(att.isString()?att.getStringValue():att.getNumericValue())); break;
-							case 1: attribs_dim_two.put(att.getFullNameEscaped(), ""+(att.isString()?att.getStringValue():att.getNumericValue())); break;
-							case 2: attribs_dim_thr.put(att.getFullNameEscaped(), ""+(att.isString()?att.getStringValue():att.getNumericValue())); break;
+							case 0: attribs_dim_one.put(att.getName(), ""+(att.isString()?att.getStringValue():att.getNumericValue())); break;
+							case 1: attribs_dim_two.put(att.getName(), ""+(att.isString()?att.getStringValue():att.getNumericValue())); break;
+							case 2: attribs_dim_thr.put(att.getName(), ""+(att.isString()?att.getStringValue():att.getNumericValue())); break;
 							default: break;
 						}
 					}
 					was_succesful = true;
 				} catch (IOException e) {
-					System.out.println("WARNING: could not read dimension \""+dims.get(dimid).getFullName()+"\": add as index-array to dataframe");
+					System.out.println("WARNING: could not read dimension \""+dims.get(dimid).getName()+"\": add as index-array to dataframe");
 				} catch (NumberFormatException nfe) {
-					System.out.println("WARNING: could not read dimension \""+dims.get(dimid).getFullName()+"\": add as index-array to dataframe");
+					System.out.println("WARNING: could not read dimension \""+dims.get(dimid).getName()+"\": add as index-array to dataframe");
 				}
 			}
 			if(!was_succesful) {
@@ -1583,90 +1583,72 @@ public class DataFrame3D {
 	 * Write all content of this dataframe to a netcdf file
 	 * @param netcdf_file_path path to the netcdf file
 	 */
+	@SuppressWarnings("rawtypes")
 	public void writeToNetcdf(String netcdf_file_path) {
-		try {
-			NetcdfFileWriter ncdfWriter = NetcdfFileWriter.createNew(Version.netcdf4, netcdf_file_path);
-//			String dim0_name = ""; boolean is_used = true; int dim_test_num = -1;
-//			while(is_used) {
-//				dim_test_num++; dim0_name = "dim"+dim_test_num;
-//				is_used = false;
-//				for(String tit: titles) if(tit.equals(dim0_name)) { is_used = true; break; }
-//			}
-//			String dim1_name = ""; is_used = true;
-//			while(is_used) {
-//				dim_test_num++; dim1_name = "dim"+dim_test_num;
-//				is_used = false;
-//				for(String tit: titles) if(tit.equals(dim1_name)) { is_used = true; break; }
-//			}
-//			String dim2_name = ""; is_used = true;
-//			while(is_used) {
-//				dim_test_num++; dim2_name = "dim"+dim_test_num;
-//				is_used = false;
-//				for(String tit: titles) if(tit.equals(dim2_name)) { is_used = true; break; }
-//			}
-			Dimension dim0 = ncdfWriter.addDimension(null, dimension_names[0], datalength[0]);
-			Dimension dim1 = ncdfWriter.addDimension(null, dimension_names[1], datalength[1]);
-			Dimension dim2 = ncdfWriter.addDimension(null, dimension_names[2], datalength[2]);
-			List<Dimension> dims = new ArrayList<>(); dims.add(dim0);
-			Variable[] vars = new Variable[titles.length+3];
-			vars[0] = ncdfWriter.addVariable(null, dimension_names[0], ucar.ma2.DataType.DOUBLE, dims);
-			for(String k: attribs_dim_one.keySet())
-				if(k.equals("_FillValue"))
-					vars[0].addAttribute(new Attribute(k, Double.parseDouble(attribs_dim_one.get(k))));
-				else
-					vars[0].addAttribute(new Attribute(k, attribs_dim_one.get(k)));
-			dims.remove(0); dims.add(dim1);
-			vars[1] = ncdfWriter.addVariable(null, dimension_names[1], ucar.ma2.DataType.DOUBLE, dims);
-			for(String k: attribs_dim_two.keySet())
-				if(k.equals("_FillValue"))
-					vars[1].addAttribute(new Attribute(k, Double.parseDouble(attribs_dim_two.get(k))));
-				else
-					vars[1].addAttribute(new Attribute(k, attribs_dim_two.get(k)));
-			dims.remove(0); dims.add(dim2);
-			vars[2] = ncdfWriter.addVariable(null, dimension_names[2], ucar.ma2.DataType.DOUBLE, dims);
-			for(String k: attribs_dim_thr.keySet())
-				if(k.equals("_FillValue"))
-					vars[2].addAttribute(new Attribute(k, Double.parseDouble(attribs_dim_thr.get(k))));
-				else
-					vars[2].addAttribute(new Attribute(k, attribs_dim_thr.get(k)));
-			dims.remove(0); dims.add(dim0); dims.add(dim1); dims.add(dim2);
-			for(int iv=0; iv<titles.length; iv++) {
-				ucar.ma2.DataType dataType = null;
-				switch(types[iv]) {
-					case BOOL:   dataType = ucar.ma2.DataType.BOOLEAN; break;
-					case BYTE:   dataType = ucar.ma2.DataType.BYTE;    break;
-					case SHORT:  dataType = ucar.ma2.DataType.SHORT;   break;
-					case INT:    dataType = ucar.ma2.DataType.INT;     break;
-					case LONG:   dataType = ucar.ma2.DataType.LONG;    break;
-					case FLOAT:  dataType = ucar.ma2.DataType.FLOAT;   break;
-					case DOUBLE: dataType = ucar.ma2.DataType.DOUBLE;  break;
-					default:
-					case STRING: dataType = ucar.ma2.DataType.STRING;  break;
-				}
-				vars[iv+3] = ncdfWriter.addVariable(null, FormatHelper.name2CFConvention(titles[iv]), dataType, dims);
-				switch(types[iv]) {
-					case SHORT:  ncdfWriter.addVariableAttribute(vars[iv+3], new Attribute("_FillValue", Short.MIN_VALUE));   break;
-					case INT:    ncdfWriter.addVariableAttribute(vars[iv+3], new Attribute("_FillValue", Integer.MIN_VALUE)); break;
-					case LONG:   ncdfWriter.addVariableAttribute(vars[iv+3], new Attribute("_FillValue", Long.MIN_VALUE));    break;
-					case FLOAT:  ncdfWriter.addVariableAttribute(vars[iv+3], new Attribute("_FillValue", Constants.FILL_VALUE_F));  break;
-					case DOUBLE: ncdfWriter.addVariableAttribute(vars[iv+3], new Attribute("_FillValue", Constants.FILL_VALUE_D)); break;
-					default: break;
-				}
+		NetcdfFormatWriter.Builder ncdfWriter = NetcdfFormatWriter.createNewNetcdf4(NetcdfFileFormat.NETCDF4_CLASSIC, netcdf_file_path, null);
+		Dimension dim0 = ncdfWriter.addDimension(dimension_names[0], datalength[0]);
+		Dimension dim1 = ncdfWriter.addDimension(dimension_names[1], datalength[1]);
+		Dimension dim2 = ncdfWriter.addDimension(dimension_names[2], datalength[2]);
+		List<Dimension> dims = new ArrayList<>(); dims.add(dim0);
+		Variable.Builder[] vars = new Variable.Builder[titles.length+3];
+		vars[0] = ncdfWriter.addVariable(dimension_names[0], ucar.ma2.DataType.DOUBLE, dims);
+		for(String k: attribs_dim_one.keySet())
+			if(k.equals("_FillValue"))
+				vars[0].addAttribute(new Attribute(k, Double.parseDouble(attribs_dim_one.get(k))));
+			else
+				vars[0].addAttribute(new Attribute(k, attribs_dim_one.get(k)));
+		dims.remove(0); dims.add(dim1);
+		vars[1] = ncdfWriter.addVariable(dimension_names[1], ucar.ma2.DataType.DOUBLE, dims);
+		for(String k: attribs_dim_two.keySet())
+			if(k.equals("_FillValue"))
+				vars[1].addAttribute(new Attribute(k, Double.parseDouble(attribs_dim_two.get(k))));
+			else
+				vars[1].addAttribute(new Attribute(k, attribs_dim_two.get(k)));
+		dims.remove(0); dims.add(dim2);
+		vars[2] = ncdfWriter.addVariable(dimension_names[2], ucar.ma2.DataType.DOUBLE, dims);
+		for(String k: attribs_dim_thr.keySet())
+			if(k.equals("_FillValue"))
+				vars[2].addAttribute(new Attribute(k, Double.parseDouble(attribs_dim_thr.get(k))));
+			else
+				vars[2].addAttribute(new Attribute(k, attribs_dim_thr.get(k)));
+		dims.remove(0); dims.add(dim0); dims.add(dim1); dims.add(dim2);
+		for(int iv=0; iv<titles.length; iv++) {
+			ucar.ma2.DataType dataType = null;
+			switch(types[iv]) {
+				case BOOL:   dataType = ucar.ma2.DataType.BOOLEAN; break;
+				case BYTE:   dataType = ucar.ma2.DataType.BYTE;    break;
+				case SHORT:  dataType = ucar.ma2.DataType.SHORT;   break;
+				case INT:    dataType = ucar.ma2.DataType.INT;     break;
+				case LONG:   dataType = ucar.ma2.DataType.LONG;    break;
+				case FLOAT:  dataType = ucar.ma2.DataType.FLOAT;   break;
+				case DOUBLE: dataType = ucar.ma2.DataType.DOUBLE;  break;
+				default:
+				case STRING: dataType = ucar.ma2.DataType.STRING;  break;
 			}
-			ncdfWriter.addGroupAttribute(null, new Attribute("history", "created with \"EnMe-Kriging\" from Dataframe3D - JAVA Netcdf "+Constants.NETCDF_VERSION));
-			ncdfWriter.create();
-			Variable dim0Var = vars[0];
+			vars[iv+3] = ncdfWriter.addVariable(FormatHelper.name2CFConvention(titles[iv]), dataType, dims);
+			switch(types[iv]) {
+				case SHORT:  vars[iv+3].addAttribute(new Attribute("_FillValue", Short.MIN_VALUE));   break;
+				case INT:    vars[iv+3].addAttribute(new Attribute("_FillValue", Integer.MIN_VALUE)); break;
+				case LONG:   vars[iv+3].addAttribute(new Attribute("_FillValue", Long.MIN_VALUE));    break;
+				case FLOAT:  vars[iv+3].addAttribute(new Attribute("_FillValue", Constants.FILL_VALUE_F));  break;
+				case DOUBLE: vars[iv+3].addAttribute(new Attribute("_FillValue", Constants.FILL_VALUE_D)); break;
+				default: break;
+			}
+		}
+		ncdfWriter.getRootGroup().addAttribute(new Attribute("history", "created with \"EnMe-Kriging\" from Dataframe3D - JAVA Netcdf "+Constants.NETCDF_VERSION));
+		try(NetcdfFormatWriter ncdf = ncdfWriter.build()) {
+			Variable dim0Var = ncdf.findVariable(vars[0].getFullName());
 			ArrayDouble.D1 dim0_arr = new ArrayDouble.D1(datalength[0]);
 			for(int dl=0; dl<datalength[0]; dl++) dim0_arr.set(dl,dimension_one[dl]);
-			ncdfWriter.write(dim0Var, dim0_arr);
-			Variable dim1Var = vars[1];
+			ncdf.write(dim0Var, dim0_arr);
+			Variable dim1Var = ncdf.findVariable(vars[1].getFullName());
 			ArrayDouble.D1 dim1_arr = new ArrayDouble.D1(datalength[1]);
 			for(int dl=0; dl<datalength[1]; dl++) dim1_arr.set(dl,dimension_two[dl]);
-			ncdfWriter.write(dim1Var, dim1_arr);
-			Variable dim2Var = vars[2];
+			ncdf.write(dim1Var, dim1_arr);
+			Variable dim2Var = ncdf.findVariable(vars[2].getFullName());
 			ArrayDouble.D1 dim2_arr = new ArrayDouble.D1(datalength[2]);
 			for(int dl=0; dl<datalength[2]; dl++) dim2_arr.set(dl,dimension_thr[dl]);
-			ncdfWriter.write(dim2Var, dim2_arr);
+			ncdf.write(dim2Var, dim2_arr);
 			for(int iv=0; iv<titles.length; iv++) {
 				switch(types[iv]) {
 					case BOOL:
@@ -1676,7 +1658,7 @@ public class DataFrame3D {
 							for(int dl1=0; dl1<datalength[1]; dl1++)
 								for(int dl2=0; dl2<datalength[2]; dl2++)
 									bool_arr.set(dl0,dl1,dl2, bool_source[dl0][dl1][dl2]);
-						ncdfWriter.write(vars[iv+3], bool_arr);
+						ncdf.write(ncdf.findVariable(vars[iv+3].getFullName()), bool_arr);
 						break;
 					case BYTE:
 						ArrayByte.D3 byte_arr = new ArrayByte.D3(datalength[0],datalength[1],datalength[2],false);
@@ -1685,7 +1667,7 @@ public class DataFrame3D {
 							for(int dl1=0; dl1<datalength[1]; dl1++)
 								for(int dl2=0; dl2<datalength[2]; dl2++)
 									byte_arr.set(dl0,dl1,dl2, byte_source[dl0][dl1][dl2]);
-						ncdfWriter.write(vars[iv+3], byte_arr);
+						ncdf.write(ncdf.findVariable(vars[iv+3].getFullName()), byte_arr);
 						break;
 					case SHORT:
 						ArrayShort.D3 short_arr = new ArrayShort.D3(datalength[0],datalength[1],datalength[2],false);
@@ -1694,7 +1676,7 @@ public class DataFrame3D {
 							for(int dl1=0; dl1<datalength[1]; dl1++)
 								for(int dl2=0; dl2<datalength[2]; dl2++)
 									short_arr.set(dl0,dl1,dl2, short_source[dl0][dl1][dl2]);
-						ncdfWriter.write(vars[iv+3], short_arr);
+						ncdf.write(ncdf.findVariable(vars[iv+3].getFullName()), short_arr);
 						break;
 					case INT:
 						ArrayInt.D3 int_arr = new ArrayInt.D3(datalength[0],datalength[1],datalength[2],false);
@@ -1703,7 +1685,7 @@ public class DataFrame3D {
 							for(int dl1=0; dl1<datalength[1]; dl1++)
 								for(int dl2=0; dl2<datalength[2]; dl2++)
 									int_arr.set(dl0,dl1,dl2, int_source[dl0][dl1][dl2]);
-						ncdfWriter.write(vars[iv+3], int_arr);
+						ncdf.write(ncdf.findVariable(vars[iv+3].getFullName()), int_arr);
 						break;
 					case LONG:
 						ArrayLong.D3 long_arr = new ArrayLong.D3(datalength[0],datalength[1],datalength[2],false);
@@ -1712,7 +1694,7 @@ public class DataFrame3D {
 							for(int dl1=0; dl1<datalength[1]; dl1++)
 								for(int dl2=0; dl2<datalength[2]; dl2++)
 									long_arr.set(dl0,dl1,dl2, long_source[dl0][dl1][dl2]);
-						ncdfWriter.write(vars[iv+3], long_arr);
+						ncdf.write(ncdf.findVariable(vars[iv+3].getFullName()), long_arr);
 						break;
 					case FLOAT:
 						ArrayFloat.D3 float_arr = new ArrayFloat.D3(datalength[0],datalength[1],datalength[2]);
@@ -1721,7 +1703,7 @@ public class DataFrame3D {
 							for(int dl1=0; dl1<datalength[1]; dl1++)
 								for(int dl2=0; dl2<datalength[2]; dl2++)
 									float_arr.set(dl0,dl1,dl2, Float.isNaN(float_source[dl0][dl1][dl2])?Constants.FILL_VALUE_F:float_source[dl0][dl1][dl2]);
-						ncdfWriter.write(vars[iv+3], float_arr);
+						ncdf.write(ncdf.findVariable(vars[iv+3].getFullName()), float_arr);
 						break;
 					case DOUBLE:
 						ArrayDouble.D3 double_arr = new ArrayDouble.D3(datalength[0],datalength[1],datalength[2]);
@@ -1730,7 +1712,7 @@ public class DataFrame3D {
 							for(int dl1=0; dl1<datalength[1]; dl1++)
 								for(int dl2=0; dl2<datalength[2]; dl2++)
 									double_arr.set(dl0,dl1,dl2, Double.isNaN(double_source[dl0][dl1][dl2])?Constants.FILL_VALUE_D:double_source[dl0][dl1][dl2]);
-						ncdfWriter.write(vars[iv+3], double_arr);
+						ncdf.write(ncdf.findVariable(vars[iv+3].getFullName()), double_arr);
 						break;
 					case STRING:
 						ArrayString.D3 string_arr = new ArrayString.D3(datalength[0],datalength[1],datalength[2]);
@@ -1739,14 +1721,14 @@ public class DataFrame3D {
 							for(int dl1=0; dl1<datalength[1]; dl1++)
 								for(int dl2=0; dl2<datalength[2]; dl2++)
 									string_arr.set(dl0,dl1,dl2, string_source[dl0][dl1][dl2]);
-						ncdfWriter.write(vars[iv+3], string_arr);
+						ncdf.write(ncdf.findVariable(vars[iv+3].getFullName()), string_arr);
 						break;
 					default:
 						break;
 				}
 			}
-			ncdfWriter.flush();
-			ncdfWriter.close();
+			ncdf.flush();
+			ncdf.close();
 		} catch (IOException io_e) {
 			io_e.printStackTrace();
 		} catch (InvalidRangeException ir_e) {
