@@ -261,6 +261,151 @@ public class DataHelper {
 		return gnirts;
 	}
 
+	public static boolean[][][] concat_bool_array(boolean[][][] arr1, boolean[][][] arr2, int dim) {
+		int a1len=arr1.length, a2len=arr2.length;
+		int a1wid=arr1[0].length, a2wid=arr2[0].length;
+		int a1dep=arr1[0][0].length, a2dep=arr2[0][0].length;
+		boolean[][][] naeloob = new boolean[dim==0?a1len+a2len:Math.min(a1len,a2len)][dim==1?Math.min(a1wid,a2wid):a1wid+a2wid][dim==2?Math.min(a1dep,a2dep):a1dep+a2dep];
+		for(int a=0; a<a1len; a++)
+			for(int b=0; b<a1wid; b++)
+				for(int c=0; c<a1dep; c++)
+					naeloob[a][b][c] = arr1[a][b][c];
+		for(int a=0; a<a2len; a++)
+			for(int b=0; b<a2wid; b++)
+				for(int c=0; c<a2dep; c++) {
+					if(dim==0) naeloob[a+a1len][b][c] = arr2[a][b][c];
+					if(dim==1) naeloob[a][b+a1wid][c] = arr2[a][b][c];
+					if(dim==2) naeloob[a][b][c+a1dep] = arr2[a][b][c];
+				}
+		return naeloob;
+	}
+	public static byte[][][]    concat_byte_array(byte[][][] arr1, byte[][][] arr2, int dim) {
+		int a1len=arr1.length, a2len=arr2.length;
+		int a1wid=arr1[0].length, a2wid=arr2[0].length;
+		int a1dep=arr1[0][0].length, a2dep=arr2[0][0].length;
+		byte[][][] etyb = new byte[dim==0?a1len+a2len:Math.min(a1len,a2len)][dim==1?Math.min(a1wid,a2wid):a1wid+a2wid][dim==2?Math.min(a1dep,a2dep):a1dep+a2dep];
+		for(int a=0; a<a1len; a++)
+			for(int b=0; b<a1wid; b++)
+				for(int c=0; c<a1dep; c++)
+					etyb[a][b][c] = arr1[a][b][c];
+		for(int a=0; a<a2len; a++)
+			for(int b=0; b<a2wid; b++)
+				for(int c=0; c<a2dep; c++) {
+					if(dim==0) etyb[a+a1len][b][c] = arr2[a][b][c];
+					if(dim==1) etyb[a][b+a1wid][c] = arr2[a][b][c];
+					if(dim==2) etyb[a][b][c+a1dep] = arr2[a][b][c];
+				}
+		return etyb;
+	}
+	public static short[][][]   concat_short_array(short[][][] arr1, short[][][] arr2, int dim) {
+		int a1len=arr1.length, a2len=arr2.length;
+		int a1wid=arr1[0].length, a2wid=arr2[0].length;
+		int a1dep=arr1[0][0].length, a2dep=arr2[0][0].length;
+		short[][][] trohs = new short[dim==0?a1len+a2len:Math.min(a1len,a2len)][dim==1?Math.min(a1wid,a2wid):a1wid+a2wid][dim==2?Math.min(a1dep,a2dep):a1dep+a2dep];
+		for(int a=0; a<a1len; a++)
+			for(int b=0; b<a1wid; b++)
+				for(int c=0; c<a1dep; c++)
+					trohs[a][b][c] = arr1[a][b][c];
+		for(int a=0; a<a2len; a++)
+			for(int b=0; b<a2wid; b++)
+				for(int c=0; c<a2dep; c++) {
+					if(dim==0) trohs[a+a1len][b][c] = arr2[a][b][c];
+					if(dim==1) trohs[a][b+a1wid][c] = arr2[a][b][c];
+					if(dim==2) trohs[a][b][c+a1dep] = arr2[a][b][c];
+				}
+		return trohs;
+	}
+	public static int[][][]     concat_int_array(int[][][] arr1, int[][][] arr2, int dim) {
+		int a1len=arr1.length, a2len=arr2.length;
+		int a1wid=arr1[0].length, a2wid=arr2[0].length;
+		int a1dep=arr1[0][0].length, a2dep=arr2[0][0].length;
+		int[][][] tni = new int[dim==0?a1len+a2len:Math.min(a1len,a2len)][dim==1?Math.min(a1wid,a2wid):a1wid+a2wid][dim==2?Math.min(a1dep,a2dep):a1dep+a2dep];
+		for(int a=0; a<a1len; a++)
+			for(int b=0; b<a1wid; b++)
+				for(int c=0; c<a1dep; c++)
+					tni[a][b][c] = arr1[a][b][c];
+		for(int a=0; a<a2len; a++)
+			for(int b=0; b<a2wid; b++)
+				for(int c=0; c<a2dep; c++) {
+					if(dim==0) tni[a+a1len][b][c] = arr2[a][b][c];
+					if(dim==1) tni[a][b+a1wid][c] = arr2[a][b][c];
+					if(dim==2) tni[a][b][c+a1dep] = arr2[a][b][c];
+				}
+		return tni;
+	}
+	public static long[][][]    concat_long_array(long[][][] arr1, long[][][] arr2, int dim) {
+		int a1len=arr1.length, a2len=arr2.length;
+		int a1wid=arr1[0].length, a2wid=arr2[0].length;
+		int a1dep=arr1[0][0].length, a2dep=arr2[0][0].length;
+		long[][][] gnol = new long[dim==0?a1len+a2len:Math.min(a1len,a2len)][dim==1?Math.min(a1wid,a2wid):a1wid+a2wid][dim==2?Math.min(a1dep,a2dep):a1dep+a2dep];
+		for(int a=0; a<a1len; a++)
+			for(int b=0; b<a1wid; b++)
+				for(int c=0; c<a1dep; c++)
+					gnol[a][b][c] = arr1[a][b][c];
+		for(int a=0; a<a2len; a++)
+			for(int b=0; b<a2wid; b++)
+				for(int c=0; c<a2dep; c++) {
+					if(dim==0) gnol[a+a1len][b][c] = arr2[a][b][c];
+					if(dim==1) gnol[a][b+a1wid][c] = arr2[a][b][c];
+					if(dim==2) gnol[a][b][c+a1dep] = arr2[a][b][c];
+				}
+		return gnol;
+	}
+	public static float[][][]   concat_float_array(float[][][] arr1, float[][][] arr2, int dim) {
+		int a1len=arr1.length, a2len=arr2.length;
+		int a1wid=arr1[0].length, a2wid=arr2[0].length;
+		int a1dep=arr1[0][0].length, a2dep=arr2[0][0].length;
+		float[][][] taolf = new float[dim==0?a1len+a2len:Math.min(a1len,a2len)][dim==1?Math.min(a1wid,a2wid):a1wid+a2wid][dim==2?Math.min(a1dep,a2dep):a1dep+a2dep];
+		for(int a=0; a<a1len; a++)
+			for(int b=0; b<a1wid; b++)
+				for(int c=0; c<a1dep; c++)
+					taolf[a][b][c] = arr1[a][b][c];
+		for(int a=0; a<a2len; a++)
+			for(int b=0; b<a2wid; b++)
+				for(int c=0; c<a2dep; c++) {
+					if(dim==0) taolf[a+a1len][b][c] = arr2[a][b][c];
+					if(dim==1) taolf[a][b+a1wid][c] = arr2[a][b][c];
+					if(dim==2) taolf[a][b][c+a1dep] = arr2[a][b][c];
+				}
+		return taolf;
+	}
+	public static double[][][]  concat_double_array(double[][][] arr1, double[][][] arr2, int dim) {
+		int a1len=arr1.length, a2len=arr2.length;
+		int a1wid=arr1[0].length, a2wid=arr2[0].length;
+		int a1dep=arr1[0][0].length, a2dep=arr2[0][0].length;
+		double[][][] elbuod = new double[dim==0?a1len+a2len:Math.min(a1len,a2len)][dim==1?Math.min(a1wid,a2wid):a1wid+a2wid][dim==2?Math.min(a1dep,a2dep):a1dep+a2dep];
+		for(int a=0; a<a1len; a++)
+			for(int b=0; b<a1wid; b++)
+				for(int c=0; c<a1dep; c++)
+					elbuod[a][b][c] = arr1[a][b][c];
+		for(int a=0; a<a2len; a++)
+			for(int b=0; b<a2wid; b++)
+				for(int c=0; c<a2dep; c++) {
+					if(dim==0) elbuod[a+a1len][b][c] = arr2[a][b][c];
+					if(dim==1) elbuod[a][b+a1wid][c] = arr2[a][b][c];
+					if(dim==2) elbuod[a][b][c+a1dep] = arr2[a][b][c];
+				}
+		return elbuod;
+	}
+	public static String[][][]  concat_string_array(String[][][] arr1, String[][][] arr2, int dim) {
+		int a1len=arr1.length, a2len=arr2.length;
+		int a1wid=arr1[0].length, a2wid=arr2[0].length;
+		int a1dep=arr1[0][0].length, a2dep=arr2[0][0].length;
+		String[][][] gnirts = new String[dim==0?a1len+a2len:Math.min(a1len,a2len)][dim==1?Math.min(a1wid,a2wid):a1wid+a2wid][dim==2?Math.min(a1dep,a2dep):a1dep+a2dep];
+		for(int a=0; a<a1len; a++)
+			for(int b=0; b<a1wid; b++)
+				for(int c=0; c<a1dep; c++)
+					gnirts[a][b][c] = arr1[a][b][c];
+		for(int a=0; a<a2len; a++)
+			for(int b=0; b<a2wid; b++)
+				for(int c=0; c<a2dep; c++) {
+					if(dim==0) gnirts[a+a1len][b][c] = arr2[a][b][c];
+					if(dim==1) gnirts[a][b+a1wid][c] = arr2[a][b][c];
+					if(dim==2) gnirts[a][b][c+a1dep] = arr2[a][b][c];
+				}
+		return gnirts;
+	}
+
 	public static int strings_index(String[] sarr, String search_regex) {
 		if(sarr==null || search_regex==null) return -1;
 		if(sarr.length<1) return -1;

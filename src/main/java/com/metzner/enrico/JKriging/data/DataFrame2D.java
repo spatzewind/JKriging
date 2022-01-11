@@ -2,6 +2,7 @@ package com.metzner.enrico.JKriging.data;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -721,16 +722,99 @@ public class DataFrame2D {
 			}
 		}
 		switch(dimID) {
-			case 0: dimension_one =
-				DataHelper.concat_double_array(dimension_one, df2.getDimensionValues(dimension_to_append));
+			case 0: datalength[0] += df2.getDimensionValues(dimension_to_append).length;
+				dimension_one = DataHelper.concat_double_array(dimension_one, df2.getDimensionValues(dimension_to_append));
 				break;
-			case 1: dimension_two =
-				DataHelper.concat_double_array(dimension_two, df2.getDimensionValues(dimension_to_append));
+			case 1: datalength[1] += df2.getDimensionValues(dimension_to_append).length;
+				dimension_two = DataHelper.concat_double_array(dimension_two, df2.getDimensionValues(dimension_to_append));
 				break;
 			default:
 				break;
 		}
 		return this;
+	}
+	public DataFrame2D filterByMask(int dimension_to_mask, boolean[] mask) {
+		int dim = dimension_to_mask - Constants.FIRST_IDX;
+		DataFrame2D out = new DataFrame2D();
+		int count = 0, count2 = 0;
+		for(int i=0; i<mask.length; i++)
+			if(mask[i])
+				count++;
+		int[] ids = new int[count];
+		int ct = 0;
+		for(int i=0; i<mask.length; i++) {
+			if(mask[i]) {
+				ids[ct] = i;
+				ct++;
+			}
+		}
+		double[] newDim = new double[count];
+		double[] oldDim = getDimensionValues(dim + Constants.FIRST_IDX);
+		for (int c = 0; c < count; c++)
+			newDim[c] = oldDim[ids[c]]; 
+		if(dim == 0) {
+			count2 = getDimensionValues(1 + Constants.FIRST_IDX).length; 
+		}
+		if(dim == 1) {
+			count2 = count;
+			count = getDimensionValues(0 + Constants.FIRST_IDX).length;
+		}
+		for (String var: allVariableNames()) {
+			switch(getVariableType(var)) {
+				case BOOL: boolean[][] newBool = new boolean[count][count2], oldBool = (boolean[][])getArray(var);
+					for(int c=0; c<count; c++) { for(int d=0; d<count2; d++) {
+						if (dim == 0) newBool[c][d] = oldBool[ids[c]][d];
+						if (dim == 1) newBool[c][d] = oldBool[c][ids[d]];
+					} } out.addColumn(var, newBool); break;
+				case BYTE: byte[][] newByte = new byte[count][count2], oldByte = (byte[][])getArray(var);
+					for(int c=0; c<count; c++) { for(int d=0; d<count2; d++) {
+						if (dim == 0) newByte[c][d] = oldByte[ids[c]][d];
+						if (dim == 1) newByte[c][d] = oldByte[c][ids[d]];
+					} } out.addColumn(var, newByte); break;
+				case SHORT: short[][] newShort = new short[count][count2], oldShort = (short[][])getArray(var);
+					for(int c=0; c<count; c++) { for(int d=0; d<count2; d++) {
+						if (dim == 0) newShort[c][d] = oldShort[ids[c]][d];
+						if (dim == 1) newShort[c][d] = oldShort[c][ids[d]];
+					} } out.addColumn(var, newShort); break;
+				case INT: int[][] newInt = new int[count][count2], oldInt = (int[][])getArray(var);
+					for(int c=0; c<count; c++) { for(int d=0; d<count2; d++) {
+						if (dim == 0) newInt[c][d] = oldInt[ids[c]][d];
+						if (dim == 1) newInt[c][d] = oldInt[c][ids[d]];
+					} } out.addColumn(var, newInt); break;
+				case LONG: long[][] newLong = new long[count][count2], oldLong = (long[][])getArray(var);
+					for(int c=0; c<count; c++) { for(int d=0; d<count2; d++) {
+						if (dim == 0) newLong[c][d] = oldLong[ids[c]][d];
+						if (dim == 1) newLong[c][d] = oldLong[c][ids[d]];
+					} } out.addColumn(var, newLong); break;
+				case FLOAT: float[][] newFloat = new float[count][count2], oldFloat = (float[][])getArray(var);
+					for(int c=0; c<count; c++) { for(int d=0; d<count2; d++) {
+						if (dim == 0) newFloat[c][d] = oldFloat[ids[c]][d];
+						if (dim == 1) newFloat[c][d] = oldFloat[c][ids[d]];
+					} } out.addColumn(var, newFloat); break;
+				case DOUBLE: double[][] newDouble = new double[count][count2], oldDouble = (double[][])getArray(var);
+					for(int c=0; c<count; c++) { for(int d=0; d<count2; d++) {
+						if (dim == 0) newDouble[c][d] = oldDouble[ids[c]][d];
+						if (dim == 1) newDouble[c][d] = oldDouble[c][ids[d]];
+					} } out.addColumn(var, newDouble); break;
+				case STRING: String[][] newString = new String[count][count2], oldString = (String[][])getArray(var);
+					for(int c=0; c<count; c++) { for(int d=0; d<count2; d++) {
+						if (dim == 0) newString[c][d] = oldString[ids[c]][d];
+						if (dim == 1) newString[c][d] = oldString[c][ids[d]];
+					} } out.addColumn(var, newString); break;
+				default:
+					System.err.println("Unknown datatype, cannot extract and mask variable <" + var + "> from DataFrame2D.");
+					break;
+			}
+		}
+		if (out.allVariableNames().length > 0) {
+			for(int d=0; d<2; d++) {
+				out.setDimension(d+Constants.FIRST_IDX,
+						(dim==d) ? newDim : getDimensionValues(d+Constants.FIRST_IDX),
+						getDimensionName(d+Constants.FIRST_IDX));
+				out.setDimensionsAttributes(d+Constants.FIRST_IDX, getAttributesFromDimension(d+Constants.FIRST_IDX));
+			}
+		}
+		return out;
 	}
 
 	public void setDefaultDatatype(String _type) { default_data_type = DataType.getDataType(_type, default_data_type); }
@@ -865,8 +949,9 @@ public class DataFrame2D {
 	/**
 	 * Read data from a text file in simplified GeoEAS format
 	 * @param _file_path path to the text file
+	 * @throws FileNotFoundException 
 	 */
-	public void read_gam_dat(String _file_path) {
+	public void read_gam_dat(String _file_path) throws FileNotFoundException {
 		if(!_file_path.endsWith(".dat") && !_file_path.endsWith(".out"))
 			System.out.println("WARNING: Standard textfiles for GSLIB ends with '.dat' or '.out'");
 		int nvari,maxdat;
@@ -877,7 +962,7 @@ public class DataFrame2D {
 //      c Check to make sure the data file exists, then either read in the
 //      c data or write an error message and stop:
 		File f = new File(_file_path);
-		if(!f.exists()) throw new RuntimeException("ERROR data file "+_file_path+" does not exist!");
+		if(!f.exists()) throw new FileNotFoundException("ERROR data file "+_file_path+" does not exist!");
 
 //      c The data file exists so open the file and read in the header
 //      c information. Initialize the storage that will be used to collect
@@ -1129,51 +1214,6 @@ public class DataFrame2D {
 						break;
 				}
 			}
-//			else {
-//				int au=0,av=0, bu=0,bv=0; Dimension d0=var.getDimension(0), d1=var.getDimension(1);
-//				if(d0.equals(dims.get(0))) av=1; if(d0.equals(dims.get(1))) au=1;
-//				if(d1.equals(dims.get(0))) bv=1; if(d1.equals(dims.get(1))) bu=1;
-//				int fu=0, fv = d1.getLength();
-//				if(d0.equals(dims.get(1))) { fu=fv; fv=1; }
-//				switch(var.getDataType()) {
-//					case BOOLEAN: boolean[] arr_bool = (boolean[]) a.get1DJavaArray(ucar.ma2.DataType.BOOLEAN);
-//						boolean[][] bool_arr = new boolean[dimlen[0]][dimlen[1]];
-//						for(int v=0; v<dimlen[0]; v++) for(int u=0; u<dimlen[1]; u++) {
-//							ind.set(v*av+u*au,v*bv+u*bu); bool_arr[v][u] = a.getBoolean(ind); }
-//						addColumn(var.getFullName(), bool_arr); break;
-//					case BYTE: byte[][] byte_arr = new byte[dimlen[0]][dimlen[1]];
-//						for(int v=0; v<dimlen[0]; v++) for(int u=0; u<dimlen[1]; u++) {
-//							ind.set(v*av+u*au,v*bv+u*bu); byte_arr[v][u] = a.getByte(ind); }
-//						addColumn(var.getFullName(), byte_arr); break;
-//					case SHORT: short[][] short_arr = new short[dimlen[0]][dimlen[1]];
-//						for(int v=0; v<dimlen[0]; v++) for(int u=0; u<dimlen[1]; u++) {
-//							ind.set(v*av+u*au,v*bv+u*bu); short_arr[v][u] = a.getShort(ind); }
-//						addColumn(var.getFullName(), short_arr); break;
-//					case INT: int[][] int_arr = new int[dimlen[0]][dimlen[1]];
-//						for(int v=0; v<dimlen[0]; v++) for(int u=0; u<dimlen[1]; u++) {
-//							ind.set(v*av+u*au,v*bv+u*bu); int_arr[v][u] = a.getInt(ind); }
-//						addColumn(var.getFullName(), int_arr); break;
-//					case LONG: long[][] long_arr = new long[dimlen[0]][dimlen[1]];
-//						for(int v=0; v<dimlen[0]; v++) for(int u=0; u<dimlen[1]; u++) {
-//							ind.set(v*av+u*au,v*bv+u*bu); long_arr[v][u] = a.getLong(ind); }
-//						addColumn(var.getFullName(), long_arr); ;
-//					case FLOAT: float[][] float_arr = new float[dimlen[0]][dimlen[1]];
-//						for(int v=0; v<dimlen[0]; v++) for(int u=0; u<dimlen[1]; u++) {
-//							ind.set(v*av+u*au,v*bv+u*bu); float_arr[v][u] = a.getFloat(ind); }
-//						addColumn(var.getFullName(), float_arr); break;
-//					case DOUBLE: double[][] double_arr = new double[dimlen[0]][dimlen[1]];
-//						for(int v=0; v<dimlen[0]; v++) for(int u=0; u<dimlen[1]; u++) {
-//							ind.set(v*av+u*au,v*bv+u*bu); double_arr[v][u] = a.getDouble(ind); }
-//						addColumn(var.getFullName(), double_arr); break;
-//	//				case CHAR:
-//	//				case STRING:
-//	//					break;
-//					default:
-//						System.out.println("WARNING: does not this datatype: "+var.getDataType().name()+
-//								", so the variable is not added to the dataframe");
-//						break;
-//				}
-//			}
 			a = null;
 			var = null;
 		}
@@ -1353,6 +1393,14 @@ public class DataFrame2D {
 		} catch (InvalidRangeException ir_e) {
 			ir_e.printStackTrace();
 		}
+	}
+	/**
+	 * Write all content of these dataframe(2d/3d) objects to one netcdf file.
+	 * @param path path to the netcdf file
+	 * @param df DataFrame(2D/3D)s
+	 */
+	public static void writeToNetcdf(String path, Object... df) {
+		DataFrame.writeToNetcdf(path, df);
 	}
 
 
@@ -1726,17 +1774,6 @@ public class DataFrame2D {
 //		System.out.println("[DEBUG] found "+(count-1)+" commas -> new String["+count+"]");
 		return out;
 	}
-//	private String[] break_line(String _in, String _del) {
-//		List<String> parts = new ArrayList<String>();
-//		String temp = ""+_in;
-//		int occ = temp.indexOf(_del);
-//		while(occ>=0) { parts.add(temp.substring(0, occ).trim()); temp = temp.substring(occ+_del.length()); occ = temp.indexOf(_del); }
-//		parts.add(temp.trim());
-////		String debug = ""+parts.get(0);
-////		for(int s=1; s<parts.size(); s++) debug +=" | "+parts.get(s);
-////		System.out.println("[DEBUG] break_line: "+debug);
-//		return parts.toArray(new String[0]);
-//	}
 	private boolean set_boolean(String _s) {
 		boolean b = Boolean.FALSE;
 		try { b = Boolean.parseBoolean(_s); } catch(NullPointerException | NumberFormatException np_nf_e) { b = Boolean.FALSE; }
@@ -1799,18 +1836,4 @@ public class DataFrame2D {
 		minmax_mean_sill[2][dlen] = _mean;
 		minmax_mean_sill[3][dlen] = _sill;
 	}
-//	private String createTitle(String[] _all_titles) {
-//		int tnum = 1; int clen = _all_titles.length;
-//		String test_title = "Column_"+Integer.toHexString(tnum);
-//		boolean exists = true;
-//		while(exists) {
-//			exists = false;
-//			for(int tt=0; tt<clen; tt++) {
-//				if(_all_titles[tt]==null) continue;
-//				if(_all_titles[tt].equals(test_title)) { exists = true; break; }
-//			}
-//			tnum++;
-//		}
-//		return test_title;
-//	}
 }

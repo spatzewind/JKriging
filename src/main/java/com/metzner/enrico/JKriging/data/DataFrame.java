@@ -41,7 +41,9 @@ public class DataFrame {
 	private DataType default_data_type;
 	private String[] titles;
 	private DataType[] types;
+	private double[] dimension;
 	private double[][] minmax_mean_sill;
+	private String dimension_name;
 	private Map<String, boolean[]> bool_column;
 	private Map<String, byte[]>    byte_column;
 	private Map<String, int[]>     int_column;
@@ -50,7 +52,7 @@ public class DataFrame {
 	private Map<String, float[]>   float_column;
 	private Map<String, double[]>  double_column;
 	private Map<String, String[]>  string_column;
-
+	private Map<String, String>    attribs_dim;
 
 
 
@@ -68,6 +70,9 @@ public class DataFrame {
 		float_column =  new HashMap<>();
 		double_column = new HashMap<>();
 		string_column = new HashMap<>();
+		dimension = new double[0];
+		dimension_name = "";
+		attribs_dim = new HashMap<>();
 	}
 
 
@@ -231,7 +236,61 @@ public class DataFrame {
 		for(int t=0; t<datalength; t++) if(t<_column_data.length) { new_data[t] = _column_data[t]; } else { new_data[t] = ""; }
 		string_column.put(_column_name_c, new_data);
 	}
-
+	public void setDimension(String dim_name) {
+		setDimension(null, dim_name);
+	}
+	public void setDimension(double[] dim_values) {
+		setDimension(dim_values, null);
+	}
+	public void setDimension(double[] dim_values, String dim_name) {
+		String _dim_name_c = FormatHelper.name2CFConvention(dim_name);
+		boolean change_name = (_dim_name_c!=null);
+		boolean change_values = (dim_values!=null);
+		if(change_name)
+			if(hasVariable(_dim_name_c)) {
+				System.err.println("Cannot rename dimension, an other variable has the same name!");
+				DataHelper.printStackTrace(System.err);
+				return;
+			}
+		if(change_values) {
+			if(dim_values.length==0) {
+				System.err.println("Length of dimension has to be greater than 0! Not a valid DataFrame.");
+				DataHelper.printStackTrace(System.err);
+				return;
+			}
+			if(dim_values.length!=datalength && datalength>0) {
+				System.err.println("Number of values must match corresponding dimension length:\n    expect "+datalength+" but got "+dim_values.length);
+				DataHelper.printStackTrace(System.err);
+				return;
+			}
+		}
+		if(change_name)
+			dimension_name = _dim_name_c;
+		if(change_values) {
+			if(datalength==0) {
+				datalength = dim_values.length;
+				dimension = new double[dim_values.length];
+			} else
+			if(dimension.length==0) {
+				dimension = new double[datalength];
+			}
+			for(int dn=0; dn<datalength; dn++)
+				dimension[dn] = dim_values[dn];
+		}
+	}
+	public void addAttributeToDimension(String name, String value) {
+		if(attribs_dim.containsKey(name))
+			System.out.println("[WARNING] override key \""+name+"\" for dimension");
+		attribs_dim.put(name, value);
+	}
+	public void setDimensionsAttributes(Map<String, String> attributes) {
+		attribs_dim.clear(); attribs_dim.putAll(attributes);
+	}
+	public void copyDimensionsFrom(DataFrame otherDF) {
+		this.setDimension(otherDF.getDimensionValues(), otherDF.getDimensionName());
+		this.setDimensionsAttributes(otherDF.getDimensionAttributes());
+	}
+	
 	public void renameVariable(int _old_var_id, String _new_name) {
 		String _new_name_c = FormatHelper.name2CFConvention(_new_name);
 		int ovi = _old_var_id - Constants.FIRST_IDX;
@@ -672,7 +731,7 @@ public class DataFrame {
 				DataHelper.printStackTrace(System.err); break;
 		}
 	}
-	
+
 	public DataFrame concat(DataFrame df2) {
 		boolean haveDifferentKeys = false;
 		for(String tit: df2.allVariableNames())
@@ -707,6 +766,10 @@ public class DataFrame {
 			}
 		}
 		datalength += df2.datalength;
+		dimension = DataHelper.concat_double_array(dimension, df2.getDimensionValues());
+//		if(!dimension_name.equals(df2.getDimensionName()))
+//			System.err.println("[WARNING] dimension names of DataFrames are not the same! Got \""+dimension_name+"\" and \""+df2.getDimensionName()+"\"");
+		attribs_dim.putAll(df2.getDimensionAttributes());
 		return this;
 	}
 	public DataFrame2D toDataFrame2D(String dim_one_name, String dim_two_name) {
@@ -1045,48 +1108,54 @@ public class DataFrame {
 		boolean[] rowdivs = new boolean[conditions.length-1]; for(int r=0; r<rowdivs.length; r++) rowdivs[r] = false;
 		boolean[] coldivs = new boolean[conditions[0].length-1]; for(int c=0; c<coldivs.length; c++) coldivs[c] = true;
 		FormatHelper.printTable(conditions,coldivs,rowdivs);
-		int counter = 0;
-		int[] use_elements = new int[datalength];
-		for(int e=0; e<datalength; e++) {
-			if(LogicHelper.evaluateConditionLines(this, e, conditions)) {
-				use_elements[counter] = e;
-				counter++;
-			}
-		}
-		DataFrame sub1D = new DataFrame();
-		for(String var: allVariableNames()) {
-			switch(getVariableType(var)) {
-				case BOOL:   boolean[] newO = new boolean[counter]; boolean[] oldO = bool_column.get(var);
-					for(int i=0; i<counter; i++) newO[i] = oldO[use_elements[i]]; sub1D.addColumn(var, newO);
-					break;
-				case BYTE:   byte[] newB = new byte[counter];       byte[] oldB = byte_column.get(var);
-					for(int i=0; i<counter; i++) newB[i] = oldB[use_elements[i]]; sub1D.addColumn(var, newB);
-					break;
-				case SHORT:  short[] newR = new short[counter];     short[] oldR = short_column.get(var);
-					for(int i=0; i<counter; i++) newR[i] = oldR[use_elements[i]]; sub1D.addColumn(var, newR);
-					break;
-				case INT:    int[] newI = new int[counter];         int[] oldI = int_column.get(var);
-					for(int i=0; i<counter; i++) newI[i] = oldI[use_elements[i]]; sub1D.addColumn(var, newI);
-					break;
-				case LONG:   long[] newL = new long[counter];       long[] oldL = long_column.get(var);
-					for(int i=0; i<counter; i++) newL[i] = oldL[use_elements[i]]; sub1D.addColumn(var, newL);
-					break;
-				case FLOAT:  float[] newF = new float[counter];     float[] oldF = float_column.get(var);
-					for(int i=0; i<counter; i++) newF[i] = oldF[use_elements[i]]; sub1D.addColumn(var, newF);
-					break;
-				case DOUBLE: double[] newD = new double[counter];   double[] oldD = double_column.get(var);
-					for(int i=0; i<counter; i++) newD[i] = oldD[use_elements[i]]; sub1D.addColumn(var, newD);
-					break;
-				case STRING: String[] newS = new String[counter];   String[] oldS = string_column.get(var);
-					for(int i=0; i<counter; i++) newS[i] = oldS[use_elements[i]]; sub1D.addColumn(var, newS);
-					break;
-				default:
-					break;
-			}
-		}
-		return sub1D;
+		boolean[] mask = new boolean[datalength];
+		for(int e=0; e<datalength; e++)
+			mask[e] = LogicHelper.evaluateConditionLines(this, e, conditions);
+		return filterByMask(mask);
 	}
-	
+	public DataFrame filterByMask(boolean[] mask) {
+		DataFrame out = new DataFrame();
+		int count = 0;
+		for (int i = 0; i < mask.length; i++) {
+			if (mask[i])
+				count++;
+		}
+		int[] ids = new int[count];
+		int ct = 0;
+		for (int i = 0; i < mask.length; i++) {
+			if (mask[i]) {
+				ids[ct] = i;
+				ct++;
+			}
+		}
+		for(String var: allVariableNames()) {
+			switch (getVariableType(var)) {
+				case BOOL: boolean[] newBool = new boolean[count], oldBool = (boolean[])getArray(var);
+					for (int c = 0; c < count; ) { newBool[c] = oldBool[ids[c]]; c++; }  out.addColumn(var, newBool); break;
+				case BYTE: byte[] newByte = new byte[count], oldByte = (byte[])getArray(var);
+					for (int c = 0; c < count; ) { newByte[c] = oldByte[ids[c]]; c++; }  out.addColumn(var, newByte); break;
+				case SHORT: short[] newShort = new short[count], oldShort = (short[])getArray(var);
+					for (int c = 0; c < count; ) { newShort[c] = oldShort[ids[c]]; c++; }  out.addColumn(var, newShort); break;
+				case INT: int[] newInt = new int[count], oldInt = (int[])getArray(var);
+					for (int c = 0; c < count; ) { newInt[c] = oldInt[ids[c]]; c++; }  out.addColumn(var, newInt); break;
+				case LONG: long[] newLong = new long[count], oldLong = (long[])getArray(var);
+					for (int c = 0; c < count; ) { newLong[c] = oldLong[ids[c]]; c++; }  out.addColumn(var, newLong); break;
+				case FLOAT: float[] newFloat = new float[count], oldFloat = (float[])getArray(var);
+					for (int c = 0; c < count; ) { newFloat[c] = oldFloat[ids[c]]; c++; }  out.addColumn(var, newFloat); break;
+				case DOUBLE: double[] newDouble = new double[count], oldDouble = (double[])getArray(var);
+					for (int c = 0; c < count; ) { newDouble[c] = oldDouble[ids[c]]; c++; }  out.addColumn(var, newDouble); break;
+				case STRING: String[] newString = new String[count], oldString = (String[])getArray(var);
+					for (int c = 0; c < count; ) { newString[c] = oldString[ids[c]]; c++; }  out.addColumn(var, newString); break;
+				default:
+					System.err.println("Unknown datatype, cannot extract and mask variable <" + var + "> from DataFrame."); break; }
+		}
+		double[] newDim = new double[count];
+		for(int c=0; c<count; c++) newDim[c] = dimension[ids[c]];
+		out.setDimension(newDim, dimension_name);
+		out.setDimensionsAttributes(attribs_dim);
+		return out;
+	}
+
 	public void setDefaultDatatype(String _type) { default_data_type = DataType.getDataType(_type, default_data_type); }
 	public String getDefaultDatatype() { return default_data_type.toString(); }
 
@@ -1528,6 +1597,7 @@ public class DataFrame {
 					break;
 			}
 		}
+		createDimension();
 	}
 	/**
 	 * Write all content of this dataframe to a netcdf file
@@ -1638,9 +1708,74 @@ public class DataFrame {
 			ir_e.printStackTrace();
 		}
 	}
+	/**
+	 * Write all content of these dataframe(2d/3d) objects to one netcdf file.
+	 * @param path path to the netcdf file
+	 * @param df DataFrame(2D/3D)s
+	 */
+	public static void writeToNetcdf(String path, Object... df) {
+		if(df==null) return;
+		if(df.length==0) return;
+		//check, if all objects in df are of type DataFrame/DataFrame2D/DataFrame3D
+		int maxDim = 0;
+		for(Object obj: df) {
+			if(obj instanceof DataFrame) {   maxDim=Math.max(maxDim,1); continue; }
+			if(obj instanceof DataFrame2D) { maxDim=Math.max(maxDim,2); continue; }
+			if(obj instanceof DataFrame3D) { maxDim=Math.max(maxDim,3); continue; }
+			System.err.println("Try to write non DataFrame(2D/3D) object to Netcdf");
+			return;
+		}
+		//System.out.println("\n\n\nBefor Netcdf-creation:");
+		//System.out.println("\ncreate Netcdf-file ...");
+		NetcdfFormatWriter.Builder builder = NetcdfFormatWriter.createNewNetcdf4(NetcdfFileFormat.NETCDF4_CLASSIC, path, null);
+		Map<String, Dimension> dimensions = new HashMap<String, Dimension>();
+		Map<String, String> variables = new HashMap<String, String>();
+		for(Object obj: df) {
+			if(obj instanceof DataFrame)
+				setupDimensions(builder, dimensions, variables, (DataFrame)obj, null, null);
+			if(obj instanceof DataFrame2D)
+				setupDimensions(builder, dimensions, variables, null, (DataFrame2D)obj, null);
+			if(obj instanceof DataFrame3D)
+				setupDimensions(builder, dimensions, variables, null, null, (DataFrame3D)obj);
+		}
+		for(Object obj: df) {
+			if(obj instanceof DataFrame)
+				setupVariables(builder, dimensions, variables, (DataFrame)obj, null, null);
+			if(obj instanceof DataFrame2D)
+				setupVariables(builder, dimensions, variables, null, (DataFrame2D)obj, null);
+			if(obj instanceof DataFrame3D)
+				setupVariables(builder, dimensions, variables, null, null, (DataFrame3D)obj);
+		}
+		builder.getRootGroup().addAttribute(new Attribute("history", "created with \"JKriging "+Constants.VERSION+"\" - JAVA Netcdf " + Constants.NETCDF_VERSION));
+		
+		try(NetcdfFormatWriter writer = builder.build()) {
+			for(Object obj: df) {
+				if(obj instanceof DataFrame)   write1D(writer, variables, (DataFrame)obj);
+				if(obj instanceof DataFrame2D) write2D(writer, variables, (DataFrame2D)obj);
+				if(obj instanceof DataFrame3D) write3D(writer, variables, (DataFrame3D)obj);
+			}
+		} catch (IOException ioe) {
+			ioe.printStackTrace();
+		} catch (InvalidRangeException ire) {
+			ire.printStackTrace();
+		} 
+	}
 
+	
+	
 
-
+	public double[] getDimensionValues() {
+		if(dimension.length==0) createDimension();
+		return dimension;
+	}
+	public String getDimensionName() {
+		if(dimension.length==0) createDimension();
+		return dimension_name;
+	}
+	public Map<String,String> getDimensionAttributes() {
+		if(dimension.length==0) createDimension();
+		return attribs_dim;
+	}
 	public int getNumberOfDatapoints() { return datalength; }
 	public int getVariableCount() { return titles.length; }
 	public String getVarname(int _var_id) {
@@ -1949,6 +2084,9 @@ public class DataFrame {
 		float_column.clear();
 		double_column.clear();
 		string_column.clear();
+		dimension = new double[0];
+		dimension_name = "";
+		attribs_dim.clear();
 	}
 
 	private String[] null_line(String _in, String _del) {
@@ -2040,9 +2178,6 @@ public class DataFrame {
 		minmax_mean_sill[2][_var_id] = _mean;
 		minmax_mean_sill[3][_var_id] = _sill;
 	}
-	private void set_stdana(String _var_name, double _min, double _max, double _mean, double _sill) {
-		set_stdana(getVariableID(_var_name), _min, _max, _mean, _sill);
-	}
 	private String createTitle(String[] _all_titles) {
 		int tnum = 1; int clen = _all_titles.length;
 		String test_title = "Column_"+Integer.toHexString(tnum);
@@ -2056,6 +2191,257 @@ public class DataFrame {
 			tnum++;
 		}
 		return test_title;
+	}
+	private void createDimension() {
+		dimension = new double[datalength];
+		for(int n=0; n<datalength; n++)
+			dimension[n] = n+1d;
+		boolean isContained = true;
+		while(isContained) {
+			dimension_name = "dim"+Math.abs(Constants.RANDOM.nextInt(Integer.MAX_VALUE>>2));
+			isContained = hasVariable(dimension_name);
+		}
+		attribs_dim.clear();
+	}
+	
+	@SuppressWarnings("rawtypes")
+	private static void setupDimensions(NetcdfFormatWriter.Builder builder, Map<String, Dimension> dimensions, Map<String, String> variables,
+			DataFrame df1, DataFrame2D df2, DataFrame3D df3) {
+		int dimCount = df1!=null?1 : df2!=null?2 : 3;
+		for(int dim = 0; dim < dimCount; dim++) {
+			int getter = dim+Constants.FIRST_IDX;
+			String nam = df1!=null ? df1.getDimensionName() :
+						 df2!=null ? df2.getDimensionName(getter) :
+							 df3.getDimensionName(getter);
+			if (!dimensions.containsKey(nam)) {
+				System.out.println("  ... create dimension {" + nam + "}");
+				int len = df3.getDimensionValues(getter).length;
+				dimensions.put(nam, builder.addDimension(nam, len));
+				Variable.Builder vv = builder.addVariable(nam, ucar.ma2.DataType.DOUBLE, nam);
+				variables.put(nam, "empty");
+				Map<String, String> attribs = 
+						df1!=null ? df1.getDimensionAttributes() :
+						df2!=null ? df2.getAttributesFromDimension(getter) :
+							df3.getAttributesFromDimension(getter);
+				for (String a : attribs.keySet()) {
+					if (a.equals("_FillValue")) {
+						vv.addAttribute(new Attribute(a, Double.valueOf(Double.parseDouble((String)attribs.get(a))))); continue;
+					}
+					vv.addAttribute(new Attribute(a, (String)attribs.get(a)));
+				}
+			} else {
+				System.err.println("[WARNING] dimension \""+nam+"\" allready exist in other DataFrame(2D/3D) object.");
+			}
+		}
+	}
+	@SuppressWarnings("rawtypes")
+	private static void setupVariables(NetcdfFormatWriter.Builder builder, Map<String, Dimension> dimensions, Map<String, String> variables,
+			DataFrame df, DataFrame2D df2, DataFrame3D df3) {
+		List<Dimension> dims = new ArrayList<Dimension>();
+		int varCount = 0;
+		if(df!=null) {
+			dims.add((Dimension)dimensions.get(df.getDimensionName()));
+			varCount = df.getVariableCount();
+		}
+		if(df2!=null) {
+			dims.add((Dimension)dimensions.get(df2.getDimensionName(0+Constants.FIRST_IDX)));
+			dims.add((Dimension)dimensions.get(df2.getDimensionName(1+Constants.FIRST_IDX)));
+			varCount = df2.getVariableCount();
+		}
+		if(df3!=null) {
+			dims.add((Dimension)dimensions.get(df3.getDimensionName(0+Constants.FIRST_IDX)));
+			dims.add((Dimension)dimensions.get(df3.getDimensionName(1+Constants.FIRST_IDX)));
+			dims.add((Dimension)dimensions.get(df3.getDimensionName(2+Constants.FIRST_IDX)));
+			varCount = df3.getVariableCount();
+		}
+		for (int iv = 0; iv < varCount; iv++) {
+			String nam = 
+					df!=null ? df.getVarname(iv+Constants.FIRST_IDX) :
+					df2!=null ? df2.getVarname(iv+Constants.FIRST_IDX) :
+						df3.getVarname(iv+Constants.FIRST_IDX);
+			if (!variables.containsKey(nam)) {
+				System.out.println("  ... create variable <" + nam + ">");
+				ucar.ma2.DataType dataType = null;
+				DataFrame.DataType vartype = 
+						df!=null ? df.getVariableType(iv+Constants.FIRST_IDX) :
+						df2!=null ? df2.getVariableType(iv+Constants.FIRST_IDX) :
+							df3.getVariableType(iv+Constants.FIRST_IDX);
+				switch (vartype) {
+					case BOOL:   dataType = ucar.ma2.DataType.BOOLEAN; break;
+					case BYTE:   dataType = ucar.ma2.DataType.BYTE; break;
+					case SHORT:  dataType = ucar.ma2.DataType.SHORT; break;
+					case INT:    dataType = ucar.ma2.DataType.INT; break;
+					case LONG:   dataType = ucar.ma2.DataType.LONG; break;
+					case FLOAT:  dataType = ucar.ma2.DataType.FLOAT; break;
+					case DOUBLE: dataType = ucar.ma2.DataType.DOUBLE; break;
+					default: dataType = ucar.ma2.DataType.STRING; break;
+				}
+				Variable.Builder vars2 = builder.addVariable(nam, dataType, dims);
+				variables.put(nam, "empty");
+				switch(vartype) {
+					case SHORT:  vars2.addAttribute(new Attribute("_FillValue", Short.MIN_VALUE)); break;
+					case INT:    vars2.addAttribute(new Attribute("_FillValue", Integer.MIN_VALUE)); break;
+					case LONG:   vars2.addAttribute(new Attribute("_FillValue", Long.MIN_VALUE)); break;
+					case FLOAT:  vars2.addAttribute(new Attribute("_FillValue", Constants.FILL_VALUE_F)); break;
+					case DOUBLE: vars2.addAttribute(new Attribute("_FillValue", Constants.FILL_VALUE_D)); break;
+					default: break;
+				}
+			}
+		}
+	}
+	private static void write1D(NetcdfFormatWriter writer, Map<String, String> variables, DataFrame df) throws IOException, InvalidRangeException {
+		for (int iv = 0; iv < df.getVariableCount(); iv++) {
+			DataType vartype = df.getVariableType(iv+Constants.FIRST_IDX);
+			String varname = df.getVarname(iv+Constants.FIRST_IDX);
+			if (!variables.containsKey(varname)) {
+				System.err.println("[ERROR] found unprepared variable! It will not be written to the Netcdf-file!");
+			}
+			else if (!((String)variables.get(varname)).equals("full")) {
+				int datalength = df.getNumberOfDatapoints();
+				switch(vartype) {
+					case BOOL: ArrayBoolean.D1 bool_arr = new ArrayBoolean.D1(datalength); boolean[] bool_source = (boolean[])df.getArray(varname);
+						for(int dl = 0; dl < datalength; ) { bool_arr.set(dl, bool_source[dl]); dl++; }
+						writer.write(writer.findVariable(varname), bool_arr); break;
+					case BYTE: ArrayByte.D1 byte_arr = new ArrayByte.D1(datalength, false); byte[] byte_source = (byte[])df.getArray(varname);
+						for(int dl = 0; dl < datalength; ) { byte_arr.set(dl, byte_source[dl]); dl++; }
+						writer.write(writer.findVariable(varname), byte_arr); break;
+					case SHORT: ArrayShort.D1 short_arr = new ArrayShort.D1(datalength, false); short[] short_source = (short[])df.getArray(varname);
+						for(int dl = 0; dl < datalength; ) { short_arr.set(dl, short_source[dl]); dl++; }
+						writer.write(writer.findVariable(varname), short_arr); break;
+					case INT: ArrayInt.D1 int_arr = new ArrayInt.D1(datalength, false); int[] int_source = (int[])df.getArray(varname);
+						for(int dl = 0; dl < datalength; ) { int_arr.set(dl, int_source[dl]); dl++; }
+						writer.write(writer.findVariable(varname), int_arr); break;
+					case LONG: ArrayLong.D1 long_arr = new ArrayLong.D1(datalength, false); long[] long_source = (long[])df.getArray(varname);
+						for(int dl = 0; dl < datalength; ) { long_arr.set(dl, long_source[dl]); dl++; }
+						writer.write(writer.findVariable(varname), long_arr); break;
+					case FLOAT: ArrayFloat.D1 float_arr = new ArrayFloat.D1(datalength); float[] float_source = (float[])df.getArray(varname);
+						for(int dl = 0; dl < datalength; ) { float_arr.set(dl, float_source[dl]); dl++; }
+						writer.write(writer.findVariable(varname), float_arr); break;
+					case DOUBLE: ArrayDouble.D1 double_arr = new ArrayDouble.D1(datalength); double[] double_source = (double[])df.getArray(varname);
+						for(int dl = 0; dl < datalength; ) { double_arr.set(dl, double_source[dl]); dl++; }
+						writer.write(writer.findVariable(varname), double_arr); break;
+					case STRING: ArrayString.D1 string_arr = new ArrayString.D1(datalength); String[] string_source = (String[])df.getArray(varname);
+						for(int dl = 0; dl < datalength; ) { string_arr.set(dl, string_source[dl]); dl++; }
+						writer.write(writer.findVariable(varname), string_arr); break;
+					default: break;
+				}
+				variables.put(varname, "full");
+			}
+		}
+	}
+	private static void write2D(NetcdfFormatWriter writer, Map<String, String> variables, DataFrame2D df2) throws IOException, InvalidRangeException {
+		for (int iv = 0; iv < df2.getVariableCount(); iv++) {
+			DataType vartype = df2.getVariableType(iv+Constants.FIRST_IDX);
+			String varname = df2.getVarname(iv+Constants.FIRST_IDX);
+			if (!variables.containsKey(varname)) {
+				System.err.println("[ERROR] found unprepared variable! It will not be written to the Netcdf-file!");
+			} else
+			if (!((String)variables.get(varname)).equals("full")) {
+				int[] datalength = { df2.getDimensionValues(0+Constants.FIRST_IDX).length, df2.getDimensionValues(1+Constants.FIRST_IDX).length };
+				switch(vartype) {
+					case BOOL: ArrayBoolean.D2 bool_arr = new ArrayBoolean.D2(datalength[0], datalength[1]);
+						boolean[][] bool_source = (boolean[][])df2.getArray(varname);
+						for(int dl0 = 0; dl0 < datalength[0]; dl0++) for(int dl1 = 0; dl1 < datalength[1]; dl1++)
+							bool_arr.set(dl0, dl1, bool_source[dl0][dl1]);
+						writer.write(writer.findVariable(varname), bool_arr); break;
+					case BYTE: ArrayByte.D2 byte_arr = new ArrayByte.D2(datalength[0], datalength[1], false);
+						byte[][] byte_source = (byte[][])df2.getArray(varname);
+						for(int dl0 = 0; dl0 < datalength[0]; dl0++) for(int dl1 = 0; dl1 < datalength[1]; dl1++)
+							byte_arr.set(dl0, dl1, byte_source[dl0][dl1]);
+						writer.write(writer.findVariable(varname), byte_arr); break;
+					case SHORT: ArrayShort.D2 short_arr = new ArrayShort.D2(datalength[0], datalength[1], false);
+						short[][] short_source = (short[][])df2.getArray(varname);
+						for(int dl0 = 0; dl0 < datalength[0]; dl0++) for(int dl1 = 0; dl1 < datalength[1]; dl1++)
+							short_arr.set(dl0, dl1, short_source[dl0][dl1]);
+						writer.write(writer.findVariable(varname), short_arr); break;
+					case INT: ArrayInt.D2 int_arr = new ArrayInt.D2(datalength[0], datalength[1], false);
+						int[][] int_source = (int[][])df2.getArray(varname);
+						for(int dl0 = 0; dl0 < datalength[0]; dl0++) for(int dl1 = 0; dl1 < datalength[1]; dl1++)
+							int_arr.set(dl0, dl1, int_source[dl0][dl1]);
+						writer.write(writer.findVariable(varname), int_arr); break;
+					case LONG: ArrayLong.D2 long_arr = new ArrayLong.D2(datalength[0], datalength[1], false);
+						long[][] long_source = (long[][])df2.getArray(varname);
+						for(int dl0 = 0; dl0 < datalength[0]; dl0++) for(int dl1 = 0; dl1 < datalength[1]; dl1++)
+							long_arr.set(dl0, dl1, long_source[dl0][dl1]);
+						writer.write(writer.findVariable(varname), long_arr); break;
+					case FLOAT: ArrayFloat.D2 float_arr = new ArrayFloat.D2(datalength[0], datalength[1]);
+						float[][] float_source = (float[][])df2.getArray(varname);
+						for(int dl0 = 0; dl0 < datalength[0]; dl0++) for(int dl1 = 0; dl1 < datalength[1]; dl1++)
+							float_arr.set(dl0, dl1, Float.isNaN(float_source[dl0][dl1]) ? Constants.FILL_VALUE_F : float_source[dl0][dl1]);
+						writer.write(writer.findVariable(varname), float_arr); break;
+					case DOUBLE: ArrayDouble.D2 double_arr = new ArrayDouble.D2(datalength[0], datalength[1]);
+						double[][] double_source = (double[][])df2.getArray(varname);
+						for(int dl0 = 0; dl0 < datalength[0]; dl0++) for(int dl1 = 0; dl1 < datalength[1]; dl1++)
+							double_arr.set(dl0, dl1, Double.isNaN(double_source[dl0][dl1]) ? Constants.FILL_VALUE_D : double_source[dl0][dl1]);
+						writer.write(writer.findVariable(varname), double_arr); break;
+					case STRING: ArrayString.D2 string_arr = new ArrayString.D2(datalength[0], datalength[1]);
+						String[][] string_source = (String[][])df2.getArray(varname);
+						for(int dl0 = 0; dl0 < datalength[0]; dl0++) for(int dl1 = 0; dl1 < datalength[1]; dl1++)
+							string_arr.set(dl0, dl1, string_source[dl0][dl1]);
+						writer.write(writer.findVariable(varname), string_arr); break;
+					default: break;
+				}
+				variables.put(varname, "full");
+			}
+		}
+	}
+	private static void write3D(NetcdfFormatWriter writer, Map<String, String> variables, DataFrame3D df3) throws IOException, InvalidRangeException {
+		for (int iv = 0; iv < df3.getVariableCount(); iv++) {
+			DataType vartype = df3.getVariableType(iv+Constants.FIRST_IDX);
+			String varname = df3.getVarname(iv+Constants.FIRST_IDX);
+			if (!variables.containsKey(varname)) {
+				System.err.println("[ERROR] found unprepared variable! It will not be written to the Netcdf-file!");
+			} else
+			if (!((String)variables.get(varname)).equals("full")) {
+				int[] datalength = { df3.getDimensionValues(0+Constants.FIRST_IDX).length,
+						df3.getDimensionValues(1+Constants.FIRST_IDX).length,
+						df3.getDimensionValues(2+Constants.FIRST_IDX).length};
+				switch(vartype) {
+					case BOOL: ArrayBoolean.D3 bool_arr = new ArrayBoolean.D3(datalength[0], datalength[1], datalength[2]);
+						boolean[][][] bool_source = (boolean[][][])df3.getArray(varname);
+						for(int dl0 = 0; dl0 < datalength[0]; dl0++) for(int dl1 = 0; dl1 < datalength[1]; dl1++) for(int dl2=0; dl2<datalength[2]; dl2++)
+							bool_arr.set(dl0, dl1, dl2, bool_source[dl0][dl1][dl2]);
+						writer.write(writer.findVariable(varname), bool_arr); break;
+					case BYTE: ArrayByte.D3 byte_arr = new ArrayByte.D3(datalength[0], datalength[1], datalength[2], false);
+						byte[][][] byte_source = (byte[][][])df3.getArray(varname);
+						for(int dl0 = 0; dl0 < datalength[0]; dl0++) for(int dl1 = 0; dl1 < datalength[1]; dl1++) for(int dl2=0; dl2<datalength[2]; dl2++)
+							byte_arr.set(dl0, dl1, dl2, byte_source[dl0][dl1][dl2]);
+						writer.write(writer.findVariable(varname), byte_arr); break;
+					case SHORT: ArrayShort.D3 short_arr = new ArrayShort.D3(datalength[0], datalength[1], datalength[2], false);
+						short[][][] short_source = (short[][][])df3.getArray(varname);
+						for(int dl0 = 0; dl0 < datalength[0]; dl0++) for(int dl1 = 0; dl1 < datalength[1]; dl1++) for(int dl2=0; dl2<datalength[2]; dl2++)
+							short_arr.set(dl0, dl1, dl2, short_source[dl0][dl1][dl2]);
+						writer.write(writer.findVariable(varname), short_arr); break;
+					case INT: ArrayInt.D3 int_arr = new ArrayInt.D3(datalength[0], datalength[1], datalength[2], false);
+						int[][][] int_source = (int[][][])df3.getArray(varname);
+						for(int dl0 = 0; dl0 < datalength[0]; dl0++) for(int dl1 = 0; dl1 < datalength[1]; dl1++) for(int dl2=0; dl2<datalength[2]; dl2++)
+							int_arr.set(dl0, dl1, dl2, int_source[dl0][dl1][dl2]);
+						writer.write(writer.findVariable(varname), int_arr); break;
+					case LONG: ArrayLong.D3 long_arr = new ArrayLong.D3(datalength[0], datalength[1], datalength[2], false);
+						long[][][] long_source = (long[][][])df3.getArray(varname);
+						for(int dl0 = 0; dl0 < datalength[0]; dl0++) for(int dl1 = 0; dl1 < datalength[1]; dl1++) for(int dl2=0; dl2<datalength[2]; dl2++)
+							long_arr.set(dl0, dl1, dl2, long_source[dl0][dl1][dl2]);
+						writer.write(writer.findVariable(varname), long_arr); break;
+					case FLOAT: ArrayFloat.D3 float_arr = new ArrayFloat.D3(datalength[0], datalength[1], datalength[2]);
+						float[][][] float_source = (float[][][])df3.getArray(varname);
+						for(int dl0 = 0; dl0 < datalength[0]; dl0++) for(int dl1 = 0; dl1 < datalength[1]; dl1++) for(int dl2=0; dl2<datalength[2]; dl2++)
+							float_arr.set(dl0, dl1, dl2, Float.isNaN(float_source[dl0][dl1][dl2]) ? Constants.FILL_VALUE_F : float_source[dl0][dl1][dl2]);
+						writer.write(writer.findVariable(varname), float_arr); break;
+					case DOUBLE: ArrayDouble.D3 double_arr = new ArrayDouble.D3(datalength[0], datalength[1], datalength[2]);
+						double[][][] double_source = (double[][][])df3.getArray(varname);
+						for(int dl0 = 0; dl0 < datalength[0]; dl0++) for(int dl1 = 0; dl1 < datalength[1]; dl1++) for(int dl2=0; dl2<datalength[2]; dl2++)
+							double_arr.set(dl0, dl1, dl2, Double.isNaN(double_source[dl0][dl1][dl2]) ? Constants.FILL_VALUE_D : double_source[dl0][dl1][dl2]);
+						writer.write(writer.findVariable(varname), double_arr); break;
+					case STRING: ArrayString.D3 string_arr = new ArrayString.D3(datalength[0], datalength[1], datalength[2]);
+						String[][][] string_source = (String[][][])df3.getArray(varname);
+						for(int dl0 = 0; dl0 < datalength[0]; dl0++) for(int dl1 = 0; dl1 < datalength[1]; dl1++) for(int dl2=0; dl2<datalength[2]; dl2++)
+							string_arr.set(dl0, dl1, dl2, string_source[dl0][dl1][dl2]);
+						writer.write(writer.findVariable(varname), string_arr); break;
+					default: break;
+				}
+				variables.put(varname, "full");
+			}
+		}
 	}
 	
 	public enum DataType {
