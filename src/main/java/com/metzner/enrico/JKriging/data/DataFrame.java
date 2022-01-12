@@ -1749,6 +1749,13 @@ public class DataFrame {
 		builder.getRootGroup().addAttribute(new Attribute("history", "created with \"JKriging "+Constants.VERSION+"\" - JAVA Netcdf " + Constants.NETCDF_VERSION));
 		
 		try(NetcdfFormatWriter writer = builder.build()) {
+			//write dimension
+			for(Object obj: df) {
+				if(obj instanceof DataFrame)   writeDim(writer, variables, (DataFrame)obj, null, null);
+				if(obj instanceof DataFrame2D) writeDim(writer, variables, null, (DataFrame2D)obj, null);
+				if(obj instanceof DataFrame3D) writeDim(writer, variables, null, null, (DataFrame3D)obj);
+			}
+			//write variables
 			for(Object obj: df) {
 				if(obj instanceof DataFrame)   write1D(writer, variables, (DataFrame)obj);
 				if(obj instanceof DataFrame2D) write2D(writer, variables, (DataFrame2D)obj);
@@ -2215,7 +2222,9 @@ public class DataFrame {
 							 df3.getDimensionName(getter);
 			if (!dimensions.containsKey(nam)) {
 				System.out.println("  ... create dimension {" + nam + "}");
-				int len = df3.getDimensionValues(getter).length;
+				int len = 	df1!=null ? df1.getNumberOfDatapoints() :
+							df2!=null ? df2.getDimensionValues(getter).length :
+								df3.getDimensionValues(getter).length;
 				dimensions.put(nam, builder.addDimension(nam, len));
 				Variable.Builder vv = builder.addVariable(nam, ucar.ma2.DataType.DOUBLE, nam);
 				variables.put(nam, "empty");
@@ -2225,9 +2234,9 @@ public class DataFrame {
 							df3.getAttributesFromDimension(getter);
 				for (String a : attribs.keySet()) {
 					if (a.equals("_FillValue")) {
-						vv.addAttribute(new Attribute(a, Double.valueOf(Double.parseDouble((String)attribs.get(a))))); continue;
+						vv.addAttribute(new Attribute(a, Double.parseDouble(attribs.get(a)))); continue;
 					}
-					vv.addAttribute(new Attribute(a, (String)attribs.get(a)));
+					vv.addAttribute(new Attribute(a, attribs.get(a)));
 				}
 			} else {
 				System.err.println("[WARNING] dimension \""+nam+"\" allready exist in other DataFrame(2D/3D) object.");
@@ -2286,6 +2295,31 @@ public class DataFrame {
 					case DOUBLE: vars2.addAttribute(new Attribute("_FillValue", Constants.FILL_VALUE_D)); break;
 					default: break;
 				}
+			}
+		}
+	}
+	private static void writeDim(NetcdfFormatWriter writer, Map<String, String> variables,
+			DataFrame df1, DataFrame2D df2, DataFrame3D df3) throws IOException, InvalidRangeException {
+		int dimCount = df1!=null?1 : df2!=null?2 : 3;
+		for(int dim = 0; dim < dimCount; dim++) {
+			int getter = dim + Constants.FIRST_IDX;
+			String dimname = df1!=null ? df1.getDimensionName() :
+							 df2!=null ? df2.getDimensionName(getter) :
+								 df3.getDimensionName(getter);
+			if (!variables.containsKey(dimname)) {
+				System.err.println("[ERROR] found unprepared variable! It will not be written to the Netcdf-file!");
+			}
+			else if (!((String)variables.get(dimname)).equals("full")) {
+				double[] double_source = df1!=null ? df1.getDimensionValues() :
+										 df2!=null ? df2.getDimensionValues(getter) :
+											 df3.getDimensionValues(getter);
+				ArrayDouble.D1 double_arr = new ArrayDouble.D1(double_source.length);
+				for(int dl = 0; dl < double_source.length; dl++ )
+					double_arr.set(dl, double_source[dl]);
+				writer.write(writer.findVariable(dimname), double_arr);
+				variables.put(dimname, "full");
+			} else {
+//				System.err.println("[WARNING] Dimension \""+dimname+"\" has already been written to Netcdf file from other source DataFrame(2D/3D).");
 			}
 		}
 	}
