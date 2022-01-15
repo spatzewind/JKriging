@@ -36,8 +36,8 @@ dependencies {
     testImplementation 'junit:junit:4.12'
     
     //JKriging should have Netcdf-support
-    compile "edu.ucar:cdm-core:5.4.2"
-  	//runtime "org.slf4j:slf4j-jdk14:1.7.30"
+    implementation "edu.ucar:cdm-core:5.4.2"
+  	//runtimeOnly "org.slf4j:slf4j-jdk14:1.7.30"
   	
   	//Need matrix decomposition for eigenvalues and eigenvectors
   	//compile group: 'org.ejml', name: 'ejml-all', version: '0.39'
