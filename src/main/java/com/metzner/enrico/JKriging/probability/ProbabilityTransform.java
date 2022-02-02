@@ -30,7 +30,7 @@ public class ProbabilityTransform {
 	 * 
 	 * @param df               data containing dataframe
 	 * @param variable_id      id of the variable in the dataframe
-	 * @param weights_id       id of optional weight variable in the dataframe (if not use, set zero)
+	 * @param weights_id       id of optional weight variable in the dataframe (if not use, set -1)
 	 * @param name_transformed name of the transformed result to put it in the dataframe
 	 * @return                 transformation table as Array with var-transformed-pairs
 	 */
@@ -50,7 +50,7 @@ public class ProbabilityTransform {
 	 * 
 	 * @param df               data containing dataframe
 	 * @param variable         name of the variable in the dataframe
-	 * @param weights_id       id of optional weight variable in the dataframe (if not use, set null)
+	 * @param weight_variable  name of optional weight variable in the dataframe (if not use, set null)
 	 * @param name_transformed name of the transformed result to put it in the dataframe
 	 * @return                 transformation table as Array with var-transformed-pairs
 	 */
@@ -69,8 +69,8 @@ public class ProbabilityTransform {
 	 * 
 	 * @param df               data containing dataframe
 	 * @param variable_id      id of the variable in the dataframe
-	 * @param weights_id       id of optional weight variable in the dataframe (if not use, set null)
-	 * @param trims
+	 * @param weights_id       id of optional weight variable in the dataframe (if not use, set -1)
+	 * @param trims            double array with lower and upper bound of valid range
 	 * @param name_transformed name of the transformed result to put it in the dataframe
 	 * @return                 transformation table as array with var-transformed-pair
 	 */
@@ -88,8 +88,9 @@ public class ProbabilityTransform {
 	 * </p>
 	 * 
 	 * @param df               data containing dataframe
-	 * @param variable_id      id of the variable in the dataframe
-	 * @param weights_id       id of optional weight variable in the dataframe (if not use, set null)
+	 * @param variable         name of the variable in the dataframe
+	 * @param weight_variable  name of optional weight variable in the dataframe (if not use, set null)
+	 * @param trims            double array with lower and upper bound of valid range
 	 * @param name_transformed name of the transformed result to put it in the dataframe
 	 * @return                 transformation table as Array with var-transformed-pairs
 	 */
@@ -156,7 +157,7 @@ public class ProbabilityTransform {
 		}
 		int nd = vr.length;
 		double[] wt  = (double[]) df.getArray(weight_variable);
-		if(weight_variable==null) {
+		if(weight_variable==null || wt==null) {
 			wt = new double[nd];
 			for(int w=0; w<nd; w++) wt[w] = 1d;
 		} else if(nd!=wt.length) {
@@ -296,16 +297,82 @@ public class ProbabilityTransform {
 		return trnsf;
 	}
 
+	/**
+	 * Transform Univariate Data to Normal Scores
+	 * <p>
+	 *     This subroutine takes data from variable by "variable_id" var(i),i=1,...,n possibly weighted
+	 *     by variable with "weights_id" wgt(i),i=,...,n and returns the normal scores transform N(0,1)
+	 *     as "double[][]" vrg(i),i=1,...,n. An extra storage array "tmp" is used internally
+	 *     so that the data can be returned in the same order (just in case there are associated arrays
+	 *     like the coordinate location).
+	 * </p>
+	 * 
+	 * @param df               data containing 2d-dataframe
+	 * @param variable_id      id of the variable in the 2d-dataframe
+	 * @param weights_id       id of optional weight variable in the 2d-dataframe (if not use, set -1)
+	 * @param name_transformed name of the transformed result to put it in the 2d-dataframe
+	 * @return                 transformation table as Array with var-transformed-pairs
+	 */
 	public static double[][] nscore(DataFrame2D df, int variable_id, int weights_id, String name_transformed) {
 		return nscore(df, df.getVarname(variable_id), df.getVarname(weights_id),
 				new double[] {Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY}, name_transformed);
 	}
+	/**
+	 * Transform Univariate Data to Normal Scores
+	 * <p>
+	 *     This subroutine takes data from variable by name "variable" var(i),i=1,...,n possibly weighted
+	 *     by variable with name "weight_variable" wgt(i),i=,...,n and returns the normal scores transform N(0,1)
+	 *     as "double[][]" vrg(i),i=1,...,n. An extra storage array "tmp" is used internally
+	 *     so that the data can be returned in the same order (just in case there are associated arrays
+	 *     like the coordinate location).
+	 * </p>
+	 * 
+	 * @param df               data containing 2d-dataframe
+	 * @param variable         name of the variable in the 2d-dataframe
+	 * @param weight_variable  name of optional weight variable in the 2d-dataframe (if not use, set null)
+	 * @param name_transformed name of the transformed result to put it in the 2d-dataframe
+	 * @return                 transformation table as Array with var-transformed-pairs
+	 */
 	public static double[][] nscore(DataFrame2D df, String variable, String weight_variable, String name_transformed) {
 		return nscore(df, variable, weight_variable, new double[] {Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY}, name_transformed);
 	}
+	/**
+	 * Transform Univariate Data to Normal Scores
+	 * <p>
+	 *     This subroutine takes data from variable by "variable_id" var(i),i=1,...,n possibly weighted
+	 *     by variable with "weights_id" wgt(i),i=,...,n and returns the normal scores transform N(0,1)
+	 *     as "double[][]" vrg(i),i=1,...,n. An extra storage array "tmp" is used internally
+	 *     so that the data can be returned in the same order (just in case there are associated arrays
+	 *     like the coordinate location).
+	 * </p>
+	 * 
+	 * @param df               data containing 2d-dataframe
+	 * @param variable_id      id of the variable in the 2d-dataframe
+	 * @param weights_id       id of optional weight variable in the 2d-dataframe (if not use, set -1)
+	 * @param trims            double array with lower and upper bound of valid range
+	 * @param name_transformed name of the transformed result to put it in the 2d-dataframe
+	 * @return                 transformation table as array with var-transformed-pair
+	 */
 	public static double[][] nscore(DataFrame2D df, int variable_id, int weights_id, double[] trims, String name_transformed) {
 		return nscore(df, df.getVarname(variable_id), df.getVarname(weights_id), trims, name_transformed);
 	}
+	/**
+	 * Transform Univariate Data to Normal Scores
+	 * <p>
+	 *     This subroutine takes data from variable by "variable_id" var(i),i=1,...,n possibly weighted
+	 *     by variable with "weights_id" wgt(i),i=,...,n and returns the normal scores transform N(0,1)
+	 *     as "double[][]" vrg(i),i=1,...,n. An extra storage array "tmp" is used internally
+	 *     so that the data can be returned in the same order (just in case there are associated arrays
+	 *     like the coordinate location).
+	 * </p>
+	 * 
+	 * @param df               data containing 2d-dataframe
+	 * @param variable         name of the variable in the 2d-dataframe
+	 * @param weight_variable  name of optional weight variable in the 2d-dataframe (if not use, set null)
+	 * @param trims            double array with lower and upper bound of valid range
+	 * @param name_transformed name of the transformed result to put it in the 2d-dataframe
+	 * @return                 transformation table as Array with var-transformed-pairs
+	 */
 	public static double[][] nscore(DataFrame2D df, String variable, String weight_variable, double[] trims, String name_transformed) {
 		if(df==null) {
 			System.err.println("Dataframe with input variables does not exist!");
@@ -424,16 +491,82 @@ public class ProbabilityTransform {
 		return trnsf;
 	}
 
+	/**
+	 * Transform Univariate Data to Normal Scores
+	 * <p>
+	 *     This subroutine takes data from variable by "variable_id" var(i),i=1,...,n possibly weighted
+	 *     by variable with "weights_id" wgt(i),i=,...,n and returns the normal scores transform N(0,1)
+	 *     as "double[][]" vrg(i),i=1,...,n. An extra storage array "tmp" is used internally
+	 *     so that the data can be returned in the same order (just in case there are associated arrays
+	 *     like the coordinate location).
+	 * </p>
+	 * 
+	 * @param df               data containing 3d-dataframe
+	 * @param variable_id      id of the variable in the 3d-dataframe
+	 * @param weights_id       id of optional weight variable in the 3d-dataframe (if not use, set -1)
+	 * @param name_transformed name of the transformed result to put it in the 3d-dataframe
+	 * @return                 transformation table as Array with var-transformed-pairs
+	 */
 	public static double[][] nscore(DataFrame3D df, int variable_id, int weights_id, String name_transformed) {
 		return nscore(df, df.getVarname(variable_id), df.getVarname(weights_id),
 				new double[] {Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY}, name_transformed);
 	}
+	/**
+	 * Transform Univariate Data to Normal Scores
+	 * <p>
+	 *     This subroutine takes data from variable by name "variable" var(i),i=1,...,n possibly weighted
+	 *     by variable with name "weight_variable" wgt(i),i=,...,n and returns the normal scores transform N(0,1)
+	 *     as "double[][]" vrg(i),i=1,...,n. An extra storage array "tmp" is used internally
+	 *     so that the data can be returned in the same order (just in case there are associated arrays
+	 *     like the coordinate location).
+	 * </p>
+	 * 
+	 * @param df               data containing 3d-dataframe
+	 * @param variable         name of the variable in the 3d-dataframe
+	 * @param weight_variable  name of optional weight variable in the 3d-dataframe (if not use, set null)
+	 * @param name_transformed name of the transformed result to put it in the 3d-dataframe
+	 * @return                 transformation table as Array with var-transformed-pairs
+	 */
 	public static double[][] nscore(DataFrame3D df, String variable, String weight_variable, String name_transformed) {
 		return nscore(df, variable, weight_variable, new double[] {Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY}, name_transformed);
 	}
+	/**
+	 * Transform Univariate Data to Normal Scores
+	 * <p>
+	 *     This subroutine takes data from variable by "variable_id" var(i),i=1,...,n possibly weighted
+	 *     by variable with "weights_id" wgt(i),i=,...,n and returns the normal scores transform N(0,1)
+	 *     as "double[][]" vrg(i),i=1,...,n. An extra storage array "tmp" is used internally
+	 *     so that the data can be returned in the same order (just in case there are associated arrays
+	 *     like the coordinate location).
+	 * </p>
+	 * 
+	 * @param df               data containing 3d-dataframe
+	 * @param variable_id      id of the variable in the 3d-dataframe
+	 * @param weights_id       id of optional weight variable in the 3d-dataframe (if not use, set -1)
+	 * @param trims            double array with lower and upper bound of valid range
+	 * @param name_transformed name of the transformed result to put it in the 3d-dataframe
+	 * @return                 transformation table as array with var-transformed-pair
+	 */
 	public static double[][] nscore(DataFrame3D df, int variable_id, int weights_id, double[] trims, String name_transformed) {
 		return nscore(df, df.getVarname(variable_id), df.getVarname(weights_id), trims, name_transformed);
 	}
+	/**
+	 * Transform Univariate Data to Normal Scores
+	 * <p>
+	 *     This subroutine takes data from variable by "variable_id" var(i),i=1,...,n possibly weighted
+	 *     by variable with "weights_id" wgt(i),i=,...,n and returns the normal scores transform N(0,1)
+	 *     as "double[][]" vrg(i),i=1,...,n. An extra storage array "tmp" is used internally
+	 *     so that the data can be returned in the same order (just in case there are associated arrays
+	 *     like the coordinate location).
+	 * </p>
+	 * 
+	 * @param df               data containing 3d-dataframe
+	 * @param variable         name of the variable in the 3d-dataframe
+	 * @param weight_variable  name of optional weight variable in the 3d-dataframe (if not use, set null)
+	 * @param trims            double array with lower and upper bound of valid range
+	 * @param name_transformed name of the transformed result to put it in the 3d-dataframe
+	 * @return                 transformation table as Array with var-transformed-pairs
+	 */
 	public static double[][] nscore(DataFrame3D df, String variable, String weight_variable, double[] trims, String name_transformed) {
 		if(df==null) {
 			System.err.println("Dataframe with input variables does not exist!");
@@ -552,25 +685,100 @@ public class ProbabilityTransform {
 		df.addColumn(name_transformed, vrg);
 		return trnsf;
 	}
-
-
-
-	public static void back_nscore(DataFrame df, int variable_id, int weights_id, double[][] nscore_trnsf_table, String name_transformed,
+	
+	
+	
+	
+	/**
+	 * Back Transform Univariate Data from Normal Scores
+	 * <p>
+	 *     This subroutine backtransforms a standard normal deviate from a
+	 *     specified back transform table and option for the tails of the
+	 *     distribution.  Call once with "first" set to true then set to false
+	 *     unless one of the options for the tail changes.
+	 * </p>
+	 * 
+	 * @param df                     data containing dataframe
+	 * @param variable_id            id of the variable in the dataframe
+	 * @param nscore_trnsf_table     transformation table as Array with var-transformed-pairs
+	 * @param name_transformed       name of the transformed result to put it in the dataframe
+	 * @param lower_tail_intpol_type option to handle values less than minimum of transformation table
+	 * @param upper_tail_intpol_type option to handle values greater than maximum of transformation table
+	 * @param lower_tail_power       parameter required for option lower_tail_intpol_type
+	 * @param upper_tail_power       parameter required for option upper_tail_intpol_type
+	 */
+	public static void back_nscore(DataFrame df, int variable_id, double[][] nscore_trnsf_table, String name_transformed,
 			int lower_tail_intpol_type, int upper_tail_intpol_type, double lower_tail_power, double upper_tail_power) {
 		back_nscore(df, df.getVarname(variable_id), new double[] {-1.0e21d, 1.0e21d}, nscore_trnsf_table, name_transformed,
 			    lower_tail_intpol_type, upper_tail_intpol_type, lower_tail_power, upper_tail_power);
 	}
-	public static void back_nscore(DataFrame df, String variable, String weight_variable, double[][] nscore_trnsf_table, String name_transformed,
+	/**
+	 * Back Transform Univariate Data from Normal Scores
+	 * <p>
+	 *     This subroutine backtransforms a standard normal deviate from a
+	 *     specified back transform table and option for the tails of the
+	 *     distribution.  Call once with "first" set to true then set to false
+	 *     unless one of the options for the tail changes.
+	 * </p>
+	 * 
+	 * @param df                     data containing dataframe
+	 * @param variable               name of the variable in the dataframe
+	 * @param nscore_trnsf_table     transformation table as Array with var-transformed-pairs
+	 * @param name_transformed       name of the transformed result to put it in the dataframe
+	 * @param lower_tail_intpol_type option to handle values less than minimum of transformation table
+	 * @param upper_tail_intpol_type option to handle values greater than maximum of transformation table
+	 * @param lower_tail_power       parameter required for option lower_tail_intpol_type
+	 * @param upper_tail_power       parameter required for option upper_tail_intpol_type
+	 */
+	public static void back_nscore(DataFrame df, String variable, double[][] nscore_trnsf_table, String name_transformed,
 			int lower_tail_intpol_type, int upper_tail_intpol_type, double lower_tail_power, double upper_tail_power) {
 		back_nscore(df, variable, new double[] {-1.0e21d, 1.0e21d}, nscore_trnsf_table, name_transformed,
 			    lower_tail_intpol_type, upper_tail_intpol_type, lower_tail_power, upper_tail_power);
 	}
-	public static void back_nscore(DataFrame df, int variable_id, int weights_id, double[] trims,
+	/**
+	 * Back Transform Univariate Data from Normal Scores
+	 * <p>
+	 *     This subroutine backtransforms a standard normal deviate from a
+	 *     specified back transform table and option for the tails of the
+	 *     distribution.  Call once with "first" set to true then set to false
+	 *     unless one of the options for the tail changes.
+	 * </p>
+	 * 
+	 * @param df                     data containing dataframe
+	 * @param variable_id            id of the variable in the dataframe
+	 * @param trims                  double array with lower and upper bound of valid range
+	 * @param nscore_trnsf_table     transformation table as Array with var-transformed-pairs
+	 * @param name_transformed       name of the transformed result to put it in the dataframe
+	 * @param lower_tail_intpol_type option to handle values less than minimum of transformation table
+	 * @param upper_tail_intpol_type option to handle values greater than maximum of transformation table
+	 * @param lower_tail_power       parameter required for option lower_tail_intpol_type
+	 * @param upper_tail_power       parameter required for option upper_tail_intpol_type
+	 */
+	public static void back_nscore(DataFrame df, int variable_id, double[] trims,
 			double[][] nscore_trnsf_table, String name_transformed,
 			int lower_tail_intpol_type, int upper_tail_intpol_type, double lower_tail_power, double upper_tail_power) {
 		back_nscore(df, df.getVarname(variable_id), trims, nscore_trnsf_table, name_transformed,
 				    lower_tail_intpol_type, upper_tail_intpol_type, lower_tail_power, upper_tail_power);
 	}
+	/**
+	 * Back Transform Univariate Data from Normal Scores
+	 * <p>
+	 *     This subroutine backtransforms a standard normal deviate from a
+	 *     specified back transform table and option for the tails of the
+	 *     distribution.  Call once with "first" set to true then set to false
+	 *     unless one of the options for the tail changes.
+	 * </p>
+	 * 
+	 * @param df                     data containing dataframe
+	 * @param variable               name of the variable in the dataframe
+	 * @param trims                  double array with lower and upper bound of valid range
+	 * @param nscore_trnsf_table     transformation table as Array with var-transformed-pairs
+	 * @param name_transformed       name of the transformed result to put it in the dataframe
+	 * @param lower_tail_intpol_type option to handle values less than minimum of transformation table
+	 * @param upper_tail_intpol_type option to handle values greater than maximum of transformation table
+	 * @param lower_tail_power       parameter required for option lower_tail_intpol_type
+	 * @param upper_tail_power       parameter required for option upper_tail_intpol_type
+	 */
 	public static void back_nscore(DataFrame df, String variable, double[] trims, double[][] nscore_trnsf_table, String name_transformed,
 			int lower_tail_intpol_type, int upper_tail_intpol_type, double lower_tail_power, double upper_tail_power) {
 //        c-----------------------------------------------------------------------
@@ -635,18 +843,18 @@ public class ProbabilityTransform {
 		int btlen = vrg.length;
 		
 		if(upper_tail_intpol_type==4 && vr[btlen-1]<0d) {
-			System.err.println("ERROR can not use hyperbolic tail (intpol type 4) with negative values! - see manual\n"+
+			System.err.println("ERROR can not use hyperbolic tail (intpol type 4) for upper tail with negative values! - see manual\n"+
 					           "    No back transformation performed!");
 			return;
 		}
 		if(trims[0]>vr[0]) {
-			System.err.println("ERROR zmin should be no larger than the first entry in the transformation table\n" + 
+			System.err.println("ERROR zmin should be lower or equal than the first entry in the transformation table\n" + 
 					           "    zmin = "+trims[0]+" vr_first="+vr[0]+"\n"+
 					           "    No back transformation performed!");
 			return;
 		}
 		if(trims[1]<vr[btlen-1]) {
-			System.err.println("ERROR zmax should be no less than the last entry in the transformation table\n" + 
+			System.err.println("ERROR zmax should at higher or equal than the last entry in the transformation table\n" + 
 					           "    zmax = "+trims[1]+" vr_last="+vr[btlen-1]+"\n"+
 					           "    No back transformation performed!");
 			return;
@@ -704,22 +912,96 @@ public class ProbabilityTransform {
 		df.addColumn(name_transformed, res);
 	}
 
+	/**
+	 * Back Transform Univariate Data from Normal Scores
+	 * <p>
+	 *     This subroutine backtransforms a standard normal deviate from a
+	 *     specified back transform table and option for the tails of the
+	 *     distribution.  Call once with "first" set to true then set to false
+	 *     unless one of the options for the tail changes.
+	 * </p>
+	 * 
+	 * @param df                     data containing 2d-dataframe
+	 * @param variable_id            id of the variable in the 2d-dataframe
+	 * @param nscore_trnsf_table     transformation table as Array with var-transformed-pairs
+	 * @param name_transformed       name of the transformed result to put it in the 2d-dataframe
+	 * @param lower_tail_intpol_type option to handle values less than minimum of transformation table
+	 * @param upper_tail_intpol_type option to handle values greater than maximum of transformation table
+	 * @param lower_tail_power       parameter required for option lower_tail_intpol_type
+	 * @param upper_tail_power       parameter required for option upper_tail_intpol_type
+	 */
 	public static void back_nscore(DataFrame2D df, int variable_id, int weights_id, double[][] nscore_trnsf_table, String name_transformed,
 			int lower_tail_intpol_type, int upper_tail_intpol_type, double lower_tail_power, double upper_tail_power) {
 		back_nscore(df, df.getVarname(variable_id), new double[] {-1.0e21d, 1.0e21d}, nscore_trnsf_table, name_transformed,
 			    lower_tail_intpol_type, upper_tail_intpol_type, lower_tail_power, upper_tail_power);
 	}
+	/**
+	 * Back Transform Univariate Data from Normal Scores
+	 * <p>
+	 *     This subroutine backtransforms a standard normal deviate from a
+	 *     specified back transform table and option for the tails of the
+	 *     distribution.  Call once with "first" set to true then set to false
+	 *     unless one of the options for the tail changes.
+	 * </p>
+	 * 
+	 * @param df                     data containing 2d-dataframe
+	 * @param variable               name of the variable in the 2d-dataframe
+	 * @param nscore_trnsf_table     transformation table as Array with var-transformed-pairs
+	 * @param name_transformed       name of the transformed result to put it in the 2d-dataframe
+	 * @param lower_tail_intpol_type option to handle values less than minimum of transformation table
+	 * @param upper_tail_intpol_type option to handle values greater than maximum of transformation table
+	 * @param lower_tail_power       parameter required for option lower_tail_intpol_type
+	 * @param upper_tail_power       parameter required for option upper_tail_intpol_type
+	 */
 	public static void back_nscore(DataFrame2D df, String variable, String weight_variable, double[][] nscore_trnsf_table, String name_transformed,
 			int lower_tail_intpol_type, int upper_tail_intpol_type, double lower_tail_power, double upper_tail_power) {
 		back_nscore(df, variable, new double[] {-1.0e21d, 1.0e21d}, nscore_trnsf_table, name_transformed,
 			    lower_tail_intpol_type, upper_tail_intpol_type, lower_tail_power, upper_tail_power);
 	}
+	/**
+	 * Back Transform Univariate Data from Normal Scores
+	 * <p>
+	 *     This subroutine backtransforms a standard normal deviate from a
+	 *     specified back transform table and option for the tails of the
+	 *     distribution.  Call once with "first" set to true then set to false
+	 *     unless one of the options for the tail changes.
+	 * </p>
+	 * 
+	 * @param df                     data containing 2d-dataframe
+	 * @param variable_id            id of the variable in the 2d-dataframe
+	 * @param trims                  double array with lower and upper bound of valid range
+	 * @param nscore_trnsf_table     transformation table as Array with var-transformed-pairs
+	 * @param name_transformed       name of the transformed result to put it in the 2d-dataframe
+	 * @param lower_tail_intpol_type option to handle values less than minimum of transformation table
+	 * @param upper_tail_intpol_type option to handle values greater than maximum of transformation table
+	 * @param lower_tail_power       parameter required for option lower_tail_intpol_type
+	 * @param upper_tail_power       parameter required for option upper_tail_intpol_type
+	 */
 	public static void back_nscore(DataFrame2D df, int variable_id, int weights_id, double[] trims,
 			double[][] nscore_trnsf_table, String name_transformed,
 			int lower_tail_intpol_type, int upper_tail_intpol_type, double lower_tail_power, double upper_tail_power) {
 		back_nscore(df, df.getVarname(variable_id), trims, nscore_trnsf_table, name_transformed,
 				    lower_tail_intpol_type, upper_tail_intpol_type, lower_tail_power, upper_tail_power);
 	}
+	/**
+	 * Back Transform Univariate Data from Normal Scores
+	 * <p>
+	 *     This subroutine backtransforms a standard normal deviate from a
+	 *     specified back transform table and option for the tails of the
+	 *     distribution.  Call once with "first" set to true then set to false
+	 *     unless one of the options for the tail changes.
+	 * </p>
+	 * 
+	 * @param df                     data containing 2d-dataframe
+	 * @param variable               name of the variable in the 2d-dataframe
+	 * @param trims                  double array with lower and upper bound of valid range
+	 * @param nscore_trnsf_table     transformation table as Array with var-transformed-pairs
+	 * @param name_transformed       name of the transformed result to put it in the 2d-dataframe
+	 * @param lower_tail_intpol_type option to handle values less than minimum of transformation table
+	 * @param upper_tail_intpol_type option to handle values greater than maximum of transformation table
+	 * @param lower_tail_power       parameter required for option lower_tail_intpol_type
+	 * @param upper_tail_power       parameter required for option upper_tail_intpol_type
+	 */
 	public static void back_nscore(DataFrame2D df, String variable, double[] trims, double[][] nscore_trnsf_table, String name_transformed,
 			int lower_tail_intpol_type, int upper_tail_intpol_type, double lower_tail_power, double upper_tail_power) {
 		if(df==null) {
@@ -826,22 +1108,96 @@ public class ProbabilityTransform {
 		df.addColumn(name_transformed, res);
 	}
 
+	/**
+	 * Back Transform Univariate Data from Normal Scores
+	 * <p>
+	 *     This subroutine backtransforms a standard normal deviate from a
+	 *     specified back transform table and option for the tails of the
+	 *     distribution.  Call once with "first" set to true then set to false
+	 *     unless one of the options for the tail changes.
+	 * </p>
+	 * 
+	 * @param df                     data containing 3d-dataframe
+	 * @param variable_id            id of the variable in the 3d-dataframe
+	 * @param nscore_trnsf_table     transformation table as Array with var-transformed-pairs
+	 * @param name_transformed       name of the transformed result to put it in the 3d-dataframe
+	 * @param lower_tail_intpol_type option to handle values less than minimum of transformation table
+	 * @param upper_tail_intpol_type option to handle values greater than maximum of transformation table
+	 * @param lower_tail_power       parameter required for option lower_tail_intpol_type
+	 * @param upper_tail_power       parameter required for option upper_tail_intpol_type
+	 */
 	public static void back_nscore(DataFrame3D df, int variable_id, int weights_id, double[][] nscore_trnsf_table, String name_transformed,
 			int lower_tail_intpol_type, int upper_tail_intpol_type, double lower_tail_power, double upper_tail_power) {
 		back_nscore(df, df.getVarname(variable_id), new double[] {-1.0e21d, 1.0e21d}, nscore_trnsf_table, name_transformed,
 			    lower_tail_intpol_type, upper_tail_intpol_type, lower_tail_power, upper_tail_power);
 	}
+	/**
+	 * Back Transform Univariate Data from Normal Scores
+	 * <p>
+	 *     This subroutine backtransforms a standard normal deviate from a
+	 *     specified back transform table and option for the tails of the
+	 *     distribution.  Call once with "first" set to true then set to false
+	 *     unless one of the options for the tail changes.
+	 * </p>
+	 * 
+	 * @param df                     data containing 3d-dataframe
+	 * @param variable               name of the variable in the 3d-dataframe
+	 * @param nscore_trnsf_table     transformation table as Array with var-transformed-pairs
+	 * @param name_transformed       name of the transformed result to put it in the 3d-dataframe
+	 * @param lower_tail_intpol_type option to handle values less than minimum of transformation table
+	 * @param upper_tail_intpol_type option to handle values greater than maximum of transformation table
+	 * @param lower_tail_power       parameter required for option lower_tail_intpol_type
+	 * @param upper_tail_power       parameter required for option upper_tail_intpol_type
+	 */
 	public static void back_nscore(DataFrame3D df, String variable, String weight_variable, double[][] nscore_trnsf_table, String name_transformed,
 			int lower_tail_intpol_type, int upper_tail_intpol_type, double lower_tail_power, double upper_tail_power) {
 		back_nscore(df, variable, new double[] {-1.0e21d, 1.0e21d}, nscore_trnsf_table, name_transformed,
 			    lower_tail_intpol_type, upper_tail_intpol_type, lower_tail_power, upper_tail_power);
 	}
+	/**
+	 * Back Transform Univariate Data from Normal Scores
+	 * <p>
+	 *     This subroutine backtransforms a standard normal deviate from a
+	 *     specified back transform table and option for the tails of the
+	 *     distribution.  Call once with "first" set to true then set to false
+	 *     unless one of the options for the tail changes.
+	 * </p>
+	 * 
+	 * @param df                     data containing 3d-dataframe
+	 * @param variable_id            id of the variable in the 3d-dataframe
+	 * @param trims                  double array with lower and upper bound of valid range
+	 * @param nscore_trnsf_table     transformation table as Array with var-transformed-pairs
+	 * @param name_transformed       name of the transformed result to put it in the 3d-dataframe
+	 * @param lower_tail_intpol_type option to handle values less than minimum of transformation table
+	 * @param upper_tail_intpol_type option to handle values greater than maximum of transformation table
+	 * @param lower_tail_power       parameter required for option lower_tail_intpol_type
+	 * @param upper_tail_power       parameter required for option upper_tail_intpol_type
+	 */
 	public static void back_nscore(DataFrame3D df, int variable_id, int weights_id, double[] trims,
 			double[][] nscore_trnsf_table, String name_transformed,
 			int lower_tail_intpol_type, int upper_tail_intpol_type, double lower_tail_power, double upper_tail_power) {
 		back_nscore(df, df.getVarname(variable_id), trims, nscore_trnsf_table, name_transformed,
 				    lower_tail_intpol_type, upper_tail_intpol_type, lower_tail_power, upper_tail_power);
 	}
+	/**
+	 * Back Transform Univariate Data from Normal Scores
+	 * <p>
+	 *     This subroutine backtransforms a standard normal deviate from a
+	 *     specified back transform table and option for the tails of the
+	 *     distribution.  Call once with "first" set to true then set to false
+	 *     unless one of the options for the tail changes.
+	 * </p>
+	 * 
+	 * @param df                     data containing 3d-dataframe
+	 * @param variable               name of the variable in the 3d-dataframe
+	 * @param trims                  double array with lower and upper bound of valid range
+	 * @param nscore_trnsf_table     transformation table as Array with var-transformed-pairs
+	 * @param name_transformed       name of the transformed result to put it in the 3d-dataframe
+	 * @param lower_tail_intpol_type option to handle values less than minimum of transformation table
+	 * @param upper_tail_intpol_type option to handle values greater than maximum of transformation table
+	 * @param lower_tail_power       parameter required for option lower_tail_intpol_type
+	 * @param upper_tail_power       parameter required for option upper_tail_intpol_type
+	 */
 	public static void back_nscore(DataFrame3D df, String variable, double[] trims, double[][] nscore_trnsf_table, String name_transformed,
 			int lower_tail_intpol_type, int upper_tail_intpol_type, double lower_tail_power, double upper_tail_power) {
 		if(df==null) {

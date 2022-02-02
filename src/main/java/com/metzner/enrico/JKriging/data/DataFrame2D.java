@@ -1050,13 +1050,15 @@ public class DataFrame2D {
 	 * and a warning would be printed to the command line
 	 * @param filepath path to the NetCDF file
 	 * @param variable name(s) of variable(s)
+	 * @return         return this DataFrame2D
 	 */
-	public void readFromNetcdf(String filepath, String... variable) {
+	public DataFrame2D readFromNetcdf(String filepath, String... variable) {
 		try(NetcdfFile nc = NetcdfFiles.open(filepath)) {
 			this.readFromNetcdf(nc, variable);
 		} catch(IOException ioe) {
 			ioe.printStackTrace();
 		}
+		return this;
 	}
 	/**
 	 * Read selected variable data from a Netcdf file
@@ -1064,12 +1066,18 @@ public class DataFrame2D {
 	 * and a warning would be printed to the command line
 	 * @param netcdf_file NetCDF object with the data to read
 	 * @param variable    name(s) of variable(s)
+	 * @return            return this DataFrame2D
 	 */
-	public void readFromNetcdf(NetcdfFile netcdf_file, String... variable) {
-		clear();
-		if(netcdf_file==null) { System.err.println("The Netcdf file does not exist!"); return; }
+	public DataFrame2D readFromNetcdf(NetcdfFile netcdf_file, String... variable) {
+		if(netcdf_file==null) {
+			System.err.println("The Netcdf file does not exist!");
+			return this;
+		}
 		if(variable==null || variable.length<=0) {
-			System.err.println("You have to specify at least one variable you want to read from the Netcdf file!"); return; }
+			System.err.println("You have to specify at least one variable you want to read from the Netcdf file!");
+			return this;
+		}
+		clear();
 		boolean[] var_exist = new boolean[variable.length];
 		List<Dimension> dims = new ArrayList<Dimension>();
 		boolean at_least_one_exist = false;
@@ -1090,11 +1098,13 @@ public class DataFrame2D {
 		}
 		if(!at_least_one_exist) {
 			System.err.println("At least one variable has to have two dimensions or two variables have to have two dimensions together!");
-			DataHelper.printStackTrace(System.err); return;
+			DataHelper.printStackTrace(System.err);
+			return this;
 		}
 		if(dims.size()!=2) {
 			System.err.println("The 2D-dataframe can only handle exact 2 dimensions, but found "+dims.size()+"!");
-			DataHelper.printStackTrace(System.err); return;
+			DataHelper.printStackTrace(System.err);
+			return this;
 		}
 		int datalength = 1;
 		int dlen = dims.size();
@@ -1257,6 +1267,7 @@ public class DataFrame2D {
 				if(dimid==1) for(int dl=0; dl<dimension_two.length; dl++) dimension_two[dl] = dl+1d;
 			}
 		}
+		return this;
 	}
 	/**
 	 * Write all content of this dataframe to a netcdf file

@@ -1384,13 +1384,15 @@ public class DataFrame {
 	 * @param filepath           path to the NetCDF file
 	 * @param include_dimensions wether dimensions of variables should be includes as extra data columns
 	 * @param variable           name(s) of variable(s)
+	 * @return                   return this DataFrame
 	 */
-	public void readFromNetcdf(String filepath, boolean include_dimensions, String... variable) {
+	public DataFrame readFromNetcdf(String filepath, boolean include_dimensions, String... variable) {
 		try(NetcdfFile nc = NetcdfFiles.open(filepath)) {
 			this.readFromNetcdf(nc, include_dimensions, variable);
 		} catch(IOException ioe) {
 			ioe.printStackTrace();
 		}
+		return this;
 	}
 	/**
 	 * Read selected variable data from a Netcdf file
@@ -1399,12 +1401,18 @@ public class DataFrame {
 	 * @param netcdf_file        NetCDF object with the data to read
 	 * @param include_dimensions wether dimensions of variables should be includes as extra data columns
 	 * @param variable           name(s) of variable(s)
+	 * @return                   return this DataFrame
 	 */
-	public void readFromNetcdf(NetcdfFile netcdf_file, boolean include_dimensions, String... variable) {
-		clear();
-		if(netcdf_file==null) { System.err.println("The Netcdf file does not exist!"); return; }
+	public DataFrame readFromNetcdf(NetcdfFile netcdf_file, boolean include_dimensions, String... variable) {
+		if(netcdf_file==null) {
+			System.err.println("The Netcdf file does not exist!");
+			return this;
+		}
 		if(variable==null || variable.length<=0) {
-			System.err.println("You have to specify at least one variable you want to read from the Netcdf file!"); return; }
+			System.err.println("You have to specify at least one variable you want to read from the Netcdf file!");
+			return this;
+		}
+		clear();
 		boolean[] var_exist = new boolean[variable.length];
 		List<Dimension> dims = new ArrayList<Dimension>();
 		for(int b=0; b<var_exist.length; b++) {
@@ -1598,6 +1606,7 @@ public class DataFrame {
 			}
 		}
 		createDimension();
+		return this;
 	}
 	/**
 	 * Write all content of this dataframe to a netcdf file

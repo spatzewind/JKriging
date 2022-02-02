@@ -764,10 +764,10 @@ public class GAMV {
 		resdf.addColumn("distance",   dis);
 		resdf.addColumn("gamma",      gam);
 		resdf.addColumn("points",      np);
-		resdf.addColumn("mean head",   hm);
-		resdf.addColumn("mean tail",   tm);
-		resdf.addColumn("variance head", hv);
-		resdf.addColumn("variance tail", tv);
+		resdf.addColumn("mean_head",   hm);
+		resdf.addColumn("mean_tail",   tm);
+		resdf.addColumn("variance_head", hv);
+		resdf.addColumn("variance_tail", tv);
 		return resdf;
 	}
 

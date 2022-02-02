@@ -273,7 +273,7 @@ public class KT3D {
 		if(externdf == null) {
 			System.err.println("Dataframe with external drift data does not exist!");
 		} else {
-			ext_var_e = externdf.getVarname(_ext_id-1);
+			ext_var_e = externdf.getVarname(_ext_id-1+Constants.FIRST_IDX);
 			paramchecklist[6] = true;
 		}
 		return this;
@@ -282,7 +282,7 @@ public class KT3D {
 		if(extern_dataframe==null) {
 			System.err.println("Dataframe with external drift data does not exist!");
 		} else {
-			setExternalDrift(extern_dataframe, extern_dataframe.getVariableID(extern_variable_name)+1);
+			setExternalDrift(extern_dataframe, extern_dataframe.getVariableID(extern_variable_name)+1-Constants.FIRST_IDX);
 		}
 		return this;
 	}
@@ -977,7 +977,7 @@ public class KT3D {
 		//to avoid including basepoints outside the range-ellipsoide:
 		//reduces null-matrices;
 		if(max_rad < radius) {
-			System.out.println("WARNING: do to variogram settings a smaller search distance is used: "+max_rad+"!");
+			System.out.println("[WARNING] Due to variogram settings a smaller search distance is used: "+max_rad+"!");
 		}
 		
 		
@@ -1101,7 +1101,7 @@ public class KT3D {
 			}
 		}
 //        c Initialize accumulators:
-		//TODO removed because of multithreading
+		//removed because of multithreading
 
 //        c Calculate Block Covariance. Check for point kriging.
 		double cov = Covariance.cova3(xdb[0], ydb[0], zdb[0], xdb[0], ydb[0], zdb[0],
@@ -1158,7 +1158,7 @@ public class KT3D {
 
 //        c MAIN LOOP OVER ALL THE BLOCKS IN THE GRID:
 		
-		//TODO add Worker!!!
+		//main loop is split into multiple worker threads for parallelisation!!!
 		indexOffset.set(0);
 		numberOfWorker = Math.min(numberOfWorker, 1+(nloop-1)/irepo);
 		Worker[] worker = new Worker[numberOfWorker];
