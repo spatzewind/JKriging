@@ -62,6 +62,12 @@ public class MathHelper {
 	        res[j][i] = matLeft[j][i] - matRight[j][i];
 	    return res;
 	}
+	public static double[][] matrixFromVector(double[] vec) {
+		double[][] res = new double[vec.length][1];
+		for(int j=0; j<vec.length; j++)
+			res[j][0] = vec[j];
+		return res;
+	}
 	public static double[][] matmul(double[][] mat, double factor) {
 		double[][] res = new double[mat.length][mat[0].length];
 		for(int mj=0; mj<mat.length; mj++)
@@ -83,6 +89,34 @@ public class MathHelper {
 	        }
 	    }
 	    return res;
+	}
+	public static double[] matmul(double[] vecLeft, double[][] matRight) {
+	    int rlen = matRight[0].length;
+	    if(vecLeft.length != matRight.length)
+	        throw new RuntimeException("matrix and vector aren't multipliable, found v["+
+	                                   vecLeft.length+"] * m["+matRight.length+"x"+rlen+"]");
+	    int klen = matRight.length;
+	    double[] res = new double[rlen];
+	    for(int r=0; r<rlen; r++) {
+	        res[r] = 0d;
+	        for(int k=0; k<klen; k++) {
+	            res[r] += vecLeft[k] * matRight[k][r];
+	        }
+	    }
+	    return res;
+	}
+	/**
+	 * calculate the product of row-vector from left with a column-vector from right
+	 * @param vecLeft  double array representing a row-vector
+	 * @param vecRight double array representing a column-vector
+	 * @return product matrix
+	 */
+	public static double[][] matmul(double[] vecLeft, double[] vecRight) {
+		double[][] res = new double[vecLeft.length][vecRight.length];
+		for(int l=0; l<vecLeft.length; l++)
+			for(int r=0; r<vecRight.length; r++)
+				res[l][r] = vecLeft[l] * vecRight[r];
+		return res;
 	}
 	public static double[][] matmul(double[][] matLeft, double[][] matRight) {
 	    int rlen = matLeft.length;
@@ -108,14 +142,35 @@ public class MathHelper {
 	    double[] res = new double[rlen];
 	    for(int r=0; r<rlen; r++) {
 	        res[r] = 0d;
-	        boolean hasAtLeastOnFinitePair = false;
+	        boolean hasAtLeastOneFinitePair = false;
 	        for(int k=0; k<klen; k++) {
 	            if(Double.isFinite(matLeft[r][k]) && Double.isFinite(vecRight[k])) {
 		            res[r] += matLeft[r][k] * vecRight[k];
-	            	hasAtLeastOnFinitePair = true;
+	            	hasAtLeastOneFinitePair = true;
 	            }
 	        }
-	        if(!hasAtLeastOnFinitePair)
+	        if(!hasAtLeastOneFinitePair)
+	        	res[r] = Double.NaN;
+	    }
+	    return res;
+	}
+	public static double[] nanmatmul(double[] vecLeft, double[][] matRight) {
+	    int rlen = matRight[0].length;
+	    if(vecLeft.length != matRight.length)
+	        throw new RuntimeException("matrix and vector aren't multipliable, found v["+
+	                                   vecLeft.length+"] * m["+matRight.length+"x"+rlen+"]");
+	    int klen = matRight.length;
+	    double[] res = new double[rlen];
+	    for(int r=0; r<rlen; r++) {
+	        res[r] = 0d;
+	        boolean hasAtLeastOneFinitePair = false;
+	        for(int k=0; k<klen; k++) {
+	        	if(Double.isFinite(vecLeft[k]) && Double.isFinite(matRight[k][r])) {
+	        		res[r] += vecLeft[k] * matRight[k][r];
+	        		hasAtLeastOneFinitePair = true;
+	        	}
+	        }
+	        if(!hasAtLeastOneFinitePair)
 	        	res[r] = Double.NaN;
 	    }
 	    return res;
@@ -141,6 +196,22 @@ public class MathHelper {
 	        	res[r][c] = Double.NaN;
 	    }
 	    return res;
+	}
+	public static double[] vecadd(double[] vecLeft, double[] vecRight) {
+	    if(vecLeft.length!=vecRight.length)
+	        throw new RuntimeException("vectors aren't addable, found v["+vecLeft.length+"] + v["+vecRight.length+"]");
+		double[] res = new double[vecLeft.length];
+		for(int j=0; j<res.length; j++)
+			res[j] = vecLeft[j] + vecRight[j];
+		return res;
+	}
+	public static double[] vecsub(double[] vecLeft, double[] vecRight) {
+	    if(vecLeft.length!=vecRight.length)
+	        throw new RuntimeException("vectors aren't subtractable, found v["+vecLeft.length+"] + v["+vecRight.length+"]");
+		double[] res = new double[vecLeft.length];
+		for(int j=0; j<res.length; j++)
+			res[j] = vecLeft[j] - vecRight[j];
+		return res;
 	}
 	public static double[] vecmul(double[] vec, double factor) {
 		double[] res = new double[vec.length];
