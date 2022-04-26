@@ -13,8 +13,8 @@ apply plugin: 'java-library'
 repositories {
     // Use jcenter for resolving your dependencies.
     // You can declare any Maven/Ivy/file repository here.
-    //jcenter()
-    mavenCentral()
+    jcenter()
+    //mavenCentral()
     
     maven {
         url "https://artifacts.unidata.ucar.edu/repository/unidata-all/"
@@ -22,8 +22,10 @@ repositories {
 }
 
 jar {
-    archiveBaseName = 'jkriging'
-    archiveVersion = '0.0.4'
+    //archiveBaseName = 'jkriging'
+    //archiveVersion = '0.0.4'
+    baseName = 'jkriging'
+    version = '0.0.4'
 }
 
 dependencies {
@@ -43,6 +45,8 @@ dependencies {
   	//Need matrix decomposition for eigenvalues and eigenvectors
   	//compile group: 'org.ejml', name: 'ejml-all', version: '0.39'
 }
+
+//targetCompatibility = '1.9'
 
 tasks.withType(JavaCompile) {
     options.compilerArgs << '-Xlint:deprecation'
