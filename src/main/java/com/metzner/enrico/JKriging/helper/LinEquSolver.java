@@ -165,7 +165,7 @@ public class LinEquSolver {
 //        c   x(n*ns*nv)       solution matrices.
 //        c   ktilt            indicator of singularity
 //        c                      =  0  everything is ok.
-//        c                      = -1 n.le.1
+//        c                      = -1  n.le.1
 //        c                      =  k  a null pivot appeared at the kth iteration.
 //        c   tol              used in test for null pivot. depends on machine
 //        c                      precision and can also be set for the tolerance

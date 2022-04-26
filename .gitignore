@@ -4,3 +4,5 @@
 .dbg
 .out
 .ps
+/copy_to_processing.sh
+/hs_err_*

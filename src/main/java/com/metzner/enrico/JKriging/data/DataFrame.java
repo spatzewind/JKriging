@@ -96,6 +96,7 @@ public class DataFrame {
 		boolean[] new_data = new boolean[datalength];
 		for(int t=0; t<datalength; t++) if(t<_column_data.length) { new_data[t] = _column_data[t]; } else { new_data[t] = false; }
 		bool_column.put(_column_name_c, new_data);
+		if(dimension.length==0) createDimension();
 	}
 	public void addColumn(String _column_name, byte[] _column_data) { addColumn(_column_name, _column_data, false); }
 	public void addColumn(String _column_name, byte[] _column_data, boolean chopORfill) {
@@ -116,6 +117,7 @@ public class DataFrame {
 		byte[] new_data = new byte[datalength];
 		for(int t=0; t<datalength; t++) if(t<_column_data.length) { new_data[t] = _column_data[t]; } else { new_data[t] = Byte.MIN_VALUE; }
 		byte_column.put(_column_name_c, new_data);
+		if(dimension.length==0) createDimension();
 	}
 	public void addColumn(String _column_name, int[] _column_data) { addColumn(_column_name, _column_data, false); }
 	public void addColumn(String _column_name, int[] _column_data, boolean chopORfill) {
@@ -136,6 +138,7 @@ public class DataFrame {
 		int[] new_data = new int[datalength];
 		for(int t=0; t<datalength; t++) if(t<_column_data.length) { new_data[t] = _column_data[t]; } else { new_data[t] = Integer.MIN_VALUE; }
 		int_column.put(_column_name_c, new_data);
+		if(dimension.length==0) createDimension();
 	}
 	public void addColumn(String _column_name, short[] _column_data) { addColumn(_column_name, _column_data, false); }
 	public void addColumn(String _column_name, short[] _column_data, boolean chopORfill) {
@@ -156,6 +159,7 @@ public class DataFrame {
 		short[] new_data = new short[datalength];
 		for(int t=0; t<datalength; t++) if(t<_column_data.length) { new_data[t] = _column_data[t]; } else { new_data[t] = Short.MIN_VALUE; }
 		short_column.put(_column_name_c, new_data);
+		if(dimension.length==0) createDimension();
 	}
 	public void addColumn(String _column_name, long[] _column_data) { addColumn(_column_name, _column_data, false); }
 	public void addColumn(String _column_name, long[] _column_data, boolean chopORfill) {
@@ -176,6 +180,7 @@ public class DataFrame {
 		long[] new_data = new long[datalength];
 		for(int t=0; t<datalength; t++) if(t<_column_data.length) { new_data[t] = _column_data[t]; } else { new_data[t] = Long.MIN_VALUE; }
 		long_column.put(_column_name_c, new_data);
+		if(dimension.length==0) createDimension();
 	}
 	public void addColumn(String _column_name, float[] _column_data) { addColumn(_column_name, _column_data, false); }
 	public void addColumn(String _column_name, float[] _column_data, boolean chopORfill) {
@@ -196,6 +201,7 @@ public class DataFrame {
 		float[] new_data = new float[datalength];
 		for(int t=0; t<datalength; t++) if(t<_column_data.length) { new_data[t] = _column_data[t]; } else { new_data[t] = Float.NaN; }
 		float_column.put(_column_name_c, new_data);
+		if(dimension.length==0) createDimension();
 	}
 	public void addColumn(String _column_name, double[] _column_data) { addColumn(_column_name, _column_data, false); }
 	public void addColumn(String _column_name, double[] _column_data, boolean chopORfill) {
@@ -216,6 +222,7 @@ public class DataFrame {
 		double[] new_data = new double[datalength];
 		for(int t=0; t<datalength; t++) if(t<_column_data.length) { new_data[t] = _column_data[t]; } else { new_data[t] = Double.NaN; }
 		double_column.put(_column_name_c, new_data);
+		if(dimension.length==0) createDimension();
 	}
 	public void addColumn(String _column_name, String[] _column_data) { addColumn(_column_name, _column_data, false); }
 	public void addColumn(String _column_name, String[] _column_data, boolean chopORfill) {
@@ -235,6 +242,7 @@ public class DataFrame {
 		String[] new_data = new String[datalength];
 		for(int t=0; t<datalength; t++) if(t<_column_data.length) { new_data[t] = _column_data[t]; } else { new_data[t] = ""; }
 		string_column.put(_column_name_c, new_data);
+		if(dimension.length==0) createDimension();
 	}
 	public void setDimension(String dim_name) {
 		setDimension(null, dim_name);
@@ -1105,6 +1113,11 @@ public class DataFrame {
 	}
 	public DataFrame filterSubDataFrame(String condition) {
 		String[][] conditions = LogicHelper.readConditions(this, condition);
+		if(conditions==null || conditions.length==0) {
+			System.err.println("Could not convert condition \""+condition+"\" into mask...");
+			DataHelper.printStackTrace(System.err);
+			return this;
+		}
 		boolean[] rowdivs = new boolean[conditions.length-1]; for(int r=0; r<rowdivs.length; r++) rowdivs[r] = false;
 		boolean[] coldivs = new boolean[conditions[0].length-1]; for(int c=0; c<coldivs.length; c++) coldivs[c] = true;
 		FormatHelper.printTable(conditions,coldivs,rowdivs);
@@ -1605,7 +1618,7 @@ public class DataFrame {
 					break;
 			}
 		}
-		createDimension();
+		//createDimension();
 		return this;
 	}
 	/**

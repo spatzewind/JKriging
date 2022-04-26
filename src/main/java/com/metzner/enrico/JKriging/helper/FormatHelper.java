@@ -56,6 +56,11 @@ public class FormatHelper {
 		while(string_wo_doublespace.indexOf("  ")>=0) string_wo_doublespace = string_wo_doublespace.replace("  ", " ");
 		return string_wo_doublespace.split(" ");
 	}
+	public static String setCharAt(char c, int pos, String str) {
+		String leftS = "";  if(pos>0) leftS = str.substring(0,pos);
+		String rightS = ""; if(pos<str.length()-1) rightS = str.substring(pos+1);
+		return leftS + c + rightS;
+	}
 
 
 	public static void printTable(int _trim, int[]... int_columns) {
@@ -120,12 +125,18 @@ public class FormatHelper {
 			for(int j=0; j<nrow; j++) for(int i=0; i<ncol; i++) txt[j][i] = strings[j][i];
 		}
 		String[] hdivs = new String[ncol];
+		boolean hasRowDividers = false;
+		for(int r=0; r+1<nrow && !hasRowDividers; r++)
+			if(row_divider[r]) hasRowDividers = true;
 		for(int c=0; c<ncol; c++) {
 			int cw = txt[0][c].length();
 			for(int r=1; r<nrow; r++) cw = Math.max(cw, txt[r][c].length());
 			hdivs[c] = "";
 			while(hdivs[c].length()<cw) hdivs[c]+="\u2500";
-			while(txt[0][c].length()<cw) txt[0][c]+=" ";
+			while(txt[0][c].length()<cw) {
+				if(hasRowDividers) txt[0][c]+=" ";
+				else txt[0][c] = " "+txt[0][c];
+			}
 			for(int r=1; r<nrow; r++) while(txt[r][c].length()<cw) txt[r][c] = " "+txt[r][c];
 		}
 		for(int r=0; r<nrow; r++) {

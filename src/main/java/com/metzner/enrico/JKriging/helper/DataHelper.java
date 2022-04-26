@@ -30,6 +30,11 @@ public class DataHelper {
 		    double time = (_h-12) / 24d + _n/1440d + _s/86400d;
 		    return (dt + time);
 		}
+		/**
+		 * converts julian date to gregorian calendar
+		 * @param _t  julian date
+		 * @return    { day, month, year, hour, minute, second } as Integer array
+		 */
 		public static int[] jd2cal(double _t) {
 		    long z = o_floor(_t+0.500005787037037d);
 		    int  x = o_floor( (z-1867216.25d) / 36524.25d );
