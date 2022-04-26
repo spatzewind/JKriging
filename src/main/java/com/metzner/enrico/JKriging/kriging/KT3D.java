@@ -66,8 +66,8 @@ public class KT3D {
 	private double[][] estimates; // result from kriging
 	
 	private int numOctants; //number of octants minimum has to distribute search
-	
 	private double progressNPoints;
+	private KdTree tree;
 
 	private boolean[] paramchecklist = new boolean[8];
 	String[] param_descriptions = { "dataframe", "co-ordinate variables and kriging variable", "kriging field/points",
@@ -80,6 +80,7 @@ public class KT3D {
 	public KT3D() {
 		variograms = new ArrayList<double[]>();
 		indexOffset = new AtomicInteger(0);
+		tree = new KdTree();
 		reset();
 	}
 
@@ -107,6 +108,7 @@ public class KT3D {
 		
 		numOctants = 1;
 		numberOfWorker = 1;
+		tree.clear();
 
 		paramchecklist[0] = false; // dataframe is declared
 		paramchecklist[1] = false; // variable-coordinates and depending variables are defined
@@ -118,7 +120,8 @@ public class KT3D {
 		paramchecklist[7] = false; // variogram model ist set;
 	}
 
-	public KT3D setKrigingOptionAndDataframe(DataFrame _data, int kriging_option, int kriging_type, double simplekriging_mean, boolean use_indicator_kriging, double[] category_upper_bounds) {
+	public KT3D setKrigingOptionAndDataframe(DataFrame _data, int kriging_option, int kriging_type, double simplekriging_mean,
+			boolean use_indicator_kriging, double[] category_upper_bounds) {
 		dataframe = _data;
 		if(dataframe==null) {
 			System.err.println("The dataframe does not exist!");
@@ -138,7 +141,8 @@ public class KT3D {
 					estimate_titles = new String[] {"Estimate", "EstimateVariance", "NumberOfBasepoints"};
 				} else {
 					num_krig_res = 8;
-					estimate_titles = new String[] {"X","Y","Z","True","Estimate","EstimateVariance","Error: est-true","NumberOfBasepoints"};
+					estimate_titles = new String[] {"X","Y","Z","True","Estimate","EstimateVariance",
+							"Error: est-true","NumberOfBasepoints"};
 				}
 			} else {
 				ncut = category_upper_bounds.length;
@@ -206,7 +210,8 @@ public class KT3D {
 		paramchecklist[2] = true;
 		return this;
 	}
-	public KT3D setSuperBlockParameters(int x_discretisation, int y_discretisation, int z_discretisation, int min_points, int max_points,
+	public KT3D setSuperBlockParameters(int x_discretisation, int y_discretisation, int z_discretisation,
+			int min_points, int max_points,
 			int max_per_octant, double search_radius) {
 		nxdis = x_discretisation; nydis = y_discretisation; nzdis = z_discretisation;
 		ndmin = min_points; ndmax = max_points; noct = max_per_octant;
@@ -221,6 +226,13 @@ public class KT3D {
 	}
 	public KT3D setMinimumSearchOctant(int min_search_octant) {
 		numOctants = min_search_octant;
+		return this;
+	}
+	public KT3D setValidater(DataPointValidater dpvalidater) {
+		if(tree==null) {
+			throw new RuntimeException("KT3D is not set up properly, cannot set validater method!");
+		}
+		tree.setValidater(dpvalidater);
 		return this;
 	}
 	public KT3D setDebuggingLevel(int debugging_level, String debugging_file_path) {
@@ -261,7 +273,8 @@ public class KT3D {
 		}
 		return this;
 	}
-	public KT3D setDriftOption(int _lin_X, int _lin_Y, int _lin_Z, int _quad_X, int _quad_Y, int _quad_Z, int _X_Y, int _X_Z, int _Y_Z) {
+	public KT3D setDriftOption(int _lin_X, int _lin_Y, int _lin_Z, int _quad_X, int _quad_Y, int _quad_Z,
+			int _X_Y, int _X_Z, int _Y_Z) {
 		idrif[0] = _lin_X; idrif[1] = _lin_Y; idrif[2] = _lin_Z;
 		idrif[3] = _quad_X; idrif[4] = _quad_Y; idrif[5] = _quad_Z;
 		idrif[6] = _X_Y; idrif[7] = _X_Z; idrif[8] = _Y_Z;
@@ -715,7 +728,8 @@ public class KT3D {
 			}
 		}
 	}
-	private double[] setSingleAxisHoleEffect(double[] pre_vario, double azimuth, double dip, double roll, double h_max, double h_min, double h_vert) {
+	private double[] setSingleAxisHoleEffect(double[] pre_vario, double azimuth, double dip, double roll,
+			double h_max, double h_min, double h_vert) {
 		//calc cross section of ellipsoid (previous varigoram) and plane (perpendicular to he-axis)
 		// vecX... is vector of ellipsoid, S... scale matrix, R... rotation matrix
 		// vecN... is unit-vector of plane normal
@@ -1040,7 +1054,7 @@ public class KT3D {
 		//double[] superblock_grid = new double[9]; // replace n[xyz]sup, [xyz]mnsup, [xyz]sizsup
 		//nisb = DataHelper.setsupr(nx, xmn, xsiz, ny, ymn, ysiz, nz, zmn, zsiz, x, y, z, vr, tmp,
 		//		nsec, ve, dh, sec3, maxSupBlckX, maxSupBlckY, maxSupBlckZ, nisb, superblock_grid);
-		KdTree tree = new KdTree();
+//		KdTree tree = new KdTree();
 		tree.build(false, false, x,y,z);
 //		System.out.println("[DEBUG]");
 //		FormatHelper.printTable(20, x,y,z,vr,tmp);
@@ -1430,7 +1444,9 @@ public class KT3D {
 					int tryNumOctants = numOctants;
 					while(tryNumOctants>0) {
 						actualUsedOctants = tryNumOctants;
-						int[] supres = tree.getIndexOfNClosestPointsTo(ndmin, ndmax, numOctants, rotmat[MAXNST], false, false, xloc, yloc, zloc); //use redefined maximum search distance
+						int[] supres = tree.getIndexOfNClosestPointsTo(ndmin, ndmax, numOctants,
+								rotmat[MAXNST], false, false,
+								xloc, yloc, zloc); //use redefined maximum search distance
 						nclose = supres[0]; //TODO
 						//int infoct = supres[1];
 	
@@ -1688,7 +1704,10 @@ public class KT3D {
 				            	String str_a = "";
 				            	for(int j=is; j<ie; j++) str_a += " "+FormatHelper.nf(a[j],7,4);
 				            	bw.append("    r("+FormatHelper.nf(i+1,2)+")= "+FormatHelper.nf(r[i],7,4)+"  a="+str_a+"\n");
-				            	System.out.println("    r("+FormatHelper.nf(i+1,2)+")= "+FormatHelper.nf(r[i],7,4)+"  a="+str_a);
+				            	String str_v = "";
+				            	if(i<n_accepted) str_v += FormatHelper.nf(vra[i], 7,4);
+				            	System.out.println("    r("+FormatHelper.nf(i+1,2)+")= "+FormatHelper.nf(r[i],7,4)+
+				            						"  a="+str_a+"  v="+str_v);
 				            }
 				            bw.flush();
 						}catch(IOException io_e) {
@@ -1806,8 +1825,8 @@ public class KT3D {
 		}
 	}
 	private void writeEstimatedData(int _index, double _est, double _estv, int _n_accepted) {
-		estimates[0][_index] = _est;
-		estimates[1][_index] = _estv;
+		estimates[0][_index] = _est==Constants.FILL_VALUE_D ? Double.NaN : _est;
+		estimates[1][_index] = _estv==Constants.FILL_VALUE_D ? Double.NaN : _estv;
 		estimates[2][_index] = _n_accepted;
 	}
 	private void writeEstimatedData(int _index, double _est, double _estv, int _n_accepted,
@@ -1816,8 +1835,8 @@ public class KT3D {
 		estimates[1][_index] = _yloc;
 		estimates[2][_index] = _zloc;
 		estimates[3][_index] = __true_;
-		estimates[4][_index] = _est;
-		estimates[5][_index] = _estv;
+		estimates[4][_index] = _est==Constants.FILL_VALUE_D ? Double.NaN : _est;
+		estimates[5][_index] = _estv==Constants.FILL_VALUE_D ? Double.NaN : _estv;
 		estimates[6][_index] = _err;
 		estimates[7][_index] = _n_accepted;
 	}

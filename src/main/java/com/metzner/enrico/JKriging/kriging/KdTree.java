@@ -22,13 +22,21 @@ public class KdTree {
 	private double[][] identity_matrix;
 	private int debug_level;
 	private String debug_entry;
+	private DataPointValidater validater;
 	
 	public KdTree() {
+		this(new DataPointValidater() {
+			@Override
+			public boolean validate(int datapoint_index) { return true; }
+		});
+	}
+	public KdTree(DataPointValidater dpvalidater) {
 		root = null;
 		dimensions = 0;
 		progress = 0d;
 		identity_matrix = new double[0][0];
 		debug_level = 0;
+		validater = dpvalidater;
 	}
 	
 	public void build(boolean _polar, boolean _degree, double[]... coords) {
@@ -52,7 +60,9 @@ public class KdTree {
 		int npoints = coords[0].length;
 		//(_polar?1:0) make a conversion from 2d spherical coordinates lat and lon to 3d kartesian coordinates possible
 		// + 1 is required for indexing, so the index gets ordered parallel to the positions later in build-subroutine
-		double[][] internalCoords = new double[dimensions + (_polar ? 1 : 0) + 1][coords[0].length];
+		int internDimensions = dimensions + 1;
+		if(_polar) internDimensions += 1;
+		double[][] internalCoords = new double[internDimensions][coords[0].length];
 		for(int c=0; c<dimensions; c++) {
 			int cc = c + (_polar && c>=2 ? 1 : 0);
 			for(int p=0; p<npoints; p++) {
@@ -68,7 +78,7 @@ public class KdTree {
 				internalCoords[2][p] = Math.sin(lat);
 			}
 		}
-		dimensions = internalCoords.length-1; //index column should not be part of later space transformation
+		dimensions = internDimensions-1; //index column should not be part of later space transformation
 		for(int p=0; p<npoints; p++) internalCoords[dimensions][p] = p + 0.1d;
 		
 		root = build(internalCoords, 0, npoints-1, 0);
@@ -102,6 +112,9 @@ public class KdTree {
 	
 	public void setDebugLevel(int level) {
 		debug_level = Math.max(0, Math.min(3, level));
+	}
+	public void setValidater(DataPointValidater dpvalidater) {
+		validater = dpvalidater;
 	}
 	public void open(String sourcePath) {
 		try {
@@ -165,20 +178,41 @@ public class KdTree {
 			res += "\n";
 		return res;
 	}
+	public void clear() {
+		root = null;
+		dimensions = 0;
+		progress = 0d;
+		identity_matrix = new double[0][0];
+		debug_level = 0;
+	}
+	
+	
 	
 	public int getIndexOfClosestPointTo(boolean use_polar_coordinates, boolean is_in_degree, double... coords) {
-		return getIndexOfNClosestPointsTo(1, 1, 1, Double.POSITIVE_INFINITY, use_polar_coordinates, is_in_degree, coords)[1];
+		return getIndexOfNClosestPointsTo(1, 1, 1,
+				Double.POSITIVE_INFINITY, use_polar_coordinates, is_in_degree, coords)[1];
 	}
-	public int[] getIndexOfNClosestPointsTo(int min_points, int max_points, int minOcts, boolean use_polar_coordinates, boolean is_in_degree, double... coords) {
-		return getIndexOfNClosestPointsTo(min_points, max_points, minOcts, Double.POSITIVE_INFINITY, identity_matrix, use_polar_coordinates, is_in_degree, coords);
+	public int[] getIndexOfNClosestPointsTo(int min_points, int max_points, int minOcts,
+			boolean use_polar_coordinates,boolean is_in_degree, double... coords) {
+		return getIndexOfNClosestPointsTo(min_points, max_points, minOcts,
+				Double.POSITIVE_INFINITY, identity_matrix,
+				use_polar_coordinates, is_in_degree, coords);
 	}
-	public int[] getIndexOfNClosestPointsTo(int min_points, int max_points, int minOcts, double maximum_distance, boolean use_polar_coordinates, boolean is_in_degree, double... coords) {
-		return getIndexOfNClosestPointsTo(min_points, max_points, minOcts, maximum_distance, identity_matrix, use_polar_coordinates, is_in_degree, coords);
+	public int[] getIndexOfNClosestPointsTo(int min_points, int max_points, int minOcts,
+			double maximum_distance, boolean use_polar_coordinates, boolean is_in_degree, double... coords) {
+		return getIndexOfNClosestPointsTo(min_points, max_points, minOcts,
+				maximum_distance, identity_matrix,
+				use_polar_coordinates, is_in_degree, coords);
 	}
-	public int[] getIndexOfNClosestPointsTo(int min_points, int max_points, int minOcts, double[][] rotation_matrix, boolean use_polar_coordinates, boolean is_in_degree, double... coords) {
-		return getIndexOfNClosestPointsTo(min_points, max_points, minOcts, Double.POSITIVE_INFINITY, rotation_matrix, use_polar_coordinates, is_in_degree, coords);
+	public int[] getIndexOfNClosestPointsTo(int min_points, int max_points, int minOcts,
+			double[][] rotation_matrix, boolean use_polar_coordinates, boolean is_in_degree, double... coords) {
+		return getIndexOfNClosestPointsTo(min_points, max_points, minOcts,
+				Double.POSITIVE_INFINITY, rotation_matrix,
+				use_polar_coordinates, is_in_degree, coords);
 	}
-	public int[] getIndexOfNClosestPointsTo(int min_points, int max_points, int minOcts, double maximum_distance, double[][] rotation_matrix, boolean use_polar_coordinates, boolean is_in_degree, double... coords) {
+	public int[] getIndexOfNClosestPointsTo(int min_points, int max_points, int minOcts,
+			double maximum_distance, double[][] rotation_matrix, boolean use_polar_coordinates,
+			boolean is_in_degree, double... coords) {
 		//System.out.println("[KDTREE] Search for Indices of N points:\n"+
 		//                   "            N = "+number_of_points); //TODO DEBUG remove
 		debug_entry = " nothing\n";
@@ -244,7 +278,11 @@ public class KdTree {
 			//System.out.println("                -- min-dist = "+minimum_distance);
 			KdTreeNode closest = null;
 			try {
-				closest = closestNode(pivot, indices, exOctants, pivot, max_dist_squared, rotation_matrix, transposed_inverse_rotation_matrix, root, 0);
+				closest = closestNode(pivot,
+						indices, exOctants,
+						pivot, max_dist_squared,
+						rotation_matrix, transposed_inverse_rotation_matrix,
+						root, 0);
 			} catch(ArrayIndexOutOfBoundsException aioobe) {
 				aioobe.printStackTrace();
 				System.err.println();
@@ -265,7 +303,11 @@ public class KdTree {
 	}
 	
 	
-	private KdTreeNode closestNode(double[] _pivot, int[] nodesToExclude, int[] octantsToExclode, double[] centerOfOctants, double max_sqr_dist, double[][] rotmat, double[][] trpinvrotmat, KdTreeNode current_branch, int axis) {
+	private KdTreeNode closestNode(double[] _pivot,
+			int[] nodesToExclude, int[] octantsToExclode,
+			double[] centerOfOctants, double max_sqr_dist,
+			double[][] rotmat, double[][] trpinvrotmat,
+			KdTreeNode current_branch, int axis) {
 		if(current_branch == null) return null;
 		if(debug_level>2)
 			debug_entry = printFirstEntries(current_branch, 1, "");
@@ -283,9 +325,18 @@ public class KdTree {
 		
 		KdTreeNode best = closer_node(
 					_pivot,
-					closestNode(_pivot, nodesToExclude, octantsToExclode, centerOfOctants, max_sqr_dist, rotmat, trpinvrotmat, next_branch, (axis+1)%_pivot.length),
+					closestNode(_pivot,
+							nodesToExclude, octantsToExclode,
+							centerOfOctants, max_sqr_dist,
+							rotmat, trpinvrotmat,
+							next_branch, (axis+1)%_pivot.length),
 					current_branch,
-					nodesToExclude, octantsToExclode, centerOfOctants, max_sqr_dist, rotmat);
+					nodesToExclude, octantsToExclode,
+					centerOfOctants, max_sqr_dist,
+					rotmat);
+		if(best!=null)
+			if(!validater.validate(best.getIndex()))
+					best = null;
 		double dist = max_sqr_dist;
 		if(best!=null) {
 			dist = MathHelper.sqdistKD(_pivot, best.getPosition(), rotmat);
@@ -313,13 +364,21 @@ public class KdTree {
 		if ( planedist < dist )
 			best = closer_node(
 					_pivot,
-					closestNode(_pivot, nodesToExclude, octantsToExclode, centerOfOctants, max_sqr_dist, rotmat, trpinvrotmat, opp_branch, (axis+1)%_pivot.length),
+					closestNode(_pivot,
+							nodesToExclude, octantsToExclode,
+							centerOfOctants, max_sqr_dist,
+							rotmat, trpinvrotmat,
+							opp_branch, (axis+1)%_pivot.length),
 					best,
-					nodesToExclude, octantsToExclode, centerOfOctants, max_sqr_dist, rotmat);
+					nodesToExclude, octantsToExclode,
+					centerOfOctants, max_sqr_dist,
+					rotmat);
 		
 		return best;
 	}
-	private KdTreeNode closer_node(double[] piv, KdTreeNode p1, KdTreeNode p2, int[] excluded_nodes, int[] exclude_octants, double[] octant_center, double maximum_squared_distance, double[][] rotation_matrix) {
+	private KdTreeNode closer_node(double[] piv, KdTreeNode p1, KdTreeNode p2,
+			int[] excluded_nodes, int[] exclude_octants, double[] octant_center,
+			double maximum_squared_distance, double[][] rotation_matrix) {
 		if(p2==null) return p1;
 		if(p1==null) return p2;
 		double[] p1p = p1.getPosition();

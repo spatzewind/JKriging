@@ -105,6 +105,18 @@ public class MathHelper {
 	    }
 	    return res;
 	}
+	public static double[][] emult(double[][] matLeft, double[][] matRight) {
+	    int rlen = matLeft.length;
+	    int clen = matLeft[0].length;
+	    if(rlen!=matRight.length || clen!=matRight[0].length)
+	        throw new RuntimeException("matrices aren't elementwise multipliable, found m["+
+	                                   rlen+"x"+clen+"] * m["+matRight.length+"x"+matRight[0].length+"]");
+	    double[][] res = new double[rlen][clen];
+	    for(int r=0; r<rlen; r++)
+	        for(int c=0; c<clen; c++)
+	            res[r][c] += matLeft[r][c] * matRight[r][c];
+	    return res;
+	}
 	/**
 	 * calculate the product of row-vector from left with a column-vector from right
 	 * @param vecLeft  double array representing a row-vector
