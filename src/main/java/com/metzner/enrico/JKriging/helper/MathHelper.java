@@ -25,6 +25,13 @@ public class MathHelper {
 				id[j][i] = (j==i ? 1d : 0d);
 		return id;
 	}
+	public static double[][] nanMatrix(int dimension) {
+		double[][] id = new double[dimension][dimension];
+		for(int j=0; j<dimension; j++)
+			for(int i=0; i<dimension; i++)
+				id[j][i] = Double.NaN;
+		return id;
+	}
 	public static boolean isSymmetric(double[][] mat) {
 		if(mat.length!=mat[0].length) return false;
 		for(int j=1; j<mat.length; j++)
@@ -290,7 +297,7 @@ public class MathHelper {
 					res[c][k] = t;
 				}
 			if(Math.abs(cmat[c][c])<1.0e-32d)
-				return null;
+				return nanMatrix(mlen);
 			for(int r=c+1; r<mlen; r++) {
 				double f = -cmat[r][c] / cmat[c][c];
 				for(int k=0; k<mlen; k++) {
@@ -353,7 +360,7 @@ public class MathHelper {
 		if(mat[0].length!=dim) {
 			System.err.println("Cannot calculate eigenvalues of a non-square matrix!");
 			DataHelper.printStackTrace(System.err);
-			return null;
+			return nanMatrix(dim);
 		}
 		if(dim==1) {
 			//case 1x1 matrix -> constant equation -> constant
@@ -923,12 +930,12 @@ public class MathHelper {
 		if(mat[0].length!=dim) {
 			System.err.println("Cannot calculate Householder matrix of a non-square matrix!");
 			DataHelper.printStackTrace(System.err);
-			return null;
+			return nanMatrix(dim);
 		}
 		if(_column+_nOffdia>=dim) {
 			System.err.println("Cannot calculate "+(_column+1)+"th householder matrix with "+_nOffdia+" offdiagonals for a "+dim+"x"+dim+" matrix!");
 			DataHelper.printStackTrace(System.err);
-			return null;
+			return nanMatrix(dim);
 		}
 		double[][] hm = new double[dim][dim];
 		double[] v = new double[dim];
@@ -956,12 +963,12 @@ public class MathHelper {
 		if(mat[0].length!=dim) {
 			System.err.println("Cannot calculate Householder matrix of a non-square matrix!");
 			DataHelper.printStackTrace(System.err);
-			return null;
+			return nanMatrix(dim);
 		}
 		if(_column+_nOffdia>=dim) {
 			System.err.println("Cannot calculate "+(_column+1)+"th householder matrix with "+_nOffdia+" offdiagonals for a "+dim+"x"+dim+" matrix!");
 			DataHelper.printStackTrace(System.err);
-			return null;
+			return nanMatrix(dim);
 		}
 		double[][] hm = new double[dim][dim];
 		double[] v = new double[dim];

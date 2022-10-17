@@ -37,11 +37,11 @@ import ucar.nc2.write.NetcdfFormatWriter;
 //@SuppressWarnings("deprecation")
 public class DataFrame {
 
-	private int datalength;
-	private DataType default_data_type;
-	private String[] titles;
-	private DataType[] types;
-	private double[] dimension;
+	protected int datalength;
+	protected DataType default_data_type;
+	protected String[] titles;
+	protected DataType[] types;
+	protected double[] dimension;
 	private double[][] minmax_mean_sill;
 	private String dimension_name;
 	private Map<String, boolean[]> bool_column;
@@ -52,6 +52,7 @@ public class DataFrame {
 	private Map<String, float[]>   float_column;
 	private Map<String, double[]>  double_column;
 	private Map<String, String[]>  string_column;
+	protected Map<String, Object>  struct_column;
 	private Map<String, String>    attribs_dim;
 
 
@@ -70,11 +71,12 @@ public class DataFrame {
 		float_column =  new HashMap<>();
 		double_column = new HashMap<>();
 		string_column = new HashMap<>();
+		struct_column = new HashMap<>();
 		dimension = new double[0];
 		dimension_name = "";
 		attribs_dim = new HashMap<>();
 	}
-
+	
 
 
 
@@ -327,6 +329,50 @@ public class DataFrame {
 	public void renameVariable(String _old_name, String _new_name) {
 		renameVariable(getVariableID(_old_name), _new_name);
 	}
+	public void setVariableContent(int _var_id, boolean[] new_bools) throws ArrayIndexOutOfBoundsException {
+		int ovi = _var_id - Constants.FIRST_IDX;
+		if(ovi<0 || ovi>=titles.length) {
+			System.err.println("Can not find and set variable with ID "+_var_id+"!");
+			return;
+		}
+		if(new_bools.length!=datalength)
+			throw new ArrayIndexOutOfBoundsException("Size of array does not match size of dataframe-content. Expected shape ("+datalength+").");
+		
+		String vn = getVarname(ovi);
+		DataType ovt = types[ovi];
+		switch(types[ovi]) {
+			case BOOL: boolean[] arro = bool_column.get(vn);
+				for(int x=0; x<datalength; x++) arro[x] = new_bools[x];
+				break;
+			case BYTE: byte[] arrb = byte_column.get(vn);
+				for(int x=0; x<datalength; x++) arrb[x] = new_bools[x]?(byte)1:(byte)0;
+				break;
+			case SHORT: short[] arrs = short_column.get(vn);
+				for(int x=0; x<datalength; x++) arrs[x] = new_bools[x]?(short)1:(short)0;
+				break;
+			case INT: int[] arri = int_column.get(vn);
+				for(int x=0; x<datalength; x++) arri[x] = new_bools[x]?1:0;
+				break;
+			case LONG: long[] arrl = long_column.get(vn);
+				for(int x=0; x<datalength; x++) arrl[x] = new_bools[x]?1L:0L;
+				break;
+			case FLOAT: float[] arrf = float_column.get(vn);
+				for(int x=0; x<datalength; x++) arrf[x] = new_bools[x]?1f:0f;
+				break;
+			case DOUBLE: double[] arrd = double_column.get(vn);
+				for(int x=0; x<datalength; x++) arrd[x] = new_bools[x]?1d:0d;
+				break;
+			case STRING: String[] arrt = string_column.get(vn);
+				for(int x=0; x<datalength; x++) arrt[x] = new_bools[x]?"true":"false";
+				break;
+			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from bool-array.");
+				return;
+		}
+		recalcStats(_var_id);
+	}
+	public void setVariableContent(String _var_name, boolean[] new_bools) {
+		setVariableContent(getVariableID(_var_name), new_bools);
+	}
 	public void setVariableContent(int _var_id, byte[] new_bytes) throws ArrayIndexOutOfBoundsException {
 		int ovi = _var_id - Constants.FIRST_IDX;
 		if(ovi<0 || ovi>=titles.length) {
@@ -358,10 +404,9 @@ public class DataFrame {
 				for(int x=0; x<datalength; x++) arrd[x] = new_bytes[x];
 				break;
 			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from byte-array.");
-				break;
+				return;
 		}
-		byte[] inax = StdAnalysis.minmax(new_bytes); byte[] mv = StdAnalysis.mean_var(new_bytes);
-		set_stdana(_var_id, inax[0],inax[1],mv[0],mv[1]);
+		recalcStats(_var_id);
 	}
 	public void setVariableContent(String _var_name, byte[] new_bytes) {
 		setVariableContent(getVariableID(_var_name), new_bytes);
@@ -396,8 +441,7 @@ public class DataFrame {
 			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from short-array.");
 				break;
 		}
-		short[] inax = StdAnalysis.minmax(new_shorts); short[] mv = StdAnalysis.mean_var(new_shorts);
-		set_stdana(_var_id, inax[0],inax[1],mv[0],mv[1]);
+		recalcStats(_var_id);
 	}
 	public void setVariableContent(String _var_name, short[] new_shorts) {
 		setVariableContent(getVariableID(_var_name), new_shorts);
@@ -427,10 +471,9 @@ public class DataFrame {
 				for(int x=0; x<datalength; x++) arrd[x] = new_ints[x];
 				break;
 			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from int-array.");
-				break;
+				return;
 		}
-		int[] inax = StdAnalysis.minmax(new_ints); int[] mv = StdAnalysis.mean_var(new_ints);
-		set_stdana(_var_id, inax[0],inax[1],mv[0],mv[1]);
+		recalcStats(_var_id);
 	}
 	public void setVariableContent(String _var_name, int[] new_ints) {
 		setVariableContent(getVariableID(_var_name), new_ints);
@@ -457,10 +500,9 @@ public class DataFrame {
 				for(int x=0; x<datalength; x++) arrd[x] = new_longs[x];
 				break;
 			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from long-array.");
-				break;
+				return;
 		}
-		long[] inax = StdAnalysis.minmax(new_longs); long[] mv = StdAnalysis.mean_var(new_longs);
-		set_stdana(_var_id, inax[0],inax[1],mv[0],mv[1]);
+		recalcStats(_var_id);
 	}
 	public void setVariableContent(String _var_name, long[] new_longs) {
 		setVariableContent(getVariableID(_var_name), new_longs);
@@ -484,10 +526,9 @@ public class DataFrame {
 				for(int x=0; x<datalength; x++) arrd[x] = new_floats[x];
 				break;
 			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from float-array.");
-				break;
+				return;
 		}
-		float[] inax = StdAnalysis.minmax(new_floats); float[] mv = StdAnalysis.mean_var(new_floats);
-		set_stdana(_var_id, inax[0],inax[1],mv[0],mv[1]);
+		recalcStats(_var_id);
 	}
 	public void setVariableContent(String _var_name, float[] new_floats) {
 		setVariableContent(getVariableID(_var_name), new_floats);
@@ -511,14 +552,59 @@ public class DataFrame {
 				for(int x=0; x<datalength; x++) arrd[x] = new_doubles[x];
 				break;
 			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from double-array.");
-				break;
+				return;
 		}
-		double[] inax = StdAnalysis.minmax(new_doubles); double[] mv = StdAnalysis.mean_var(new_doubles);
-		set_stdana(_var_id, inax[0],inax[1],mv[0],mv[1]);
+		recalcStats(_var_id);
 	}
 	public void setVariableContent(String _var_name, double[] new_doubles) {
 		setVariableContent(getVariableID(_var_name), new_doubles);
 	}
+	public void setVariableContent(int _var_id, String[] new_strings) throws ArrayIndexOutOfBoundsException {
+		int ovi = _var_id - Constants.FIRST_IDX;
+		if(ovi<0 || ovi>=titles.length) {
+			System.err.println("Can not find and set variable with ID "+_var_id+"!");
+			return;
+		}
+		if(new_strings.length!=datalength)
+			throw new ArrayIndexOutOfBoundsException("Size of array does not match size of dataframe-content. Expected shape ("+datalength+").");
+		
+		String vn = getVarname(ovi);
+		DataType ovt = types[ovi];
+		switch(types[ovi]) {
+			case BOOL: boolean[] arro = bool_column.get(vn);
+				for(int x=0; x<datalength; x++) arro[x] = set_boolean(new_strings[x]);
+				break;
+			case BYTE: byte[] arrb = byte_column.get(vn);
+				for(int x=0; x<datalength; x++) arrb[x] = set_byte(new_strings[x]);
+				break;
+			case SHORT: short[] arrs = short_column.get(vn);
+				for(int x=0; x<datalength; x++) arrs[x] = set_short(new_strings[x]);
+				break;
+			case INT: int[] arri = int_column.get(vn);
+				for(int x=0; x<datalength; x++) arri[x] = set_int(new_strings[x]);
+				break;
+			case LONG: long[] arrl = long_column.get(vn);
+				for(int x=0; x<datalength; x++) arrl[x] = set_long(new_strings[x]);
+				break;
+			case FLOAT: float[] arrf = float_column.get(vn);
+				for(int x=0; x<datalength; x++) arrf[x] = set_float(new_strings[x]);
+				break;
+			case DOUBLE: double[] arrd = double_column.get(vn);
+				for(int x=0; x<datalength; x++) arrd[x] = set_double(new_strings[x]);
+				break;
+			case STRING: String[] arrt = string_column.get(vn);
+				for(int x=0; x<datalength; x++) arrt[x] = new_strings[x];
+				break;
+			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from string-array.");
+				return;
+		}
+		recalcStats(_var_id);
+	}
+	public void setVariableContent(String _var_name, String[] new_strings) {
+		setVariableContent(getVariableID(_var_name), new_strings);
+	}
+	
+	
 	public void removeVariable(int _var_id) {
 		int vi = _var_id - Constants.FIRST_IDX;
 		if(vi<0 || vi>=titles.length) {
@@ -562,6 +648,10 @@ public class DataFrame {
 		}
 		if(types[vi]==_new_type) {
 			System.out.println("NOTE: variable is already of type "+_new_type.name()+", so no change is made!");
+			return;
+		}
+		if(_new_type==DataType.STRUCT) {
+			System.out.println("Cannot convert to \"struct\".");
 			return;
 		}
 		String variable_name = titles[vi];
@@ -673,13 +763,13 @@ public class DataFrame {
 					case BOOL: System.out.println("WARNING: convert float to bool result to true except NaN!");
 						boolean[] oarr = new boolean[float_arr.length]; for(int i=0; i<oarr.length; i++) oarr[i] = !Float.isNaN(float_arr[i]);
 						removeVariable(variable_name); addColumn(variable_name, oarr); break;
-					case BYTE: byte[] barr = new byte[float_arr.length]; for(int i=0; i<barr.length; i++) barr[i] = (byte) float_arr[i];
+					case BYTE: byte[] barr = new byte[float_arr.length]; for(int i=0; i<barr.length; i++) barr[i] = (byte) ((int)(float_arr[i]+0.5f)-(float_arr[i]<0f?1:0));
 						removeVariable(variable_name); addColumn(variable_name, barr); break;
-					case SHORT: short[] rarr = new short[float_arr.length]; for(int i=0; i<rarr.length; i++) rarr[i] = (short) float_arr[i];
+					case SHORT: short[] rarr = new short[float_arr.length]; for(int i=0; i<rarr.length; i++) rarr[i] = (short) ((short)(float_arr[i]+0.5f) - (float_arr[i]<0f?1:0));
 						removeVariable(variable_name); addColumn(variable_name, rarr); break;
-					case INT: int[] iarr = new int[float_arr.length]; for(int i=0; i<iarr.length; i++) iarr[i] = (int) float_arr[i];
+					case INT: int[] iarr = new int[float_arr.length]; for(int i=0; i<iarr.length; i++) iarr[i] = (int) (float_arr[i]+0.5f) - (float_arr[i]<0f ? 1 : 0);
 						removeVariable(variable_name); addColumn(variable_name, iarr); break;
-					case LONG: long[] larr = new long[float_arr.length]; for(int i=0; i<larr.length; i++) larr[i] = (long) float_arr[i];
+					case LONG: long[] larr = new long[float_arr.length]; for(int i=0; i<larr.length; i++) larr[i] = (long) (float_arr[i]+0.5f) - (float_arr[i]<0f ? 1 : 0);
 						removeVariable(variable_name); addColumn(variable_name, larr); break;
 					case FLOAT: float[] farr = new float[float_arr.length]; for(int i=0; i<farr.length; i++) farr[i] = float_arr[i];
 						removeVariable(variable_name); addColumn(variable_name, farr); break;
@@ -696,13 +786,13 @@ public class DataFrame {
 					case BOOL: System.out.println("WARNING: convert double to bool result to true except NaN!");
 						boolean[] oarr = new boolean[double_arr.length]; for(int i=0; i<oarr.length; i++) oarr[i] = !Double.isNaN(double_arr[i]);
 						removeVariable(variable_name); addColumn(variable_name, oarr); break;
-					case BYTE: byte[] barr = new byte[double_arr.length]; for(int i=0; i<barr.length; i++) barr[i] = (byte) double_arr[i];
+					case BYTE: byte[] barr = new byte[double_arr.length]; for(int i=0; i<barr.length; i++) barr[i] = (byte) ((int)(double_arr[i]+0.5d) - (double_arr[i]<0d?1:0));
 						removeVariable(variable_name); addColumn(variable_name, barr); break;
-					case SHORT: short[] rarr = new short[double_arr.length]; for(int i=0; i<rarr.length; i++) rarr[i] = (short) double_arr[i];
+					case SHORT: short[] rarr = new short[double_arr.length]; for(int i=0; i<rarr.length; i++) rarr[i] = (short) ((int)(double_arr[i]+0.5d) - (double_arr[i]<0d?1:0));
 						removeVariable(variable_name); addColumn(variable_name, rarr); break;
-					case INT: int[] iarr = new int[double_arr.length]; for(int i=0; i<iarr.length; i++) iarr[i] = (int) double_arr[i];
+					case INT: int[] iarr = new int[double_arr.length]; for(int i=0; i<iarr.length; i++) iarr[i] = (int) (double_arr[i]+0.5d) - (double_arr[i]<0d ? 1 : 0);
 						removeVariable(variable_name); addColumn(variable_name, iarr); break;
-					case LONG: long[] larr = new long[double_arr.length]; for(int i=0; i<larr.length; i++) larr[i] = (long) double_arr[i];
+					case LONG: long[] larr = new long[double_arr.length]; for(int i=0; i<larr.length; i++) larr[i] = (long) (double_arr[i]+0.5d) - (double_arr[i]<0d?1L:0L);
 						removeVariable(variable_name); addColumn(variable_name, larr); break;
 					case FLOAT: float[] farr = new float[double_arr.length]; for(int i=0; i<farr.length; i++) farr[i] = (float) double_arr[i];
 						removeVariable(variable_name); addColumn(variable_name, farr); break;
@@ -734,6 +824,9 @@ public class DataFrame {
 						System.err.println("An unexpected error occured, cannot change type of variable!");
 						DataHelper.printStackTrace(System.err); break;
 				} break;
+			case STRUCT:
+				System.err.println("\"struct\" cannot be converted, subclass DataFrame for own usage!");
+				DataHelper.printStackTrace(System.err); break;
 			default:
 				System.err.println("An unexpected error occured, can not determin the datatype of the variable!");
 				DataHelper.printStackTrace(System.err); break;
@@ -741,24 +834,57 @@ public class DataFrame {
 	}
 
 	public DataFrame concat(DataFrame df2) {
-		boolean haveDifferentKeys = false;
-		for(String tit: df2.allVariableNames())
-			if(this.hasVariable(tit)) {
-				if(this.getVariableType(tit)!=df2.getVariableType(tit)) {
-					haveDifferentKeys = true; break;
+		if(getNumberOfDatapoints()==0) {
+			for(String var: df2.allVariableNames()) {
+				switch(df2.getVariableType(var)) {
+					case BOOL:   addColumn(var, (boolean[])df2.getArray(var)); break;
+					case BYTE:   addColumn(var, (byte[])df2.getArray(var)); break;
+					case SHORT:  addColumn(var, (short[])df2.getArray(var)); break;
+					case INT:    addColumn(var, (int[])df2.getArray(var)); break;
+					case LONG:   addColumn(var, (long[])df2.getArray(var)); break;
+					case FLOAT:  addColumn(var, (float[])df2.getArray(var)); break;
+					case DOUBLE: addColumn(var, (double[])df2.getArray(var)); break;
+					case STRING: addColumn(var, (String[])df2.getArray(var)); break;
+					case STRUCT: System.out.println("Cannot concat struct Variable \""+var+"\" will not be included."); break;
 				}
-			} else {
-				haveDifferentKeys = true; break;
 			}
-		if(!haveDifferentKeys)
-			for(String tit: this.titles)
-				if(!df2.hasVariable(tit)) {
-					haveDifferentKeys = true; break;
-				}
-		if(haveDifferentKeys) {
-			System.err.println("DataFrames have not the same variables, can't concat them!");
+			setDimension(df2.getDimensionValues(), df2.getDimensionName());
+			setDimensionsAttributes(df2.getDimensionAttributes());
 			return this;
 		}
+		
+		
+		boolean haveDifferentKeys = false;
+		boolean haveDifferentTypes = false;
+		for(String tit: df2.allVariableNames()) {
+			if(this.hasVariable(tit)) {
+				if(this.getVariableType(tit)!=df2.getVariableType(tit)) {
+					System.err.println("Variable \""+tit+"\" is of has different types in dataframe: "+
+							this.getVariableType(tit).name()+" <> "+df2.getVariableType(tit).name());
+					DataHelper.printStackTrace(System.err);
+					haveDifferentTypes = true; break;
+				}
+			} else {
+				System.err.println("Found var \""+tit+"\" in second DataFrame, but not in first one.");
+				DataHelper.printStackTrace(System.err);
+				haveDifferentKeys = true; break;
+			}
+		}
+		if(haveDifferentTypes)
+			return this;
+		
+		if(!haveDifferentKeys) {
+			for(String tit: this.titles) {
+				if(!df2.hasVariable(tit)) {
+					System.err.println("Found var \""+tit+"\" in first DataFrame, but not in second one.");
+					DataHelper.printStackTrace(System.err);
+					haveDifferentKeys = true; break;
+				}
+			}
+		}
+		if(haveDifferentKeys)
+			return this;
+		
 		for(int iv=0; iv<titles.length; iv++) {
 			int ivf = iv+Constants.FIRST_IDX;
 			switch(types[iv]) {
@@ -770,14 +896,19 @@ public class DataFrame {
 				case FLOAT:  float_column.put( titles[iv], DataHelper.concat_float_array( (float[])this.getArray(ivf),   (float[])df2.getArray(titles[iv])));   break;
 				case DOUBLE: double_column.put(titles[iv], DataHelper.concat_double_array((double[])this.getArray(ivf),  (double[])df2.getArray(titles[iv])));  break;
 				case STRING: string_column.put(titles[iv], DataHelper.concat_string_array((String[])this.getArray(ivf),  (String[])df2.getArray(titles[iv])));  break;
+				case STRUCT: System.out.println("Cannot concat struct Variable \""+titles[iv]+"\" will not be included."); break;
 				default: break;
 			}
 		}
-		datalength += df2.datalength;
 		dimension = DataHelper.concat_double_array(dimension, df2.getDimensionValues());
 //		if(!dimension_name.equals(df2.getDimensionName()))
 //			System.err.println("[WARNING] dimension names of DataFrames are not the same! Got \""+dimension_name+"\" and \""+df2.getDimensionName()+"\"");
 		attribs_dim.putAll(df2.getDimensionAttributes());
+		for(int iv=titles.length-1; iv>=0; iv--) {
+			if(types[iv]==DataType.STRUCT)
+				removeVariable(iv);
+		}
+		datalength += df2.datalength;
 		return this;
 	}
 	public DataFrame2D toDataFrame2D(String dim_one_name, String dim_two_name) {
@@ -842,6 +973,7 @@ public class DataFrame {
 						else { List<Integer> l = new ArrayList<>(); l.add(dl); to_fill.put(e, l); }
 					} break;
 				case STRING:
+				case STRUCT:
 				default:
 					String dim_name = (dim==0 ? dim_one_name : dim_two_name);
 					System.err.println("DataType \""+dt.name()+"\" of variable \""+dim_name+"\" is not supported as dimension!");
@@ -931,6 +1063,9 @@ public class DataFrame {
 						if(indices[v][u]==-1) { string_arr[v][u] = ""; } else { string_arr[v][u] = sarr[indices[v][u]]; }
 					res2D.addColumn(titles[iv], string_arr);
 					break;
+				case STRUCT:
+					System.out.println("Cannot reshape struct variable \""+titles[iv]+"\".");
+					break;
 				default:
 					System.err.println("An unexpected datatype occure!");
 					return new DataFrame2D();
@@ -1005,8 +1140,9 @@ public class DataFrame {
 						if ( to_fill.containsKey(e) ) { to_fill.get(e).add(dl); }
 						else { List<Integer> l = new ArrayList<>(); l.add(dl); to_fill.put(e, l); }
 					} break;
-				default:
 				case STRING:
+				case STRUCT:
+				default:
 					String dim_name = (dim==0 ? dim_one_name : dim==1 ? dim_two_name : dim_three_name);
 					System.err.println("DataType \""+dt.name()+"\" of variable \""+dim_name+"\" is not supported as dimension!");
 					return res3D;
@@ -1101,6 +1237,9 @@ public class DataFrame {
 						if(indices[w][v][u]==-1) { string_arr[w][v][u] = ""; } else { string_arr[w][v][u] = sarr[indices[w][v][u]]; }
 					res3D.addColumn(titles[iv], string_arr);
 					break;
+				case STRUCT:
+					System.out.println("Cannot reshape struct variable \""+titles[iv]+"\".");
+					break;
 				default:
 					System.err.println("An unexpected datatype occure!");
 					return new DataFrame3D();
@@ -1167,6 +1306,33 @@ public class DataFrame {
 		out.setDimension(newDim, dimension_name);
 		out.setDimensionsAttributes(attribs_dim);
 		return out;
+	}
+	public DataFrame reorderByIndexList(int[] ids) {
+		for(String var: allVariableNames()) {
+			switch (getVariableType(var)) {
+				case BOOL: boolean[] newBool = new boolean[datalength], oldBool = (boolean[])getArray(var);
+					for (int c = 0; c < datalength; ) { newBool[c] = oldBool[ids[c]]; c++; } setVariableContent(var, newBool); break;
+				case BYTE: byte[] newByte = new byte[datalength], oldByte = (byte[])getArray(var);
+					for (int c = 0; c < datalength; ) { newByte[c] = oldByte[ids[c]]; c++; }  setVariableContent(var, newByte); break;
+				case SHORT: short[] newShort = new short[datalength], oldShort = (short[])getArray(var);
+					for (int c = 0; c < datalength; ) { newShort[c] = oldShort[ids[c]]; c++; } setVariableContent(var, newShort); break;
+				case INT: int[] newInt = new int[datalength], oldInt = (int[])getArray(var);
+					for (int c = 0; c < datalength; ) { newInt[c] = oldInt[ids[c]]; c++; } setVariableContent(var, newInt); break;
+				case LONG: long[] newLong = new long[datalength], oldLong = (long[])getArray(var);
+					for (int c = 0; c < datalength; ) { newLong[c] = oldLong[ids[c]]; c++; } setVariableContent(var, newLong); break;
+				case FLOAT: float[] newFloat = new float[datalength], oldFloat = (float[])getArray(var);
+					for (int c = 0; c < datalength; ) { newFloat[c] = oldFloat[ids[c]]; c++; } setVariableContent(var, newFloat); break;
+				case DOUBLE: double[] newDouble = new double[datalength], oldDouble = (double[])getArray(var);
+					for (int c = 0; c < datalength; ) { newDouble[c] = oldDouble[ids[c]]; c++; } setVariableContent(var, newDouble); break;
+				case STRING: String[] newString = new String[datalength], oldString = (String[])getArray(var);
+					for (int c = 0; c < datalength; ) { newString[c] = oldString[ids[c]]; c++; } setVariableContent(var, newString); break;
+				default:
+					System.err.println("Unknown datatype, cannot extract and mask variable <" + var + "> from DataFrame."); break; }
+		}
+		double[] newDim = new double[datalength];
+		for(int c=0; c<datalength; c++) newDim[c] = dimension[ids[c]];
+		setDimension(newDim);
+		return this;
 	}
 
 	public void setDefaultDatatype(String _type) { default_data_type = DataType.getDataType(_type, default_data_type); }
@@ -1613,6 +1779,9 @@ public class DataFrame {
 					break;
 //					case CHAR:
 //					case STRING:
+				case STRUCTURE:
+					readStructs(var, variable[vi], a, datalength, ind, indexindex, indices, dimids);
+					break;
 				default:
 					System.out.println("WARNING: could not add variable \""+variable[vi]+"\": unsupported data type!");
 					break;
@@ -1620,6 +1789,9 @@ public class DataFrame {
 		}
 		//createDimension();
 		return this;
+	}
+	public void readStructs(Variable var, String varname, Array a, int datalength, Index ind, int[] indexindex, int[][] indices, int[] dimids) {
+		System.out.println("WARNING: could not add variable \""+varname+"\": unsupported data type!");
 	}
 	/**
 	 * Write all content of this dataframe to a netcdf file
@@ -1816,6 +1988,7 @@ public class DataFrame {
 		return DataHelper.strings_index(titles, _var_name)+Constants.FIRST_IDX;
 	}
 	public boolean hasVariable(String _var_name) {
+		if(_var_name==null) return false;
 		return DataHelper.strings_index(titles, _var_name)>=0;
 	}
 	public String[] allVariableNames() { return titles; }
@@ -1871,6 +2044,7 @@ public class DataFrame {
 			case FLOAT:  return float_column.get(_col_name);
 			case DOUBLE: return double_column.get(_col_name);
 			case STRING: return string_column.get(_col_name);
+			case STRUCT: return struct_column.get(_col_name);
 			default: return null;
 		}
 	}
@@ -1932,6 +2106,10 @@ public class DataFrame {
 					String[] scol = string_column.get(titles[c]);
 					for(int d=0; d+2<dlen; d++) out[c][d+2] = " "+scol[d]+" ";
 					break;
+				case STRUCT:
+					out[c][1] = " struct ";
+					for(int d=0; d+2<dlen; d++) out[c][d+2] = " ??? ";
+					break;
 			}
 		}
 		boolean[] coldivs = new boolean[clen-1];
@@ -1944,159 +2122,167 @@ public class DataFrame {
 	public void printfull() { head(0); }
 	public void describe() {
 		int clen = titles.length;
-		String[][] out = new String[9][clen+1];
-		out[0][0] = " "; out[1][0] = " Count "; out[2][0] = " mean ";
-		out[3][0] = " std "; out[4][0] = " min "; out[5][0] = " 25% ";
-		out[6][0] = " 50% "; out[7][0] = " 75% "; out[8][0] = " max ";
+		String[][] out = new String[10][clen+1];
+		out[0][0] = " "; out[1][0] = " Type "; out[2][0] = " Count "; out[3][0] = " mean ";
+		out[4][0] = " std "; out[5][0] = " min "; out[6][0] = " 25% ";
+		out[7][0] = " 50% "; out[8][0] = " 75% "; out[9][0] = " max ";
 		for(int c=0; c<clen; c++) {
 			int cc = c+1;
 			out[0][cc] = titles[c]+" ";
+			out[1][cc] = types[c].name();
 			switch(types[c]) {
 				case BOOL:
-					out[2][cc] = " "; out[3][cc] = " "; //mean and std
-					out[4][cc] = " "; out[5][cc] = " "; out[6][cc] = " "; out[7][cc] = " "; out[8][cc] = " ";
+					out[3][cc] = " "; out[4][cc] = " "; //mean and std
+					out[5][cc] = " "; out[6][cc] = " "; out[7][cc] = " "; out[8][cc] = " "; out[9][cc] = " ";
 					int olen = 0;
 					for(boolean o: bool_column.get(titles[c])) if(o) { olen++; }
-					out[1][cc] = " "+olen+" ";
+					out[2][cc] = " "+olen+" ";
 					break;
 				case BYTE: double bmean = 0d;
-					out[2][cc] = " NaN "; out[3][cc] = " NaN "; //mean and std
-					out[4][cc] = " NaN "; out[5][cc] = " --- "; out[6][cc] = " --- "; out[7][cc] = " --- "; out[8][cc] = " NaN ";
+					out[3][cc] = " NaN "; out[4][cc] = " NaN "; //mean and std
+					out[5][cc] = " NaN "; out[6][cc] = " --- "; out[7][cc] = " --- "; out[8][cc] = " --- "; out[9][cc] = " NaN ";
 					List<Byte> bytes = new ArrayList<Byte>();
 					for(byte b: byte_column.get(titles[c])) if(Byte.MIN_VALUE!=b) { bmean += b; bytes.add(b); }
 					int blen = bytes.size();
-					out[1][cc] = " "+blen+" ";
+					out[2][cc] = " "+blen+" ";
 					if(blen==0) break;
 					bmean /= blen;
 					byte bmean_b = (byte) ( (int)(bmean+0.5d) - (bmean<-0.5d ? 1 : 0) );
-					out[2][cc] = " "+bmean_b+" ";
+					out[3][cc] = " "+bmean_b+" ";
 					double bstd = 0d;
 					for(byte b: bytes) bstd += (b-bmean)*(b-bmean);
 					if(blen==1) { bstd = Byte.MIN_VALUE; } else { bstd /= (blen-1); }
 					byte bstd_b = (byte) (bstd+0.99d);
-					out[3][cc] = " "+bstd_b+" ";
+					out[4][cc] = " "+bstd_b+" ";
 					Byte[] a_b = bytes.toArray(new Byte[0]);
 					Arrays.sort(a_b);
-					out[4][cc] = " "+a_b[0]+" "; out[8][cc] = " "+a_b[blen-1]+" ";
-					if(blen>3) out[5][cc] = " "+a_b[blen/4]+" "; if(blen>1) out[6][cc] = " "+a_b[(blen+1)/2]+" "; if(blen>3) out[7][cc] = " "+a_b[(3*blen)/4]+" ";
+					out[5][cc] = " "+a_b[0]+" "; out[9][cc] = " "+a_b[blen-1]+" ";
+					if(blen>3) out[6][cc] = " "+a_b[blen/4]+" "; if(blen>1) out[7][cc] = " "+a_b[(blen+1)/2]+" "; if(blen>3) out[8][cc] = " "+a_b[(3*blen)/4]+" ";
 					break;
 				case INT: double imean = 0d;
-					out[2][cc] = " NaN "; out[3][cc] = " NaN "; //mean and std
-					out[4][cc] = " NaN "; out[5][cc] = " --- "; out[6][cc] = " --- "; out[7][cc] = " --- "; out[8][cc] = " NaN ";
+					out[3][cc] = " NaN "; out[4][cc] = " NaN "; //mean and std
+					out[5][cc] = " NaN "; out[6][cc] = " --- "; out[7][cc] = " --- "; out[8][cc] = " --- "; out[9][cc] = " NaN ";
 					List<Integer> integers = new ArrayList<Integer>();
 					for(int i: int_column.get(titles[c])) if(Integer.MIN_VALUE!=i) { imean += i; integers.add(i); }
 					int ilen = integers.size();
-					out[1][cc] = " "+ilen+" ";
+					out[2][cc] = " "+ilen+" ";
 					if(ilen==0) break;
 					imean /= ilen;
 					int imean_i = (int) (imean+0.5d) - (imean<-0.5d ? 1 : 0);
-					out[2][cc] = " "+imean_i+" ";
+					out[3][cc] = " "+imean_i+" ";
 					double istd = 0d;
 					for(int i: integers) istd += (i-imean)*(i-imean);
 					if(ilen==1) { istd = Integer.MIN_VALUE;; } else { istd /= (ilen-1); }
 					int istd_i = (int) (istd+0.99d);
-					out[3][cc] = " "+istd_i+" ";
+					out[4][cc] = " "+istd_i+" ";
 					Integer[] a_i = integers.toArray(new Integer[0]);
 					Arrays.sort(a_i);
-					out[4][cc] = " "+a_i[0]+" "; out[8][cc] = " "+a_i[ilen-1]+" ";
-					if(ilen>3) out[5][cc] = " "+a_i[ilen/4]+" "; if(ilen>1) out[6][cc] = " "+a_i[(ilen+1)/2]+" "; if(ilen>3) out[7][cc] = " "+a_i[(3*ilen)/4]+" ";
+					out[5][cc] = " "+a_i[0]+" "; out[9][cc] = " "+a_i[ilen-1]+" ";
+					if(ilen>3) out[6][cc] = " "+a_i[ilen/4]+" "; if(ilen>1) out[7][cc] = " "+a_i[(ilen+1)/2]+" "; if(ilen>3) out[8][cc] = " "+a_i[(3*ilen)/4]+" ";
 					break;
 				case SHORT: double rmean = 0d;
-					out[2][cc] = " NaN "; out[3][cc] = " NaN "; //mean and std
-					out[4][cc] = " NaN "; out[5][cc] = " --- "; out[6][cc] = " --- "; out[7][cc] = " --- "; out[8][cc] = " NaN ";
+					out[3][cc] = " NaN "; out[4][cc] = " NaN "; //mean and std
+					out[5][cc] = " NaN "; out[6][cc] = " --- "; out[7][cc] = " --- "; out[8][cc] = " --- "; out[9][cc] = " NaN ";
 					List<Short> shorts = new ArrayList<Short>();
 					for(short r: short_column.get(titles[c])) if(Short.MIN_VALUE!=r) { rmean += r; shorts.add(r); }
 					int rlen = shorts.size();
-					out[1][cc] = " "+rlen+" ";
+					out[2][cc] = " "+rlen+" ";
 					if(rlen==0) break;
 					rmean /= rlen;
 					short rmean_s = (short) ( (int)(rmean+0.5d) - (rmean<-0.5d ? 1 : 0) );
-					out[2][cc] = " "+rmean_s+" ";
+					out[3][cc] = " "+rmean_s+" ";
 					double rstd = 0d;
 					for(short r: shorts) rstd += (r-rmean)*(r-rmean);
 					if(rlen==1) { rstd = Integer.MIN_VALUE;; } else { rstd /= (rlen-1); }
 					short rstd_s = (short) (rstd+0.99d);
-					out[3][cc] = " "+rstd_s+" ";
+					out[4][cc] = " "+rstd_s+" ";
 					Short[] a_r = shorts.toArray(new Short[0]);
 					Arrays.sort(a_r);
-					out[4][cc] = " "+a_r[0]+" "; out[8][cc] = " "+a_r[rlen-1]+" ";
-					if(rlen>3) out[5][cc] = " "+a_r[rlen/4]+" "; if(rlen>1) out[6][cc] = " "+a_r[(rlen+1)/2]+" "; if(rlen>3) out[7][cc] = " "+a_r[(3*rlen)/4]+" ";
+					out[5][cc] = " "+a_r[0]+" "; out[9][cc] = " "+a_r[rlen-1]+" ";
+					if(rlen>3) out[6][cc] = " "+a_r[rlen/4]+" "; if(rlen>1) out[7][cc] = " "+a_r[(rlen+1)/2]+" "; if(rlen>3) out[8][cc] = " "+a_r[(3*rlen)/4]+" ";
 					break;
 				case LONG: double lmean = 0d;
-					out[2][cc] = " NaN "; out[3][cc] = " NaN "; //mean and std
-					out[4][cc] = " NaN "; out[5][cc] = " --- "; out[6][cc] = " --- "; out[7][cc] = " --- "; out[8][cc] = " NaN ";
+					out[3][cc] = " NaN "; out[4][cc] = " NaN "; //mean and std
+					out[5][cc] = " NaN "; out[6][cc] = " --- "; out[7][cc] = " --- "; out[8][cc] = " --- "; out[9][cc] = " NaN ";
 					List<Long> longs = new ArrayList<Long>();
 					for(long l: long_column.get(titles[c])) if(Long.MIN_VALUE!=l) { lmean += l; longs.add(l); }
 					int llen = longs.size();
-					out[1][cc] = " "+llen+" ";
+					out[2][cc] = " "+llen+" ";
 					if(llen==0) break;
 					lmean /= llen;
 					long imean_l = (long) (lmean+0.5d) - (lmean<-0.5d ? 1L : 0L);
-					out[2][cc] = " "+imean_l+" ";
+					out[3][cc] = " "+imean_l+" ";
 					double lstd = 0d;
 					for(long l: longs) lstd += (l-lmean)*(l-lmean);
 					if(llen==1) { lstd = Long.MIN_VALUE; } else { lstd /= (llen-1); }
 					long istd_l = (long) (lstd+0.99d);
-					out[3][cc] = " "+istd_l+" ";
+					out[4][cc] = " "+istd_l+" ";
 					Long[] a_l = longs.toArray(new Long[0]);
 					Arrays.sort(a_l);
-					out[4][cc] = " "+a_l[0]+" "; out[8][cc] = " "+a_l[llen-1]+" ";
-					if(llen>3) out[5][cc] = " "+a_l[llen/4]+" "; if(llen>1) out[6][cc] = " "+a_l[(llen+1)/2]+" "; if(llen>3) out[7][cc] = " "+a_l[(3*llen)/4]+" ";
+					out[5][cc] = " "+a_l[0]+" "; out[9][cc] = " "+a_l[llen-1]+" ";
+					if(llen>3) out[6][cc] = " "+a_l[llen/4]+" "; if(llen>1) out[7][cc] = " "+a_l[(llen+1)/2]+" "; if(llen>3) out[8][cc] = " "+a_l[(3*llen)/4]+" ";
 					break;
 				case FLOAT: float fmean = 0f;
-					out[2][cc] = " NaN "; out[3][cc] = " NaN "; //mean and std
-					out[4][cc] = " NaN "; out[5][cc] = " NaN "; out[6][cc] = " NaN "; out[7][cc] = " NaN "; out[8][cc] = " NaN ";
+					out[3][cc] = " NaN "; out[4][cc] = " NaN "; //mean and std
+					out[5][cc] = " NaN "; out[6][cc] = " NaN "; out[7][cc] = " NaN "; out[8][cc] = " NaN "; out[9][cc] = " NaN ";
 					List<Float> floats = new ArrayList<Float>();
 					for(float f: float_column.get(titles[c])) if(!Float.isNaN(f)) { fmean += f; floats.add(f); }
 					int flen = floats.size();
-					out[1][cc] = " "+flen+" ";
+					out[2][cc] = " "+flen+" ";
 					if(flen==0) break;
 					fmean /= flen;
-					out[2][cc] = " "+fmean+" ";
+					out[3][cc] = " "+fmean+" ";
 					float fstd = 0f;
 					for(float f: floats) fstd += (f-fmean)*(f-fmean);
 					if(flen==1) { fstd = Float.POSITIVE_INFINITY; } else { fstd /= (flen-1f); }
-					out[3][cc] = " "+fstd+" ";
+					out[4][cc] = " "+fstd+" ";
 					Float[] a_f = floats.toArray(new Float[0]);
 					Arrays.sort(a_f);
-					out[4][cc] = " "+a_f[0]+" "; out[8][cc] = " "+a_f[flen-1]+" ";
-					if(flen>3) out[5][cc] = " "+a_f[flen/4]+" "; if(flen>1) out[6][cc] = " "+a_f[(flen+1)/2]+" "; if(flen>3) out[7][cc] = " "+a_f[(3*flen)/4]+" ";
+					out[5][cc] = " "+a_f[0]+" "; out[9][cc] = " "+a_f[flen-1]+" ";
+					if(flen>3) out[6][cc] = " "+a_f[flen/4]+" "; if(flen>1) out[7][cc] = " "+a_f[(flen+1)/2]+" "; if(flen>3) out[8][cc] = " "+a_f[(3*flen)/4]+" ";
 					break;
 				case DOUBLE: double dmean = 0d;
-					out[2][cc] = " NaN "; out[3][cc] = " NaN "; //mean and std
-					out[4][cc] = " NaN "; out[5][cc] = " NaN "; out[6][cc] = " NaN "; out[7][cc] = " NaN "; out[8][cc] = " NaN ";
+					out[3][cc] = " NaN "; out[4][cc] = " NaN "; //mean and std
+					out[5][cc] = " NaN "; out[6][cc] = " NaN "; out[7][cc] = " NaN "; out[8][cc] = " NaN "; out[9][cc] = " NaN ";
 					List<Double> doubles = new ArrayList<Double>();
 					for(double d: double_column.get(titles[c])) if(!Double.isNaN(d)) { dmean += d; doubles.add(d); }
 					int dlen = doubles.size();
-					out[1][cc] = " "+dlen+" ";
+					out[2][cc] = " "+dlen+" ";
 					if(dlen==0) break;
 					dmean /= dlen;
-					out[2][cc] = " "+dmean+" ";
+					out[3][cc] = " "+dmean+" ";
 					double dstd = 0d;
 					for(double d: doubles) dstd += (d-dmean)*(d-dmean);
 					if(dlen==1) { dstd = Double.POSITIVE_INFINITY; } else { dstd /= (dlen-1d); }
-					out[3][cc] = " "+dstd+" ";
+					out[4][cc] = " "+dstd+" ";
 					Double[] a_d = doubles.toArray(new Double[0]);
 					Arrays.sort(a_d);
-					out[4][cc] = " "+a_d[0]+" "; out[8][cc] = " "+a_d[dlen-1]+" ";
-					if(dlen>3) out[5][cc] = " "+a_d[dlen/4]+" "; if(dlen>1) out[6][cc] = " "+a_d[(dlen+1)/2]+" "; if(dlen>3) out[7][cc] = " "+a_d[(3*dlen)/4]+" ";
+					out[5][cc] = " "+a_d[0]+" "; out[9][cc] = " "+a_d[dlen-1]+" ";
+					if(dlen>3) out[6][cc] = " "+a_d[dlen/4]+" "; if(dlen>1) out[7][cc] = " "+a_d[(dlen+1)/2]+" "; if(dlen>3) out[8][cc] = " "+a_d[(3*dlen)/4]+" ";
 					break;
 				case STRING:
-					out[2][cc] = " "; out[3][cc] = " "; //mean and std
-					out[4][cc] = " "; out[5][cc] = " "; out[6][cc] = " "; out[7][cc] = " "; out[8][cc] = " ";
+					out[3][cc] = " "; out[4][cc] = " "; //mean and std
+					out[5][cc] = " "; out[6][cc] = " "; out[7][cc] = " "; out[8][cc] = " "; out[9][cc] = " ";
 					int slen = 0;
 					for(String s: string_column.get(titles[c])) if(!(s.equals(" ") || s.length()<1)) { slen++; }
-					out[1][cc] = " "+slen+" ";
+					out[2][cc] = " "+slen+" ";
 					break;
 				default:
-					out[2][cc] = " "; out[3][cc] = " "; //mean and std
-					out[4][cc] = " "; out[5][cc] = " "; out[6][cc] = " "; out[7][cc] = " "; out[8][cc] = " ";
+					out[3][cc] = " "; out[4][cc] = " "; //mean and std
+					out[5][cc] = " "; out[6][cc] = " "; out[7][cc] = " "; out[8][cc] = " "; out[9][cc] = " ";
 			}
 		}
-		boolean[] coldivs = {true,false,false,false,false,false,false,false};
+		boolean[] coldivs = {true,false,false,false,false,false,false,false,false};
 		boolean[] rowdivs = new boolean[clen]; rowdivs[0] = true;
 		for(int r=1; r<clen; r++) rowdivs[r] = false;
 		FormatHelper.printTable(out, coldivs, rowdivs, true);
+	}
+	public void describeDimension() {
+		String dimstr = "dim "+Constants.FIRST_IDX+": ";
+		double[] rng = StdAnalysis.minmax(dimension);
+		double[] std = StdAnalysis.mean_var(dimension);
+		dimstr += "{"+rng[0]+" ... "+rng[1]+", mean="+std[0]+", var="+std[1]+"}";
+		System.out.println(dimstr);
 	}
 	public void clear() {
 		titles = null;
@@ -2174,7 +2360,7 @@ public class DataFrame {
 		try { d = Double.parseDouble(_s); } catch(NumberFormatException nfe) { d = Double.NaN; }
 		return d;
 	}
-	private void add_variable(String _name, DataType _type) {
+	protected void add_variable(String _name, DataType _type) {
 		String[] old_tit = new String[titles.length];
 		DataType[] old_tp = new DataType[types.length];
 		for(int t=0; t<titles.length; t++) { old_tit[t] = titles[t]; old_tp[t] = types[t]; }
@@ -2184,7 +2370,7 @@ public class DataFrame {
 		titles[old_tit.length] = _name;
 		types[old_tp.length] = _type;
 	}
-	private void add_stdana(double _min, double _max, double _mean, double _sill) {
+	protected void add_stdana(double _min, double _max, double _mean, double _sill) {
 		int dlen = minmax_mean_sill[0].length;
 		double[][] old_mas = new double[dlen][4];
 		for(int t=0; t<dlen; t++) {
@@ -2201,11 +2387,42 @@ public class DataFrame {
 		minmax_mean_sill[2][dlen] = _mean;
 		minmax_mean_sill[3][dlen] = _sill;
 	}
-	private void set_stdana(int _var_id, double _min, double _max, double _mean, double _sill) {
+	protected void set_stdana(int _var_id, double _min, double _max, double _mean, double _sill) {
 		minmax_mean_sill[0][_var_id] = _min;
 		minmax_mean_sill[1][_var_id] = _max;
 		minmax_mean_sill[2][_var_id] = _mean;
 		minmax_mean_sill[3][_var_id] = _sill;
+	}
+	protected void recalcStats(int _var_id) {
+		String vn = getVarname(_var_id);
+		switch(getVariableType(_var_id)) {
+			case BYTE: byte[] arrb = byte_column.get(vn);
+				byte[] inaxb = StdAnalysis.minmax(arrb); byte[] mvb = StdAnalysis.mean_var(arrb);
+				set_stdana(_var_id, inaxb[0], inaxb[1], mvb[0], mvb[1]);
+				break;
+			case SHORT: short[] arrs = short_column.get(vn);
+				short[] inaxs = StdAnalysis.minmax(arrs); short[] mvs = StdAnalysis.mean_var(arrs);
+				set_stdana(_var_id, inaxs[0], inaxs[1], mvs[0], mvs[1]);
+				break;
+			case INT: int[] arri = int_column.get(vn);
+				int[] inaxi = StdAnalysis.minmax(arri); int[] mvi = StdAnalysis.mean_var(arri);
+				set_stdana(_var_id, inaxi[0], inaxi[1], mvi[0], mvi[1]);
+				break;
+			case LONG: long[] arrl = long_column.get(vn);
+				long[] inaxl = StdAnalysis.minmax(arrl); long[] mvl = StdAnalysis.mean_var(arrl);
+				set_stdana(_var_id, inaxl[0], inaxl[1], mvl[0], mvl[1]);
+				break;
+			case FLOAT: float[] arrf = float_column.get(vn);
+				float[] inaxf = StdAnalysis.minmax(arrf); float[] mvf = StdAnalysis.mean_var(arrf);
+				set_stdana(_var_id, inaxf[0], inaxf[1], mvf[0], mvf[1]);
+				break;
+			case DOUBLE: double[] arrd = double_column.get(vn);
+				double[] inaxd = StdAnalysis.minmax(arrd); double[] mvd = StdAnalysis.mean_var(arrd);
+				set_stdana(_var_id, inaxd[0], inaxd[1], mvd[0], mvd[1]);
+				break;
+			default:
+				break;
+		}
 	}
 	private String createTitle(String[] _all_titles) {
 		int tnum = 1; int clen = _all_titles.length;
@@ -2221,7 +2438,7 @@ public class DataFrame {
 		}
 		return test_title;
 	}
-	private void createDimension() {
+	protected void createDimension() {
 		dimension = new double[datalength];
 		for(int n=0; n<datalength; n++)
 			dimension[n] = n+1d;
@@ -2297,6 +2514,12 @@ public class DataFrame {
 						df!=null ? df.getVariableType(iv+Constants.FIRST_IDX) :
 						df2!=null ? df2.getVariableType(iv+Constants.FIRST_IDX) :
 							df3.getVariableType(iv+Constants.FIRST_IDX);
+				if(vartype==DataType.STRUCT) {
+					if(df!=null)  df.defineStructure(builder, nam, dims, variables, dimensions);
+					if(df2!=null) df2.defineStructure(builder, nam, dims, variables, dimensions);
+					if(df3!=null) df3.defineStructure(builder, nam, dims, variables, dimensions);
+					continue;
+				}
 				switch (vartype) {
 					case BOOL:   dataType = ucar.ma2.DataType.BOOLEAN; break;
 					case BYTE:   dataType = ucar.ma2.DataType.BYTE; break;
@@ -2379,6 +2602,7 @@ public class DataFrame {
 					case STRING: ArrayString.D1 string_arr = new ArrayString.D1(datalength); String[] string_source = (String[])df.getArray(varname);
 						for(int dl = 0; dl < datalength; ) { string_arr.set(dl, string_source[dl]); dl++; }
 						writer.write(writer.findVariable(varname), string_arr); break;
+					case STRUCT: df.writeStruct(writer, varname); break;
 					default: break;
 				}
 				variables.put(varname, "full");
@@ -2435,6 +2659,9 @@ public class DataFrame {
 						for(int dl0 = 0; dl0 < datalength[0]; dl0++) for(int dl1 = 0; dl1 < datalength[1]; dl1++)
 							string_arr.set(dl0, dl1, string_source[dl0][dl1]);
 						writer.write(writer.findVariable(varname), string_arr); break;
+					case STRUCT:
+						df2.writeStruct(writer, varname);
+						break;
 					default: break;
 				}
 				variables.put(varname, "full");
@@ -2493,6 +2720,9 @@ public class DataFrame {
 						for(int dl0 = 0; dl0 < datalength[0]; dl0++) for(int dl1 = 0; dl1 < datalength[1]; dl1++) for(int dl2=0; dl2<datalength[2]; dl2++)
 							string_arr.set(dl0, dl1, dl2, string_source[dl0][dl1][dl2]);
 						writer.write(writer.findVariable(varname), string_arr); break;
+					case STRUCT:
+						df3.writeStruct(writer, varname);
+						break;
 					default: break;
 				}
 				variables.put(varname, "full");
@@ -2500,10 +2730,37 @@ public class DataFrame {
 		}
 	}
 	
+	/**
+	 * struct variables not supported natively by JKriging<br>
+	 * this method has to be override, when use<br><br>
+	 * implement what size specific struct variables use.
+	 * 
+	 * @param builder    used builder
+	 * @param varname    name of the struct variable
+	 * @param dims       map of collected dimensions
+	 * @param variables  map of collected variables 
+	 * @param dimensions used dimension(s) for this struct variable
+	 */
+	protected void defineStructure(NetcdfFormatWriter.Builder builder, String varname, List<Dimension> dims, Map<String,String> variables, Map<String,Dimension> dimensions) {
+		System.out.println("struct variables aren't supported.");
+		//do nothing
+	}
+	/**
+	 * struct variables not supported natively by JKriging<br>
+	 * this method has to be overridden, when use<br><br>
+	 * implement how struct variables are written to netcdf files
+	 * 
+	 * @param writer  the netcdf writer
+	 * @param varname name of the struct variable
+	 */
+	protected void writeStruct(NetcdfFormatWriter writer, String varname) {
+		System.out.println("Writing struct variable \""+varname+"\" is unsupported.");
+	}
+	
 	public enum DataType {
 		BOOL("bool"), BYTE("byte"), INT("int"), SHORT("short"), LONG("long"),
 		FLOAT("float"), DOUBLE("double"),
-		STRING("string");
+		STRING("string"), STRUCT("struct");
 		
 		private String name;
 		
@@ -2525,6 +2782,7 @@ public class DataFrame {
 			if(_t.equals("float")   || _t.equals("flt") || _t.equals("f")) return FLOAT;
 			if(_t.equals("double")  || _t.equals("dbl") || _t.equals("d")) return DOUBLE;
 			if(_t.equals("string")  || _t.equals("str") || _t.equals("s")) return STRING;
+			if(_t.equals("struct")  || _t.equals("stc")) return STRUCT;
 			return _default;
 		}
 	}

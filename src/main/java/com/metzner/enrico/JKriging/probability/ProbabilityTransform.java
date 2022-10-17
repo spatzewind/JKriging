@@ -14,9 +14,11 @@ import com.metzner.enrico.JKriging.helper.Interpolation;
 
 public class ProbabilityTransform {
 	
+	public static final int INTPOL_NONE       = 0;
 	public static final int INTPOL_LINEAR     = 1;
 	public static final int INTPOL_POWER      = 2;
 	public static final int INTPOL_HYPERBOLIC = 4;
+	public static final int INTPOL_CLAMP      = 9;
 
 	/**
 	 * Transform Univariate Data to Normal Scores
@@ -707,9 +709,9 @@ public class ProbabilityTransform {
 	 * @param lower_tail_power       parameter required for option lower_tail_intpol_type
 	 * @param upper_tail_power       parameter required for option upper_tail_intpol_type
 	 */
-	public static void back_nscore(DataFrame df, int variable_id, double[][] nscore_trnsf_table, String name_transformed,
+	public static int[] back_nscore(DataFrame df, int variable_id, double[][] nscore_trnsf_table, String name_transformed,
 			int lower_tail_intpol_type, int upper_tail_intpol_type, double lower_tail_power, double upper_tail_power) {
-		back_nscore(df, df.getVarname(variable_id), new double[] {-1.0e21d, 1.0e21d}, nscore_trnsf_table, name_transformed,
+		return back_nscore(df, df.getVarname(variable_id), new double[] {-1.0e21d, 1.0e21d}, nscore_trnsf_table, name_transformed,
 			    lower_tail_intpol_type, upper_tail_intpol_type, lower_tail_power, upper_tail_power);
 	}
 	/**
@@ -730,9 +732,9 @@ public class ProbabilityTransform {
 	 * @param lower_tail_power       parameter required for option lower_tail_intpol_type
 	 * @param upper_tail_power       parameter required for option upper_tail_intpol_type
 	 */
-	public static void back_nscore(DataFrame df, String variable, double[][] nscore_trnsf_table, String name_transformed,
+	public static int[] back_nscore(DataFrame df, String variable, double[][] nscore_trnsf_table, String name_transformed,
 			int lower_tail_intpol_type, int upper_tail_intpol_type, double lower_tail_power, double upper_tail_power) {
-		back_nscore(df, variable, new double[] {-1.0e21d, 1.0e21d}, nscore_trnsf_table, name_transformed,
+		return back_nscore(df, variable, new double[] {-1.0e21d, 1.0e21d}, nscore_trnsf_table, name_transformed,
 			    lower_tail_intpol_type, upper_tail_intpol_type, lower_tail_power, upper_tail_power);
 	}
 	/**
@@ -754,10 +756,10 @@ public class ProbabilityTransform {
 	 * @param lower_tail_power       parameter required for option lower_tail_intpol_type
 	 * @param upper_tail_power       parameter required for option upper_tail_intpol_type
 	 */
-	public static void back_nscore(DataFrame df, int variable_id, double[] trims,
+	public static int[] back_nscore(DataFrame df, int variable_id, double[] trims,
 			double[][] nscore_trnsf_table, String name_transformed,
 			int lower_tail_intpol_type, int upper_tail_intpol_type, double lower_tail_power, double upper_tail_power) {
-		back_nscore(df, df.getVarname(variable_id), trims, nscore_trnsf_table, name_transformed,
+		return back_nscore(df, df.getVarname(variable_id), trims, nscore_trnsf_table, name_transformed,
 				    lower_tail_intpol_type, upper_tail_intpol_type, lower_tail_power, upper_tail_power);
 	}
 	/**
@@ -779,137 +781,43 @@ public class ProbabilityTransform {
 	 * @param lower_tail_power       parameter required for option lower_tail_intpol_type
 	 * @param upper_tail_power       parameter required for option upper_tail_intpol_type
 	 */
-	public static void back_nscore(DataFrame df, String variable, double[] trims, double[][] nscore_trnsf_table, String name_transformed,
+	public static int[] back_nscore(DataFrame df, String variable, double[] trims, double[][] nscore_trnsf_table, String name_transformed,
 			int lower_tail_intpol_type, int upper_tail_intpol_type, double lower_tail_power, double upper_tail_power) {
-//        c-----------------------------------------------------------------------
-//        c
-//        c           Back Transform Univariate Data from Normal Scores
-//        c           *************************************************
-//        c
-//        c This subroutine backtransforms a standard normal deviate from a
-//        c specified back transform table and option for the tails of the
-//        c distribution.  Call once with "first" set to true then set to false
-//        c unless one of the options for the tail changes.
-//        c
-//        c
-//        c
-//        c INPUT VARIABLES:
-//        c
-//        c   vrgs             normal score value to be back transformed
-//        c   nt               number of values in the back transform tbale
-//        c   vr(nt)           original data values that were transformed
-//        c   vrg(nt)          the corresponding transformed values
-//        c   zmin,zmax        limits possibly used for linear or power model
-//        c   ltail            option to handle values less than vrg(1):
-//        c   ltpar            parameter required for option ltail
-//        c   utail            option to handle values greater than vrg(nt):
-//        c   utpar            parameter required for option utail
-//        c
-//        c
-//        c
-//        c-----------------------------------------------------------------------
-		if(df==null) {
-			System.err.println("Dataframe with input variables does not exist!");
-			return;
-		}
-		if(variable==null) {
-			System.err.println("Variable for normal score transform does not exist!");
-			return;
-		}
-		if(nscore_trnsf_table==null) {
-			System.err.println("Normal score transformation table does not exist!\n"+
-					           "    no back transformation done!");
-			return;
-		}
-		if(lower_tail_intpol_type!=1 && lower_tail_intpol_type!=2) {
-			System.err.println("For lower tail only interpolation types 1 and 2 possible!\n"+
-					           "    Found "+lower_tail_intpol_type+", so no back transformation performed!");
-			return;
-		}
-		if(upper_tail_intpol_type!=1 && upper_tail_intpol_type!=2 && upper_tail_intpol_type!=4) {
-			System.err.println("For upper tail only interpolation types 1,2 and 4 possible!\n"+
-					           "    Found "+upper_tail_intpol_type+", so no back transformation performed!");
-			return;
-		}
 		
+		int[] stats = { 0, 0, 0 };
+		
+		if(!check(df, variable, nscore_trnsf_table, trims,
+				lower_tail_intpol_type, upper_tail_intpol_type))
+			return stats;
 		
 		double[] val = (double[]) df.getArray(variable);
 		int nd = val.length;
 		double[] res = new double[nd];
-		double lambda;
+		double[] trnsfm = nscore_trnsf_table[1];
+		double[] origin  = nscore_trnsf_table[0];
 		
-		double[] vrg = nscore_trnsf_table[1];
-		double[] vr  = nscore_trnsf_table[0];
-		int btlen = vrg.length;
-		
-		if(upper_tail_intpol_type==4 && vr[btlen-1]<0d) {
-			System.err.println("ERROR can not use hyperbolic tail (intpol type 4) for upper tail with negative values! - see manual\n"+
-					           "    No back transformation performed!");
-			return;
-		}
-		if(trims[0]>vr[0]) {
-			System.err.println("ERROR zmin should be lower or equal than the first entry in the transformation table\n" + 
-					           "    zmin = "+trims[0]+" vr_first="+vr[0]+"\n"+
-					           "    No back transformation performed!");
-			return;
-		}
-		if(trims[1]<vr[btlen-1]) {
-			System.err.println("ERROR zmax should at higher or equal than the last entry in the transformation table\n" + 
-					           "    zmax = "+trims[1]+" vr_last="+vr[btlen-1]+"\n"+
-					           "    No back transformation performed!");
-			return;
-		}
-		
+		int cntBTF=0, cntOUT=0, cntNAN=0;
+		double minT = trnsfm[0], maxT = trnsfm[trnsfm.length-1];
 		for(int i=0; i<nd; i++) {
-//        i added by Enrico Metzner
-//        i check whether data is fill_value and continue or it can be transformed
-			if(val[i]==Constants.FILL_VALUE_D) {
-				res[i] = Constants.FILL_VALUE_D;
+			if(Double.isNaN(val[i])) {
+				cntNAN++;
+				res[i] = Double.NaN;
 				continue;
 			}
-//        c
-//        c Value in the lower tail?    1=linear, 2=power, (3 and 4 are invalid):
-//        c
-			double vrgs = val[i];
-			double backtr;
-			if(vrgs < vrg[0]) {
-				backtr = vr[0];
-				double cdflo  = Gaussian.cdf(vrg[0]);
-				double cdfbt  = Gaussian.cdf(vrgs);
-				if(lower_tail_intpol_type==1) {
-					backtr = Interpolation.powint(0.0,cdflo,trims[0],vr[0],cdfbt,1.0);
-				} else if(lower_tail_intpol_type==2) {
-					double cpow   = 1d / lower_tail_power;
-					backtr = Interpolation.powint(0.0,cdflo,trims[0],vr[0],cdfbt,cpow);
-				}
-//        c
-//        c Value in the upper tail?     1=linear, 2=power, 4=hyperbolic:
-//        c
-			} else if(vrgs >= vrg[btlen-1]) {
-				backtr = vr[btlen-1];
-				double cdfhi  = Gaussian.cdf(vrg[btlen-1]);
-				double cdfbt  = Gaussian.cdf(vrgs);
-				if(upper_tail_intpol_type==1) {
-					backtr = Interpolation.powint(cdfhi,1.0,vr[btlen-1],trims[1],cdfbt,1d);
-				} else if(upper_tail_intpol_type==2) {
-					double cpow   = 1d / upper_tail_power;
-					backtr = Interpolation.powint(cdfhi,1.0,vr[btlen-1],trims[1],cdfbt,cpow);
-				} else if(upper_tail_intpol_type==4) {
-					lambda = Math.pow(vr[btlen-1],upper_tail_power)*(1.0-Gaussian.cdf(vrg[btlen-1]));
-					backtr = Math.pow(lambda/(1.0-Gaussian.cdf(vrgs)),1d/upper_tail_power);
-				}
-//        c
-//        c Value within the transformation table:
-//        c
-			} else {
-				int p;
-				for(p=0; p<btlen-1; p++) if(vrgs<vrg[p+1]) break;
-				p = Math.max(0, Math.min(btlen-2,p));
-				backtr = Interpolation.powint(vrg[p],vrg[p+1],vr[p],vr[p+1],vrgs,1d);
-			}
-			res[i] = backtr;
+			if(val[i]<minT || val[i]>maxT)
+				cntOUT++;
+			else
+				cntBTF++;
+			res[i] = getBTF(val[i], trnsfm, origin, trims,
+					lower_tail_intpol_type, upper_tail_intpol_type,
+					lower_tail_power,         upper_tail_power);
 		}
+		stats[0] = cntBTF;
+		stats[1] = cntOUT;
+		stats[2] = cntNAN;
+		
 		df.addColumn(name_transformed, res);
+		return stats;
 	}
 
 	/**
@@ -930,9 +838,9 @@ public class ProbabilityTransform {
 	 * @param lower_tail_power       parameter required for option lower_tail_intpol_type
 	 * @param upper_tail_power       parameter required for option upper_tail_intpol_type
 	 */
-	public static void back_nscore(DataFrame2D df, int variable_id, int weights_id, double[][] nscore_trnsf_table, String name_transformed,
+	public static int[] back_nscore(DataFrame2D df, int variable_id, int weights_id, double[][] nscore_trnsf_table, String name_transformed,
 			int lower_tail_intpol_type, int upper_tail_intpol_type, double lower_tail_power, double upper_tail_power) {
-		back_nscore(df, df.getVarname(variable_id), new double[] {-1.0e21d, 1.0e21d}, nscore_trnsf_table, name_transformed,
+		return back_nscore(df, df.getVarname(variable_id), new double[] {-1.0e21d, 1.0e21d}, nscore_trnsf_table, name_transformed,
 			    lower_tail_intpol_type, upper_tail_intpol_type, lower_tail_power, upper_tail_power);
 	}
 	/**
@@ -953,9 +861,9 @@ public class ProbabilityTransform {
 	 * @param lower_tail_power       parameter required for option lower_tail_intpol_type
 	 * @param upper_tail_power       parameter required for option upper_tail_intpol_type
 	 */
-	public static void back_nscore(DataFrame2D df, String variable, String weight_variable, double[][] nscore_trnsf_table, String name_transformed,
+	public static int[] back_nscore(DataFrame2D df, String variable, String weight_variable, double[][] nscore_trnsf_table, String name_transformed,
 			int lower_tail_intpol_type, int upper_tail_intpol_type, double lower_tail_power, double upper_tail_power) {
-		back_nscore(df, variable, new double[] {-1.0e21d, 1.0e21d}, nscore_trnsf_table, name_transformed,
+		return back_nscore(df, variable, new double[] {-1.0e21d, 1.0e21d}, nscore_trnsf_table, name_transformed,
 			    lower_tail_intpol_type, upper_tail_intpol_type, lower_tail_power, upper_tail_power);
 	}
 	/**
@@ -977,10 +885,10 @@ public class ProbabilityTransform {
 	 * @param lower_tail_power       parameter required for option lower_tail_intpol_type
 	 * @param upper_tail_power       parameter required for option upper_tail_intpol_type
 	 */
-	public static void back_nscore(DataFrame2D df, int variable_id, int weights_id, double[] trims,
+	public static int[] back_nscore(DataFrame2D df, int variable_id, int weights_id, double[] trims,
 			double[][] nscore_trnsf_table, String name_transformed,
 			int lower_tail_intpol_type, int upper_tail_intpol_type, double lower_tail_power, double upper_tail_power) {
-		back_nscore(df, df.getVarname(variable_id), trims, nscore_trnsf_table, name_transformed,
+		return back_nscore(df, df.getVarname(variable_id), trims, nscore_trnsf_table, name_transformed,
 				    lower_tail_intpol_type, upper_tail_intpol_type, lower_tail_power, upper_tail_power);
 	}
 	/**
@@ -1002,110 +910,43 @@ public class ProbabilityTransform {
 	 * @param lower_tail_power       parameter required for option lower_tail_intpol_type
 	 * @param upper_tail_power       parameter required for option upper_tail_intpol_type
 	 */
-	public static void back_nscore(DataFrame2D df, String variable, double[] trims, double[][] nscore_trnsf_table, String name_transformed,
+	public static int[] back_nscore(DataFrame2D df, String variable, double[] trims, double[][] nscore_trnsf_table, String name_transformed,
 			int lower_tail_intpol_type, int upper_tail_intpol_type, double lower_tail_power, double upper_tail_power) {
-		if(df==null) {
-			System.err.println("Dataframe with input variables does not exist!");
-			return;
-		}
-		if(variable==null) {
-			System.err.println("Variable for normal score transform does not exist!");
-			return;
-		}
-		if(nscore_trnsf_table==null) {
-			System.err.println("Normal score transformation table does not exist!\n"+
-					           "    no back transformation done!");
-			return;
-		}
-		if(lower_tail_intpol_type!=1 && lower_tail_intpol_type!=2) {
-			System.err.println("For lower tail only interpolation types 1 and 2 possible!\n"+
-					           "    Found "+lower_tail_intpol_type+", so no back transformation performed!");
-			return;
-		}
-		if(upper_tail_intpol_type!=1 && upper_tail_intpol_type!=2 && upper_tail_intpol_type!=4) {
-			System.err.println("For upper tail only interpolation types 1,2 and 4 possible!\n"+
-					           "    Found "+upper_tail_intpol_type+", so no back transformation performed!");
-			return;
-		}
+		int[] stats = { 0, 0, 0 };
 		
+		if(!check(df, variable, nscore_trnsf_table, trims, lower_tail_intpol_type, upper_tail_intpol_type))
+			return stats;
 		
 		double[][] val = (double[][]) df.getArray(variable);
 		int[] nd = {val.length, val[0].length};
 		double[][] res = new double[nd[0]][nd[1]];
-		double lambda;
+		double[] trnsfm = nscore_trnsf_table[1];
+		double[] origin = nscore_trnsf_table[0];
 		
-		double[] vrg = nscore_trnsf_table[1];
-		double[] vr  = nscore_trnsf_table[0];
-		int btlen = vrg.length;
-		
-		if(upper_tail_intpol_type==4 && vr[btlen-1]<0d) {
-			System.err.println("ERROR can not use hyperbolic tail (intpol type 4) with negative values! - see manual\n"+
-					           "    No back transformation performed!");
-			return;
-		}
-		if(trims[0]>vr[0]) {
-			System.err.println("ERROR zmin should be no larger than the first entry in the transformation table\n" + 
-					           "    zmin = "+trims[0]+" vr_first="+vr[0]+"\n"+
-					           "    No back transformation performed!");
-			return;
-		}
-		if(trims[1]<vr[btlen-1]) {
-			System.err.println("ERROR zmax should be no less than the last entry in the transformation table\n" + 
-					           "    zmax = "+trims[1]+" vr_last="+vr[btlen-1]+"\n"+
-					           "    No back transformation performed!");
-			return;
-		}
-		
+		int cntBTF=0, cntOUT=0, cntNAN=0;
+		double minT = trnsfm[0], maxT = trnsfm[trnsfm.length-1];
 		for(int j=0; j<nd[0]; j++) for(int i=0; i<nd[1]; i++) {
 //	        i added by Enrico Metzner
 //	        i check whether data is fill_value and continue or it can be transformed
-			if(val[j][i]==Constants.FILL_VALUE_D) {
-				res[j][i] = Constants.FILL_VALUE_D;
+			if(Double.isNaN(val[j][i])) {
+				cntNAN++;
+				res[j][i] = Double.NaN;
 				continue;
 			}
-//        c
-//        c Value in the lower tail?    1=linear, 2=power, (3 and 4 are invalid):
-//        c
-			double vrgs = val[j][i];
-			double backtr;
-			if(vrgs < vrg[0]) {
-				backtr = vr[0];
-				double cdflo  = Gaussian.cdf(vrg[0]);
-				double cdfbt  = Gaussian.cdf(vrgs);
-				if(lower_tail_intpol_type==1) {
-					backtr = Interpolation.powint(0.0,cdflo,trims[0],vr[0],cdfbt,1.0);
-				} else if(lower_tail_intpol_type==2) {
-					double cpow   = 1d / lower_tail_power;
-					backtr = Interpolation.powint(0.0,cdflo,trims[0],vr[0],cdfbt,cpow);
-				}
-//        c
-//        c Value in the upper tail?     1=linear, 2=power, 4=hyperbolic:
-//        c
-			} else if(vrgs >= vrg[btlen-1]) {
-				backtr = vr[btlen-1];
-				double cdfhi  = Gaussian.cdf(vrg[btlen-1]);
-				double cdfbt  = Gaussian.cdf(vrgs);
-				if(upper_tail_intpol_type==1) {
-					backtr = Interpolation.powint(cdfhi,1.0,vr[btlen-1],trims[1],cdfbt,1d);
-				} else if(upper_tail_intpol_type==2) {
-					double cpow   = 1d / upper_tail_power;
-					backtr = Interpolation.powint(cdfhi,1.0,vr[btlen-1],trims[1],cdfbt,cpow);
-				} else if(upper_tail_intpol_type==4) {
-					lambda = Math.pow(vr[btlen-1],upper_tail_power)*(1.0-Gaussian.cdf(vrg[btlen-1]));
-					backtr = Math.pow(lambda/(1.0-Gaussian.cdf(vrgs)),1d/upper_tail_power);
-				}
-//        c
-//        c Value within the transformation table:
-//        c
-			} else {
-				int p;
-				for(p=0; p<btlen-1; p++) if(vrgs<vrg[p+1]) break;
-				p = Math.max(0, Math.min(btlen-2,p));
-				backtr = Interpolation.powint(vrg[p],vrg[p+1],vr[p],vr[p+1],vrgs,1d);
-			}
-			res[j][i] = backtr;
+			if(val[j][i]<minT || val[j][i]>maxT)
+				cntOUT++;
+			else
+				cntBTF++;
+			res[j][i] = getBTF(val[j][i], trnsfm, origin, trims,
+					lower_tail_intpol_type, upper_tail_intpol_type,
+					lower_tail_power,         upper_tail_power);
 		}
+		stats[0] = cntBTF;
+		stats[1] = cntOUT;
+		stats[2] = cntNAN;
+		
 		df.addColumn(name_transformed, res);
+		return stats;
 	}
 
 	/**
@@ -1126,9 +967,9 @@ public class ProbabilityTransform {
 	 * @param lower_tail_power       parameter required for option lower_tail_intpol_type
 	 * @param upper_tail_power       parameter required for option upper_tail_intpol_type
 	 */
-	public static void back_nscore(DataFrame3D df, int variable_id, int weights_id, double[][] nscore_trnsf_table, String name_transformed,
+	public static int[] back_nscore(DataFrame3D df, int variable_id, int weights_id, double[][] nscore_trnsf_table, String name_transformed,
 			int lower_tail_intpol_type, int upper_tail_intpol_type, double lower_tail_power, double upper_tail_power) {
-		back_nscore(df, df.getVarname(variable_id), new double[] {-1.0e21d, 1.0e21d}, nscore_trnsf_table, name_transformed,
+		return back_nscore(df, df.getVarname(variable_id), new double[] {-1.0e21d, 1.0e21d}, nscore_trnsf_table, name_transformed,
 			    lower_tail_intpol_type, upper_tail_intpol_type, lower_tail_power, upper_tail_power);
 	}
 	/**
@@ -1149,9 +990,9 @@ public class ProbabilityTransform {
 	 * @param lower_tail_power       parameter required for option lower_tail_intpol_type
 	 * @param upper_tail_power       parameter required for option upper_tail_intpol_type
 	 */
-	public static void back_nscore(DataFrame3D df, String variable, String weight_variable, double[][] nscore_trnsf_table, String name_transformed,
+	public static int[] back_nscore(DataFrame3D df, String variable, String weight_variable, double[][] nscore_trnsf_table, String name_transformed,
 			int lower_tail_intpol_type, int upper_tail_intpol_type, double lower_tail_power, double upper_tail_power) {
-		back_nscore(df, variable, new double[] {-1.0e21d, 1.0e21d}, nscore_trnsf_table, name_transformed,
+		return back_nscore(df, variable, new double[] {-1.0e21d, 1.0e21d}, nscore_trnsf_table, name_transformed,
 			    lower_tail_intpol_type, upper_tail_intpol_type, lower_tail_power, upper_tail_power);
 	}
 	/**
@@ -1173,10 +1014,10 @@ public class ProbabilityTransform {
 	 * @param lower_tail_power       parameter required for option lower_tail_intpol_type
 	 * @param upper_tail_power       parameter required for option upper_tail_intpol_type
 	 */
-	public static void back_nscore(DataFrame3D df, int variable_id, int weights_id, double[] trims,
+	public static int[] back_nscore(DataFrame3D df, int variable_id, int weights_id, double[] trims,
 			double[][] nscore_trnsf_table, String name_transformed,
 			int lower_tail_intpol_type, int upper_tail_intpol_type, double lower_tail_power, double upper_tail_power) {
-		back_nscore(df, df.getVarname(variable_id), trims, nscore_trnsf_table, name_transformed,
+		return back_nscore(df, df.getVarname(variable_id), trims, nscore_trnsf_table, name_transformed,
 				    lower_tail_intpol_type, upper_tail_intpol_type, lower_tail_power, upper_tail_power);
 	}
 	/**
@@ -1198,109 +1039,163 @@ public class ProbabilityTransform {
 	 * @param lower_tail_power       parameter required for option lower_tail_intpol_type
 	 * @param upper_tail_power       parameter required for option upper_tail_intpol_type
 	 */
-	public static void back_nscore(DataFrame3D df, String variable, double[] trims, double[][] nscore_trnsf_table, String name_transformed,
+	public static int[] back_nscore(DataFrame3D df, String variable, double[] trims, double[][] nscore_trnsf_table, String name_transformed,
 			int lower_tail_intpol_type, int upper_tail_intpol_type, double lower_tail_power, double upper_tail_power) {
-		if(df==null) {
-			System.err.println("Dataframe with input variables does not exist!");
-			return;
-		}
-		if(variable==null) {
-			System.err.println("Variable for normal score transform does not exist!");
-			return;
-		}
-		if(nscore_trnsf_table==null) {
-			System.err.println("Normal score transformation table does not exist!\n"+
-					           "    no back transformation done!");
-			return;
-		}
-		if(lower_tail_intpol_type!=1 && lower_tail_intpol_type!=2) {
-			System.err.println("For lower tail only interpolation types 1 and 2 possible!\n"+
-					           "    Found "+lower_tail_intpol_type+", so no back transformation performed!");
-			return;
-		}
-		if(upper_tail_intpol_type!=1 && upper_tail_intpol_type!=2 && upper_tail_intpol_type!=4) {
-			System.err.println("For upper tail only interpolation types 1,2 and 4 possible!\n"+
-					           "    Found "+upper_tail_intpol_type+", so no back transformation performed!");
-			return;
-		}
+		int[] stats = { 0, 0, 0 };
 		
+		if(!check(df, variable, nscore_trnsf_table, trims, lower_tail_intpol_type, upper_tail_intpol_type))
+			return stats;
 		
 		double[][][] val = (double[][][]) df.getArray(variable);
 		int[] nd = {val.length, val[0].length, val[0][0].length};
 		double[][][] res = new double[nd[0]][nd[1]][nd[2]];
-		double lambda;
+		double[] trnsfm = nscore_trnsf_table[1];
+		double[] origin = nscore_trnsf_table[0];
 		
-		double[] vrg = nscore_trnsf_table[1];
-		double[] vr  = nscore_trnsf_table[0];
-		int btlen = vrg.length;
-		
-		if(upper_tail_intpol_type==4 && vr[btlen-1]<0d) {
-			System.err.println("ERROR can not use hyperbolic tail (intpol type 4) with negative values! - see manual\n"+
-					           "    No back transformation performed!");
-			return;
-		}
-		if(trims[0]>vr[0]) {
-			System.err.println("ERROR zmin should be no larger than the first entry in the transformation table\n" + 
-					           "    zmin = "+trims[0]+" vr_first="+vr[0]+"\n"+
-					           "    No back transformation performed!");
-			return;
-		}
-		if(trims[1]<vr[btlen-1]) {
-			System.err.println("ERROR zmax should be no less than the last entry in the transformation table\n" + 
-					           "    zmax = "+trims[1]+" vr_last="+vr[btlen-1]+"\n"+
-					           "    No back transformation performed!");
-			return;
-		}
-		
+		int cntBTF=0, cntOUT=0, cntNAN=0;
+		double minT = trnsfm[0], maxT = trnsfm[trnsfm.length-1];
 		for(int k=0; k<nd[0]; k++) for(int j=0; j<nd[1]; j++) for(int i=0; i<nd[2]; i++) {
-//        i added by Enrico Metzner
-//        i check whether data is fill_value and continue or it can be transformed
-			if(val[k][j][i]==Constants.FILL_VALUE_D) {
-				res[k][j][i] = Constants.FILL_VALUE_D;
+			if(Double.isNaN(val[k][j][i])) {
+				cntNAN++;
+				res[k][j][i] = Double.NaN;
 				continue;
 			}
-//        c
-//        c Value in the lower tail?    1=linear, 2=power, (3 and 4 are invalid):
-//        c
-			double vrgs = val[k][j][i];
-			double backtr;
-			if(vrgs < vrg[0]) {
-				backtr = vr[0];
-				double cdflo  = Gaussian.cdf(vrg[0]);
-				double cdfbt  = Gaussian.cdf(vrgs);
-				if(lower_tail_intpol_type==1) {
-					backtr = Interpolation.powint(0.0,cdflo,trims[0],vr[0],cdfbt,1.0);
-				} else if(lower_tail_intpol_type==2) {
-					double cpow   = 1d / lower_tail_power;
-					backtr = Interpolation.powint(0.0,cdflo,trims[0],vr[0],cdfbt,cpow);
-				}
-//        c
-//        c Value in the upper tail?     1=linear, 2=power, 4=hyperbolic:
-//        c
-			} else if(vrgs >= vrg[btlen-1]) {
-				backtr = vr[btlen-1];
-				double cdfhi  = Gaussian.cdf(vrg[btlen-1]);
-				double cdfbt  = Gaussian.cdf(vrgs);
-				if(upper_tail_intpol_type==1) {
-					backtr = Interpolation.powint(cdfhi,1.0,vr[btlen-1],trims[1],cdfbt,1d);
-				} else if(upper_tail_intpol_type==2) {
-					double cpow   = 1d / upper_tail_power;
-					backtr = Interpolation.powint(cdfhi,1.0,vr[btlen-1],trims[1],cdfbt,cpow);
-				} else if(upper_tail_intpol_type==4) {
-					lambda = Math.pow(vr[btlen-1],upper_tail_power)*(1.0-Gaussian.cdf(vrg[btlen-1]));
-					backtr = Math.pow(lambda/(1.0-Gaussian.cdf(vrgs)),1d/upper_tail_power);
-				}
-//        c
-//        c Value within the transformation table:
-//        c
-			} else {
-				int p;
-				for(p=0; p<btlen-1; p++) if(vrgs<vrg[p+1]) break;
-				p = Math.max(0, Math.min(btlen-2,p));
-				backtr = Interpolation.powint(vrg[p],vrg[p+1],vr[p],vr[p+1],vrgs,1d);
-			}
-			res[k][j][i] = backtr;
+			if(val[k][j][i]<minT || val[k][j][i]>maxT)
+				cntOUT++;
+			else
+				cntBTF++;
+			res[k][j][i] = getBTF(val[k][j][i], trnsfm, origin, trims,
+					lower_tail_intpol_type, upper_tail_intpol_type,
+					lower_tail_power,         upper_tail_power);
 		}
+		stats[0] = cntBTF;
+		stats[1] = cntOUT;
+		stats[2] = cntNAN;
+		
 		df.addColumn(name_transformed, res);
+		return stats;
+	}
+	
+	
+	private static boolean check(Object df, String var, double[][] tbl, double[] limits, int low_type, int upp_type) {
+		if(df==null) {
+			System.err.println("Dataframe with input variables does not exist!");
+			return false;
+		}
+		
+		if(var==null) {
+			System.err.println("Variable for normal score transform does not exist!");
+			return false;
+		}
+		
+		if(tbl==null) {
+			System.err.println("Normal score transformation table does not exist!\n"+
+					           "    no back transformation done!");
+			return false;
+		}
+		if(low_type!=INTPOL_NONE &&
+			low_type!=INTPOL_LINEAR &&
+			low_type!=INTPOL_POWER &&
+			low_type!=INTPOL_CLAMP) {
+			System.err.println("For lower tail only following extrapolation types are allowed:\n"+
+							   "    0 ->  no extrapolation\n"+
+							   "    1 ->  linear extrapolation\n"+
+							   "    2 ->  power extrapolation\n"+
+							   "    9 ->  clamping to minimum without extrapolation\n"+
+					           "    Found "+low_type+", so no back transformation performed!");
+			return false;
+		}
+		if(upp_type!=INTPOL_NONE &&
+			upp_type!=INTPOL_LINEAR &&
+			upp_type!=INTPOL_POWER &&
+			upp_type!=INTPOL_HYPERBOLIC &&
+			upp_type!=INTPOL_CLAMP) {
+			System.err.println("For upper tail only following extrapolation types are allowed:\n"+
+							   "    0 ->  no extrapolation\n"+
+							   "    1 ->  linear extrapolation\n"+
+							   "    2 ->  power extrapolation\n"+
+							   "    4 ->  hyperbolic extrapolation\n"+
+							   "    9 ->  clamping to maximum without extrapolation\n"+
+					           "    Found "+upp_type+", so no back transformation performed!");
+			return false;
+		}
+
+		int tblen = tbl[0].length;
+		double first = tbl[0][0];
+		double last  = tbl[0][tblen-1];
+		if(upp_type==INTPOL_HYPERBOLIC && last<0d) {
+			System.err.println("ERROR can not use hyperbolic tail (intpol type 4) for upper tail with negative values! - see manual\n"+
+					           "    No back transformation performed!");
+			return false;
+		}
+		
+		if(limits[0]>first) {
+			System.err.println("ERROR zmin should be lower or equal than the first entry in the transformation table\n" + 
+					           "    zmin = "+limits[0]+" vr_first="+first+"\n"+
+					           "    No back transformation performed!");
+			return false;
+		}
+		if(limits[1]<last) {
+			System.err.println("ERROR zmax should at higher or equal than the last entry in the transformation table\n" + 
+					           "    zmax = "+limits[1]+" vr_last="+last+"\n"+
+					           "    No back transformation performed!");
+			return false;
+		}
+		
+		return true;
+	}
+	private static double getBTF(double val, double[] trnsfm, double[] origin, double[] limits, int low_type, int upp_type, double low_pow, double upp_pow) {
+		if(Double.isNaN(val))
+			return Double.NaN;
+		if(val==Constants.FILL_VALUE_D)
+			return Constants.FILL_VALUE_D;
+		int btlen = trnsfm.length;
+//    c
+//    c Value in the lower tail?    1=linear, 2=power, (3 and 4 are invalid):
+//    c
+		if(val < trnsfm[0]) {
+			double cdflo  = Gaussian.cdf(trnsfm[0]);
+			double cdfbt  = Gaussian.cdf(val);
+			switch(low_type) {
+				case INTPOL_NONE:
+					return Double.NaN;
+				case INTPOL_LINEAR:
+					return Interpolation.linint(0.0d, cdflo, limits[0], origin[0], cdfbt);
+				case INTPOL_POWER:
+					return Interpolation.powint(0.0d, cdflo, limits[0], origin[0], cdfbt, 1d/low_pow);
+				case INTPOL_CLAMP:
+					return origin[0];
+				default:
+					return origin[0];
+			}
+		}
+//    c
+//    c Value in the upper tail?     1=linear, 2=power, 4=hyperbolic:
+//    c
+		if(val >= trnsfm[btlen-1]) {
+			double cdfhi  = Gaussian.cdf(trnsfm[btlen-1]);
+			double cdfbt  = Gaussian.cdf(val);
+			switch(upp_type) {
+				case INTPOL_NONE:
+					return Double.NaN;
+				case INTPOL_LINEAR:
+					return Interpolation.linint(cdfhi, 1.0d, origin[btlen-1], limits[1], cdfbt);
+				case INTPOL_POWER:
+					return Interpolation.powint(cdfhi, 1.0d, origin[btlen-1], limits[1], cdfbt, 1d/upp_pow);
+				case INTPOL_HYPERBOLIC:
+					return Interpolation.hypint(cdfhi, 1.0d, origin[btlen-1], cdfbt, upp_pow);
+				case INTPOL_CLAMP:
+					return origin[btlen-1];
+				default:
+					return origin[btlen-1];
+			}
+		}
+//    c
+//    c Value within the transformation table:
+//    c
+		int p;
+		for(p=0; p<btlen-1; p++) if(val<trnsfm[p+1]) break;
+		p = Math.max(0, Math.min(btlen-2,p));
+		return Interpolation.linint(trnsfm[p],trnsfm[p+1],origin[p],origin[p+1], val);
 	}
 }

@@ -15,7 +15,7 @@ public class Constants {
 	public static final double DEG2RAD  = Math.PI/180d;
 	public static final double D_EPSLON = 1.0e-20d;
 	public static final double SAHE_FAC = 4.5d;
-	public static       Random RANDOM = new Random();
+	public static final Random RANDOM = new Random();
 
 
 
@@ -50,6 +50,6 @@ public class Constants {
 
 	/* Versions */
 	public static double GAMV_VERSION = 3.000d;
-	public static String NETCDF_VERSION = "5.4.2";
+	public static String NETCDF_VERSION = "5.5.2";
 
 }

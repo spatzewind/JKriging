@@ -134,7 +134,7 @@ public class KT3D {
 			System.out.println(" ktype, skmean = " + ktype + " " + skmean);
 			iktype = (use_indicator_kriging ? Constants.IYES : Constants.INO);
 			if(iktype==Constants.INO) {
-				if(kriging_option==0) {
+				if(kriging_option==GRID) {
 					paramchecklist[5] = true;
 					paramchecklist[6] = true;
 					num_krig_res = 3;
@@ -236,12 +236,15 @@ public class KT3D {
 		return this;
 	}
 	public KT3D setDebuggingLevel(int debugging_level, String debugging_file_path) {
+		return setDebuggingLevel(debugging_level, debugging_file_path, true);
+	}
+	public KT3D setDebuggingLevel(int debugging_level, String debugging_file_path, boolean restart_file) {
 		idbg  = debugging_level;
 		dbgfl = debugging_file_path;
 		paramchecklist[4] = true;
 		File dbf = new File(dbgfl);
 		if(idbg>0 && dbf.exists()) {
-			try (BufferedWriter bw = new BufferedWriter(new FileWriter(dbf))) {
+			try (BufferedWriter bw = new BufferedWriter(new FileWriter(dbf, !restart_file))) {
 				bw.append(" ... init DEBUG File ...");
 				bw.flush();
 			} catch (IOException io_e) {
@@ -927,15 +930,22 @@ public class KT3D {
 //        c Original:  A.G. Journel and C. Lemmer                             1981
 //        c Revisions: A.G. Journel and C. Kostov                             1984
 //        c-----------------------------------------------------------------------
+		String condition = "(~isnan(@"+vr_var+"))";
+		if(x_var !=null)   condition += " && (~isnan(@"+x_var+"))";
+		if(y_var !=null)   condition += " && (~isnan(@"+y_var+"))";
+		if(z_var !=null)   condition += " && (~isnan(@"+z_var+"))";
+		if(dh_var !=null)  condition += " && (~isnan(@"+dh_var+"))";
+		if(ext_var !=null) condition += " && (~isnan(@"+ext_var+"))";
+		DataFrame temp = dataframe.filterSubDataFrame(condition);
 		progressNPoints = 0d;
-		double[] vr = (double[]) dataframe.getArray(vr_var);
+		double[] vr = (double[]) temp.getArray(vr_var);
 		int datalength = vr.length;
 		double[] x=null,y=null,z=null,dh=null,ve=null;
-		if(x_var!=null)   x =  (double[]) dataframe.getArray(x_var);
-		if(y_var!=null)   y =  (double[]) dataframe.getArray(y_var);
-		if(z_var!=null)   z =  (double[]) dataframe.getArray(z_var);
-		if(dh_var!=null)  dh = (double[]) dataframe.getArray(dh_var);
-		if(ext_var!=null) ve = (double[]) dataframe.getArray(ext_var);
+		if(x_var!=null)   x =  (double[]) temp.getArray(x_var);
+		if(y_var!=null)   y =  (double[]) temp.getArray(y_var);
+		if(z_var!=null)   z =  (double[]) temp.getArray(z_var);
+		if(dh_var!=null)  dh = (double[]) temp.getArray(dh_var);
+		if(ext_var!=null) ve = (double[]) temp.getArray(ext_var);
 		if(x_var==null)   {x = new double[datalength];  for(int d=0; d<datalength; d++) x[d]  = xmn; }
 		if(y_var==null)   {y = new double[datalength];  for(int d=0; d<datalength; d++) y[d]  = ymn; }
 		if(z_var==null)   {z = new double[datalength];  for(int d=0; d<datalength; d++) z[d]  = zmn; }
@@ -1159,7 +1169,7 @@ public class KT3D {
 //        c Report on progress from time to time:
 		int nxyz=1,nloop,irepo;
 		int nd=vr.length;
-		if(koption==0) {
+		if(koption==GRID) {
 			nxyz  = nx*ny*nz;
 			nloop = nxyz;
 			irepo = Math.max(1,Math.min(10000,nxyz/10));
@@ -1199,7 +1209,7 @@ public class KT3D {
 				System.out.println("   currently on estimate "+FormatHelper.nf(Math.min(currentIndex+1,nloop),9));
 			}
 			try {
-				Thread.sleep(1000L);
+				Thread.sleep(100L);
 			} catch(InterruptedException ie) {
 				ie.printStackTrace();
 				return false;
@@ -1411,13 +1421,13 @@ public class KT3D {
 //		        i added by E. Metzner:
 //		        i Initialise output fields, if something goes wrong on some kriging points (so est|estv = Constants.FILL_VALUE_D)
 					if(iktype==Constants.INO) {
-						if(koption==0) {
-							writeEstimatedData(index, Constants.FILL_VALUE_D, Constants.FILL_VALUE_D, 0);
+						if(koption==GRID) {
+							writeEstimatedData(index, Double.NaN, Double.NaN, 0);
 						} else {
-							writeEstimatedData(index, Constants.FILL_VALUE_D, Constants.FILL_VALUE_D, 0, xloc, yloc, zloc, Constants.FILL_VALUE_D, Constants.FILL_VALUE_D);
+							writeEstimatedData(index, Double.NaN, Double.NaN, 0, xloc, yloc, zloc, Double.NaN, Double.NaN);
 						}
 					} else {
-						writeEstimatedData(index, s, vra, 0, Constants.FILL_VALUE_D);
+						writeEstimatedData(index, s, vra, 0, Double.NaN);
 					}
 
 //		        c Read in the external drift variable for this grid node if needed:
@@ -1428,8 +1438,8 @@ public class KT3D {
 //				                  extest = var(iextve)
 						}
 						if(extest<tmin || extest>=tmax) {
-							est  = Constants.FILL_VALUE_D;
-							estv = Constants.FILL_VALUE_D;
+							est  = Double.NaN;
+							estv = Double.NaN;
 							continue;
 						}
 						resce  = covmax / Math.max(extest,0.0001d);
@@ -1513,12 +1523,12 @@ public class KT3D {
 							try(BufferedWriter bw = new BufferedWriter(new FileWriter(new File(dbgfl),true))) {
 								bw.append(" Encountered a location where there were too few data\n"
 										+ " for Ord.Kriging or Simple Kriging. KT3D currently\n"
-										+ " leaves these locations Constants.FILL_VALUEimated.\n");
+										+ " leaves these locations estimated with NaN.\n");
 								bw.flush();
 							}catch(IOException io_e) {
 								io_e.printStackTrace();
 							}
-							System.out.println("   Too few data: No Ordinary or Simple Kriging!");
+							System.err.println("   Too few data: No Ordinary or Simple Kriging!");
 						}
 						continue;
 					}
@@ -1530,7 +1540,7 @@ public class KT3D {
 								bw.append(" Encountered a location where there were too few data\n"
 										+ " to estimate all of the drift terms but there would be\n"
 										+ " enough data for Ord.Kriging or Simple Kriging. KT3D\n"
-										+ " currently leaves these locations Constants.FILL_VALUEimated.\n"
+										+ " currently leaves these locations estimated with NaN.\n"
 										+ " This message is only written once - the first time.\n");
 								bw.flush();
 							}catch(IOException io_e) {
@@ -1538,8 +1548,8 @@ public class KT3D {
 							}
 							fircon = false;
 						}
-						est  = Constants.FILL_VALUE_D;
-						estv = Constants.FILL_VALUE_D;
+						est  = Double.NaN;
+						estv = Double.NaN;
 						continue;
 					}
 
@@ -1718,7 +1728,7 @@ public class KT3D {
 //		        c Solve the kriging system:
 //		        c
 				//      call ktsol(neq,nrhs,nv,a,r,s,ising,maxeq)
-					s = LinEquSolver.ktsol(neq, nrhs, nv, a, r, maxEqu, ai); //TODO ktsol
+					s = LinEquSolver.ktsol(neq, nrhs, nv, a, r, ai); //TODO ktsol
 //		        c
 //		        c Compute the solution:
 //		        c
@@ -1731,8 +1741,8 @@ public class KT3D {
 								io_e.printStackTrace();
 							}
 						}
-						est  = Constants.FILL_VALUE_D;
-						estv = Constants.FILL_VALUE_D;
+						est  = Double.NaN;
+						estv = Double.NaN;
 					} else {
 						est  = 0d;
 						estv = cbb;
@@ -1762,7 +1772,7 @@ public class KT3D {
 							try(BufferedWriter bw = new BufferedWriter(new FileWriter(new File(dbgfl),true))) {
 								bw.append("\nBLOCK: "+(ix+1)+" "+(iy+1)+" "+(iz+1)+" at "+xloc+" "+yloc+" "+zloc+"\n\n");
 								if(ktype!=SIMPLE_KRIGING)
-									bw.append("  Lagrange : "+(s[n_accepted]*unbias)+"\n");
+									bw.append("  Lagrange:  "+(s[n_accepted]*unbias)+"\n");
 								bw.append("  BLOCK EST: x,y,z,vr,wt \n");
 								for(int i=0; i<n_accepted; i++) {
 									xa[i] += xloc - 0.5d*xsiz;
@@ -1783,11 +1793,11 @@ public class KT3D {
 //		        c
 				//} // Loop Mark 1: continue;
 					if(iktype==Constants.INO) { //index-kriging?
-						if(koption==0) {
+						if(koption==GRID) {
 							writeEstimatedData(index, est, estv, n_accepted);
 						} else {
-							double err = Constants.FILL_VALUE_D;
-							if(_true_!=Constants.FILL_VALUE_D && est!=Constants.FILL_VALUE_D) {
+							double err = Double.NaN;
+							if(!Double.isNaN(_true_) && !Double.isNaN(est)) {
 								err=est-_true_;
 								xkmae += Math.abs(err);
 								xkmse += err*err;

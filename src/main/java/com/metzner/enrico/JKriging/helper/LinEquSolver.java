@@ -1,7 +1,42 @@
 package com.metzner.enrico.JKriging.helper;
 
 public class LinEquSolver {
+	
+	public static double TOL = 1.0e-6d;
+	
+	/**
+	 * set tolerance of "zero"-pivot detection<br>
+	 * <p>
+	 * absolute value of matrix pivot element less than tolerance matrix lead to non-invertable matrix<br>
+	 * </p>
+	 * <p>
+	 * default: 1.0e-6
+	 * minimum: 1.0e-64
+	 * </p>
+	 * 
+	 * @param tol new tolerance
+	 */
+	public static void setZeroDetectionTolerance(double tol) {
+		TOL = Math.max(Math.abs(tol), 1.0e-64d);
+	}
 
+	/**
+	 * Calculates the solution of a system of linear equations<br><br>
+	 * <p> PROGRAM NOTES:<br><ol>
+	 * <li>Requires the upper triangular left hand side matrix.</li>
+	 * <li>Pivots are on the diagonal.</li>
+	 * <li>Does not search for max. element for pivot.</li>
+	 * <li>Several right hand side matrices possible.</li>
+	 * <li>USE for Ordinary Kriging and Simple Kriging only, NOT for UK.</li>
+	 * </ol></p>
+	 * 
+	 * @param nright number of columns in right hand side matrix (for KB2D: nright=1, nsb=1)
+	 * @param neq    number of equations
+	 * @param nsb    
+	 * @param a      upper triangular left hand side matrix (stored columnwise)
+	 * @param r      right hand side matrix (stored columnwise, for KB2D one column per variable)
+	 * @return       solution array (dims like r), null if a is not invertable
+	 */
 	public static double[] ksol(int nright, int neq, int nsb, double[] a, double[] r) {
 		int ii, ij=0, in, ll, ll1, nm1, km1;
 		double piv;
@@ -56,7 +91,6 @@ public class LinEquSolver {
 //        c
 //        c Initialize:
 //        c
-		double  tol   = 0.1e-06d;
 		//boolean ising = false;
 		int     nn    = neq*(neq+1)/2;
 		int     nm    = nsb*neq;
@@ -68,7 +102,7 @@ public class LinEquSolver {
 		for(int k=0; k<m1; k++) { // for each pivot
 			kk+=k+1;
 			double ak=a[kk];
-			if(Math.abs(ak)<tol) {
+			if(Math.abs(ak)<TOL) {
 				System.err.println("Found null pivot at row k="+k);
 				return null;
 			}
@@ -102,8 +136,8 @@ public class LinEquSolver {
 //        c
 		int ijm = ij - nn*(nright-1);
 		//ijm--; // Index shift FORTRAN -> JAVA
-		if(Math.abs(a[ijm]) < tol) {
-			System.err.println("[KSOL] found a[ijm="+(ijm+1)+"] be less than tol="+tol);
+		if(Math.abs(a[ijm]) < TOL) {
+			System.err.println("[KSOL] found a[ijm="+(ijm+1)+"] be less than tol="+TOL);
 			//ising=neq
 			return null;
 		}
@@ -144,7 +178,19 @@ public class LinEquSolver {
 		return s;
 	}
 	
-	public static double[] ktsol(int n, int ns, int nv, double[] a, double[] b, int maxeq, int[] a_err_counter) {
+	/**
+	 * Calculates the solution of a system of linear equations by gaussian elimination with partial pivoting.<br>
+	 * Several right hand side matrices and several variables are allowed.<br><br>
+	 * 
+	 * @param n             Number of equations
+	 * @param ns            Number of right hand side matrices
+	 * @param nv            Number of variables
+	 * @param a             Left hand side matrices versus columnwise
+	 * @param b             Input right hand side matrices
+	 * @param a_err_counter Error counters for detected "zero"-pivots
+	 * @return
+	 */
+	public static double[] ktsol(int n, int ns, int nv, double[] a, double[] b, int[] a_err_counter) {
 //        c-----------------------------------------------------------------------
 //        c
 //        c Solution of a system of linear equations by gaussian elimination with
@@ -186,7 +232,6 @@ public class LinEquSolver {
 //        c
 //        c Initialization:
 //        c
-		double tol   = 0.1e-10d;
 		//int ktilt = 0;
 		int ntn   = n*n;
 		int nm1   = n-1;
@@ -229,7 +274,7 @@ public class LinEquSolver {
 //        c
 //        c Test for singularity:
 //        c
-				if(Math.abs(a[kdiag-1])<tol) {
+				if(Math.abs(a[kdiag-1])<TOL) {
 					if(a_err_counter[kdiag-1]<1)
 						System.err.println("Diagonal element "+(kdiag)+" is zero -> singular matrix");
 					a_err_counter[kdiag-1]++;
@@ -287,7 +332,7 @@ public class LinEquSolver {
 //        c Test for singularity for the last pivot:
 //        c
 			kdiag = ntn*iv;
-			if(Math.abs(a[kdiag-1])<tol) {
+			if(Math.abs(a[kdiag-1])<TOL) {
 				if(a_err_counter[kdiag-1]<1)
 					System.err.println("Last pivot is zero/too small -> assume singular matrix");
 				a_err_counter[kdiag-1]++;

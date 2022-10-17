@@ -36,12 +36,12 @@ import ucar.nc2.write.NetcdfFormatWriter;
 
 public class DataFrame2D {
 
-	private int[] datalength;
+	protected int[] datalength;
 	private DataType default_data_type;
-	private String[] titles;
-	private DataType[] types;
+	protected String[] titles;
+	protected DataType[] types;
 	private String[] dimension_names;
-	private double[] dimension_one, dimension_two;
+	protected double[] dimension_one, dimension_two;
 	private Map<String, String> attribs_dim_one, attribs_dim_two;
 	private double[][] minmax_mean_sill;
 	private Map<String, boolean[][]> bool_column;
@@ -52,6 +52,7 @@ public class DataFrame2D {
 	private Map<String, float[][]>   float_column;
 	private Map<String, double[][]>  double_column;
 	private Map<String, String[][]>  string_column;
+	protected Map<String, Object>    struct_column;
 
 
 
@@ -76,6 +77,7 @@ public class DataFrame2D {
 		float_column =  new HashMap<>();
 		double_column = new HashMap<>();
 		string_column = new HashMap<>();
+		struct_column = new HashMap<>();
 	}
 
 
@@ -395,6 +397,280 @@ public class DataFrame2D {
 	}
 	public void renameVariable(String _old_name, String _new_name) {
 		renameVariable(getVariableID(_old_name), _new_name);
+	}
+	public void setVariableContent(int _var_id, boolean[][] new_bools) throws ArrayIndexOutOfBoundsException {
+		int ovi = _var_id - Constants.FIRST_IDX;
+		if(ovi<0 || ovi>=titles.length) {
+			System.err.println("Can not find and set variable with ID "+_var_id+"!");
+			return;
+		}
+		if(new_bools.length!=datalength[0] || new_bools[0].length!=datalength[1])
+			throw new ArrayIndexOutOfBoundsException("Size of array does not match size of dataframe-content. Expected shape ("+datalength[0]+","+datalength[1]+").");
+		
+		String vn = getVarname(ovi);
+		DataType ovt = types[ovi];
+		switch(types[ovi]) {
+			case BOOL: boolean[][] arro = bool_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arro[y][x] = new_bools[y][x];
+				break;
+			case BYTE: byte[][] arrb = byte_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrb[y][x] = new_bools[y][x]?(byte)1:(byte)0;
+				break;
+			case SHORT: short[][] arrs = short_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrs[y][x] = new_bools[y][x]?(short)1:(short)0;
+				break;
+			case INT: int[][] arri = int_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arri[y][x] = new_bools[y][x]?1:0;
+				break;
+			case LONG: long[][] arrl = long_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrl[y][x] = new_bools[y][x]?1L:0L;
+				break;
+			case FLOAT: float[][] arrf = float_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrf[y][x] = new_bools[y][x]?1f:0f;
+				break;
+			case DOUBLE: double[][] arrd = double_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrd[y][x] = new_bools[y][x]?1d:0d;
+				break;
+			case STRING: String[][] arrt = string_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrt[y][x] = new_bools[y][x]?"true":"false";
+				break;
+			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from bool-array.");
+				return;
+		}
+		recalcStats(_var_id);
+	}
+	public void setVariableContent(String _var_name, boolean[][] new_bools) {
+		setVariableContent(getVariableID(_var_name), new_bools);
+	}
+	public void setVariableContent(int _var_id, byte[][] new_bytes) throws ArrayIndexOutOfBoundsException {
+		int ovi = _var_id - Constants.FIRST_IDX;
+		if(ovi<0 || ovi>=titles.length) {
+			System.err.println("Can not find and set variable with ID "+_var_id+"!");
+			return;
+		}
+		if(new_bytes.length!=datalength[0] || new_bytes[0].length!=datalength[1])
+			throw new ArrayIndexOutOfBoundsException("Size of array does not match size of dataframe-content. Expected shape ("+datalength[0]+","+datalength[1]+").");
+		
+		String vn = getVarname(ovi);
+		DataType ovt = types[ovi];
+		switch(types[ovi]) {
+			case BYTE: byte[][] arrb = byte_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrb[y][x] = new_bytes[y][x];
+				break;
+			case SHORT: short[][] arrs = short_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrs[y][x] = new_bytes[y][x];
+				break;
+			case INT: int[][] arri = int_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arri[y][x] = new_bytes[y][x];
+				break;
+			case LONG: long[][] arrl = long_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrl[y][x] = new_bytes[y][x];
+				break;
+			case FLOAT: float[][] arrf = float_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrf[y][x] = new_bytes[y][x];
+				break;
+			case DOUBLE: double[][] arrd = double_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrd[y][x] = new_bytes[y][x];
+				break;
+			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from byte-array.");
+				return;
+		}
+		recalcStats(_var_id);
+	}
+	public void setVariableContent(String _var_name, byte[][] new_bytes) {
+		setVariableContent(getVariableID(_var_name), new_bytes);
+	}
+	public void setVariableContent(int _var_id, short[][] new_shorts) throws ArrayIndexOutOfBoundsException {
+		int ovi = _var_id - Constants.FIRST_IDX;
+		if(ovi<0 || ovi>=titles.length) {
+			System.err.println("Can not find and set variable with ID "+_var_id+"!");
+			return;
+		}
+		if(new_shorts.length!=datalength[0] || new_shorts[0].length!=datalength[1])
+			throw new ArrayIndexOutOfBoundsException("Size of array does not match size of dataframe-content. Expected shape ("+datalength[0]+","+datalength[1]+").");
+		
+		String vn = getVarname(ovi);
+		DataType ovt = types[ovi];
+		switch(types[ovi]) {
+			case SHORT: short[][] arrs = short_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrs[y][x] = new_shorts[y][x];
+				break;
+			case INT: int[][] arri = int_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arri[y][x] = new_shorts[y][x];
+				break;
+			case LONG: long[][] arrl = long_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrl[y][x] = new_shorts[y][x];
+				break;
+			case FLOAT: float[][] arrf = float_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrf[y][x] = new_shorts[y][x];
+				break;
+			case DOUBLE: double[][] arrd = double_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrd[y][x] = new_shorts[y][x];
+				break;
+			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from short-array.");
+				break;
+		}
+		recalcStats(_var_id);
+	}
+	public void setVariableContent(String _var_name, short[][] new_shorts) {
+		setVariableContent(getVariableID(_var_name), new_shorts);
+	}
+	public void setVariableContent(int _var_id, int[][] new_ints) throws ArrayIndexOutOfBoundsException {
+		int ovi = _var_id - Constants.FIRST_IDX;
+		if(ovi<0 || ovi>=titles.length) {
+			System.err.println("Can not find and set variable with ID "+_var_id+"!");
+			return;
+		}
+		if(new_ints.length!=datalength[0] || new_ints[0].length!=datalength[1])
+			throw new ArrayIndexOutOfBoundsException("Size of array does not match size of dataframe-content. Expected shape ("+datalength[0]+","+datalength[1]+").");
+		
+		String vn = getVarname(ovi);
+		DataType ovt = types[ovi];
+		switch(types[ovi]) {
+			case INT: int[][] arri = int_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arri[y][x] = new_ints[y][x];
+				break;
+			case LONG: long[][] arrl = long_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrl[y][x] = new_ints[y][x];
+				break;
+			case FLOAT: float[][] arrf = float_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrf[y][x] = new_ints[y][x];
+				break;
+			case DOUBLE: double[][] arrd = double_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrd[y][x] = new_ints[y][x];
+				break;
+			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from int-array.");
+				return;
+		}
+		recalcStats(_var_id);
+	}
+	public void setVariableContent(String _var_name, int[][] new_ints) {
+		setVariableContent(getVariableID(_var_name), new_ints);
+	}
+	public void setVariableContent(int _var_id, long[][] new_longs) throws ArrayIndexOutOfBoundsException {
+		int ovi = _var_id - Constants.FIRST_IDX;
+		if(ovi<0 || ovi>=titles.length) {
+			System.err.println("Can not find and set variable with ID "+_var_id+"!");
+			return;
+		}
+		if(new_longs.length!=datalength[0] || new_longs[0].length!=datalength[1])
+			throw new ArrayIndexOutOfBoundsException("Size of array does not match size of dataframe-content. Expected shape ("+datalength[0]+","+datalength[1]+").");
+		
+		String vn = getVarname(ovi);
+		DataType ovt = types[ovi];
+		switch(types[ovi]) {
+			case LONG: long[][] arrl = long_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrl[y][x] = new_longs[y][x];
+				break;
+			case FLOAT: float[][] arrf = float_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrf[y][x] = new_longs[y][x];
+				break;
+			case DOUBLE: double[][] arrd = double_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrd[y][x] = new_longs[y][x];
+				break;
+			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from long-array.");
+				return;
+		}
+		recalcStats(_var_id);
+	}
+	public void setVariableContent(String _var_name, long[][] new_longs) {
+		setVariableContent(getVariableID(_var_name), new_longs);
+	}
+	public void setVariableContent(int _var_id, float[][] new_floats) throws ArrayIndexOutOfBoundsException {
+		int ovi = _var_id - Constants.FIRST_IDX;
+		if(ovi<0 || ovi>=titles.length) {
+			System.err.println("Can not find and set variable with ID "+_var_id+"!");
+			return;
+		}
+		if(new_floats.length!=datalength[0] || new_floats[0].length!=datalength[1])
+			throw new ArrayIndexOutOfBoundsException("Size of array does not match size of dataframe-content. Expected shape ("+datalength[0]+","+datalength[1]+").");
+		
+		String vn = getVarname(ovi);
+		DataType ovt = types[ovi];
+		switch(types[ovi]) {
+			case FLOAT: float[][] arrf = float_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrf[y][x] = new_floats[y][x];
+				break;
+			case DOUBLE: double[][] arrd = double_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrd[y][x] = new_floats[y][x];
+				break;
+			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from float-array.");
+				return;
+		}
+		recalcStats(_var_id);
+	}
+	public void setVariableContent(String _var_name, float[][] new_floats) {
+		setVariableContent(getVariableID(_var_name), new_floats);
+	}
+	public void setVariableContent(int _var_id, double[][] new_doubles) throws ArrayIndexOutOfBoundsException {
+		int ovi = _var_id - Constants.FIRST_IDX;
+		if(ovi<0 || ovi>=titles.length) {
+			System.err.println("Can not find and set variable with ID "+_var_id+"!");
+			return;
+		}
+		if(new_doubles.length!=datalength[0] || new_doubles[0].length!=datalength[1])
+			throw new ArrayIndexOutOfBoundsException("Size of array does not match size of dataframe-content. Expected shape ("+datalength[0]+","+datalength[1]+").");
+		
+		String vn = getVarname(ovi);
+		DataType ovt = types[ovi];
+		switch(types[ovi]) {
+			case FLOAT: float[][] arrf = float_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrf[y][x] = (float) new_doubles[y][x];
+				break;
+			case DOUBLE: double[][] arrd = double_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrd[y][x] = new_doubles[y][x];
+				break;
+			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from double-array.");
+				return;
+		}
+		recalcStats(_var_id);
+	}
+	public void setVariableContent(String _var_name, double[][] new_doubles) {
+		setVariableContent(getVariableID(_var_name), new_doubles);
+	}
+	public void setVariableContent(int _var_id, String[][] new_strings) throws ArrayIndexOutOfBoundsException {
+		int ovi = _var_id - Constants.FIRST_IDX;
+		if(ovi<0 || ovi>=titles.length) {
+			System.err.println("Can not find and set variable with ID "+_var_id+"!");
+			return;
+		}
+		if(new_strings.length!=datalength[0] || new_strings[0].length!=datalength[1])
+			throw new ArrayIndexOutOfBoundsException("Size of array does not match size of dataframe-content. Expected shape ("+datalength[0]+","+datalength[1]+").");
+		
+		String vn = getVarname(ovi);
+		DataType ovt = types[ovi];
+		switch(types[ovi]) {
+			case BOOL: boolean[][] arro = bool_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arro[y][x] = set_boolean(new_strings[y][x]);
+				break;
+			case BYTE: byte[][] arrb = byte_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrb[y][x] = set_byte(new_strings[y][x]);
+				break;
+			case SHORT: short[][] arrs = short_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrs[y][x] = set_short(new_strings[y][x]);
+				break;
+			case INT: int[][] arri = int_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arri[y][x] = set_int(new_strings[y][x]);
+				break;
+			case LONG: long[][] arrl = long_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrl[y][x] = set_long(new_strings[y][x]);
+				break;
+			case FLOAT: float[][] arrf = float_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrf[y][x] = set_float(new_strings[y][x]);
+				break;
+			case DOUBLE: double[][] arrd = double_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrd[y][x] = set_double(new_strings[y][x]);
+				break;
+			case STRING: String[][] arrt = string_column.get(vn);
+				for(int y=0; y<datalength[0]; y++) for(int x=0; x<datalength[1]; x++) arrt[y][x] = new_strings[y][x];
+				break;
+			default: System.err.println("Cannot set content of "+ovt.name()+"-variable from string-array.");
+				return;
+		}
+		recalcStats(_var_id);
+	}
+	public void setVariableContent(String _var_name, String[][] new_strings) {
+		setVariableContent(getVariableID(_var_name), new_strings);
 	}
 	public void removeVariable(int _var_id) {
 		int vi = _var_id - Constants.FIRST_IDX;
@@ -816,6 +1092,64 @@ public class DataFrame2D {
 		}
 		return out;
 	}
+	public DataFrame2D reorderByIndexList(int dimension_to_sort, int[] ids) {
+		int dim = dimension_to_sort - Constants.FIRST_IDX;
+		double[] newDim = new double[ids.length];
+		double[] oldDim = getDimensionValues(dimension_to_sort);
+		for (int c = 0; c < ids.length; c++)
+			newDim[c] = oldDim[ids[c]];
+		int count  = getDimensionValues(0 + Constants.FIRST_IDX).length;
+		int count2 = getDimensionValues(1 + Constants.FIRST_IDX).length;
+		for (String var: allVariableNames()) {
+			switch(getVariableType(var)) {
+				case BOOL: boolean[][] newBool = new boolean[count][count2], oldBool = (boolean[][])getArray(var);
+					for(int c=0; c<count; c++) { for(int d=0; d<count2; d++) {
+						if (dim == 0) newBool[c][d] = oldBool[ids[c]][d];
+						if (dim == 1) newBool[c][d] = oldBool[c][ids[d]];
+					} } bool_column.put(var, newBool); break;
+				case BYTE: byte[][] newByte = new byte[count][count2], oldByte = (byte[][])getArray(var);
+					for(int c=0; c<count; c++) { for(int d=0; d<count2; d++) {
+						if (dim == 0) newByte[c][d] = oldByte[ids[c]][d];
+						if (dim == 1) newByte[c][d] = oldByte[c][ids[d]];
+					} } byte_column.put(var, newByte); break;
+				case SHORT: short[][] newShort = new short[count][count2], oldShort = (short[][])getArray(var);
+					for(int c=0; c<count; c++) { for(int d=0; d<count2; d++) {
+						if (dim == 0) newShort[c][d] = oldShort[ids[c]][d];
+						if (dim == 1) newShort[c][d] = oldShort[c][ids[d]];
+					} } short_column.put(var, newShort); break;
+				case INT: int[][] newInt = new int[count][count2], oldInt = (int[][])getArray(var);
+					for(int c=0; c<count; c++) { for(int d=0; d<count2; d++) {
+						if (dim == 0) newInt[c][d] = oldInt[ids[c]][d];
+						if (dim == 1) newInt[c][d] = oldInt[c][ids[d]];
+					} } int_column.put(var, newInt); break;
+				case LONG: long[][] newLong = new long[count][count2], oldLong = (long[][])getArray(var);
+					for(int c=0; c<count; c++) { for(int d=0; d<count2; d++) {
+						if (dim == 0) newLong[c][d] = oldLong[ids[c]][d];
+						if (dim == 1) newLong[c][d] = oldLong[c][ids[d]];
+					} } long_column.put(var, newLong); break;
+				case FLOAT: float[][] newFloat = new float[count][count2], oldFloat = (float[][])getArray(var);
+					for(int c=0; c<count; c++) { for(int d=0; d<count2; d++) {
+						if (dim == 0) newFloat[c][d] = oldFloat[ids[c]][d];
+						if (dim == 1) newFloat[c][d] = oldFloat[c][ids[d]];
+					} } float_column.put(var, newFloat); break;
+				case DOUBLE: double[][] newDouble = new double[count][count2], oldDouble = (double[][])getArray(var);
+					for(int c=0; c<count; c++) { for(int d=0; d<count2; d++) {
+						if (dim == 0) newDouble[c][d] = oldDouble[ids[c]][d];
+						if (dim == 1) newDouble[c][d] = oldDouble[c][ids[d]];
+					} } double_column.put(var, newDouble); break;
+				case STRING: String[][] newString = new String[count][count2], oldString = (String[][])getArray(var);
+					for(int c=0; c<count; c++) { for(int d=0; d<count2; d++) {
+						if (dim == 0) newString[c][d] = oldString[ids[c]][d];
+						if (dim == 1) newString[c][d] = oldString[c][ids[d]];
+					} } string_column.put(var, newString); break;
+				default:
+					System.err.println("Unknown datatype, cannot extract and mask variable <" + var + "> from DataFrame2D.");
+					break;
+			}
+		}
+		setDimension(dimension_to_sort, newDim);
+		return this;
+	}
 
 	public void setDefaultDatatype(String _type) { default_data_type = DataType.getDataType(_type, default_data_type); }
 	public String getDefaultDatatype() { return default_data_type.toString(); }
@@ -1162,6 +1496,9 @@ public class DataFrame2D {
 //						case CHAR:
 //						case STRING:
 //							break;
+					case STRUCTURE:
+						readStructs(var, var.getFullName(), a, dimlen);
+						break;
 					default:
 						System.out.println("WARNING: does not this datatype: "+var.getDataType().name()+
 								", so the variable is not added to the dataframe");
@@ -1218,6 +1555,9 @@ public class DataFrame2D {
 	//				case CHAR:
 	//				case STRING:
 	//					break;
+					case STRUCTURE:
+						readStructs(var, var.getFullName(), a, dimlen, uf, vf);
+						break;
 					default:
 						System.out.println("WARNING: does not this datatype: "+var.getDataType().name()+
 								", so the variable is not added to the dataframe");
@@ -1268,6 +1608,9 @@ public class DataFrame2D {
 			}
 		}
 		return this;
+	}
+	public void readStructs(Variable var, String varname, Array a, int[] dimlen, int... coeff) {
+		System.out.println("WARNING: could not add variable \""+varname+"\": unsupported data type!");
 	}
 	/**
 	 * Write all content of this dataframe to a netcdf file
@@ -1414,6 +1757,32 @@ public class DataFrame2D {
 		DataFrame.writeToNetcdf(path, df);
 	}
 
+	/**
+	 * struct variables not supported natively by JKriging<br>
+	 * this method has to be override, when use<br><br>
+	 * implement what size specific struct variables use.
+	 * 
+	 * @param builder    used builder
+	 * @param varname    name of the struct variable
+	 * @param dims       map of collected dimensions
+	 * @param variables  map of collected variables 
+	 * @param dimensions used dimension(s) for this struct variable
+	 */
+	protected void defineStructure(NetcdfFormatWriter.Builder builder, String varname, List<Dimension> dims, Map<String,String> variables, Map<String,Dimension> dimensions) {
+		System.out.println("struct variables aren't supported.");
+		//do nothing
+	}
+	/**
+	 * struct variables not supported natively by JKriging<br>
+	 * this method has to be overridden, when use<br><br>
+	 * implement how struct variables are written to netcdf files
+	 * 
+	 * @param writer  the netcdf writer
+	 * @param varname name of the struct variable
+	 */
+	protected void writeStruct(NetcdfFormatWriter writer, String varname) {
+		System.out.println("Writing struct variable \""+varname+"\" is unsupported.");
+	}
 
 
 	public double[] getDimensionValues(int dim_id) {
@@ -1501,6 +1870,7 @@ public class DataFrame2D {
 			case FLOAT:  return float_column.get(_col_name);
 			case DOUBLE: return double_column.get(_col_name);
 			case STRING: return string_column.get(_col_name);
+			case STRUCT: return struct_column.get(_col_name);
 			default: return null;
 		}
 	}
@@ -1584,6 +1954,13 @@ public class DataFrame2D {
 					for(int d=0; d+2<dlen; d++) {
 						out[c][d+2] = " "+scol[d][0];
 						if(datalength[1]>1) out[c][d+2] += (datalength[1]==2 ? ", " : " ... ")+scol[d][datalength[1]-1]+" ";
+					}
+					break;
+				case STRUCT:
+					out[c][1] = " stuct ";
+					for(int d=0; d+2<dlen; d++) {
+						out[c][d+2] = " ???";
+						if(datalength[1]>1) out[c][d+2] += (datalength[1]==2 ? ", " : " ... ")+"??? ";
 					}
 					break;
 			}
@@ -1752,6 +2129,18 @@ public class DataFrame2D {
 		for(int r=1; r<clen; r++) rowdivs[r] = false;
 		FormatHelper.printTable(out, coldivs, rowdivs, true);
 	}
+	public void describeDimension() {
+		String str1 = "dim "+Constants.FIRST_IDX+": ";
+		double[] rng1 = StdAnalysis.minmax(dimension_one);
+		double[] std1 = StdAnalysis.mean_var(dimension_one);
+		str1 += "{"+rng1[0]+" ... "+rng1[1]+", mean="+std1[0]+", var="+std1[1]+"}";
+		System.out.println(str1);
+		String str2 = "dim "+(1+Constants.FIRST_IDX)+": ";
+		double[] rng2 = StdAnalysis.minmax(dimension_two);
+		double[] std2 = StdAnalysis.mean_var(dimension_two);
+		str2 += "{"+rng2[0]+" ... "+rng2[1]+", mean="+std2[0]+", var="+std2[1]+"}";
+		System.out.println(str2);
+	}
 	public void clear() {
 		titles = null;
 		types = null;
@@ -1820,7 +2209,7 @@ public class DataFrame2D {
 		try { d = Double.parseDouble(_s); } catch(NumberFormatException nfe) { d = Double.NaN; }
 		return d;
 	}
-	private void add_variable(String _name, DataType _type) {
+	protected void add_variable(String _name, DataType _type) {
 		String[] old_tit = new String[titles.length];
 		DataType[] old_tp = new DataType[types.length];
 		for(int t=0; t<titles.length; t++) { old_tit[t] = titles[t]; old_tp[t] = types[t]; }
@@ -1830,7 +2219,7 @@ public class DataFrame2D {
 		titles[old_tit.length] = _name;
 		types[old_tp.length] = _type;
 	}
-	private void add_stdana(double _min, double _max, double _mean, double _sill) {
+	protected void add_stdana(double _min, double _max, double _mean, double _sill) {
 		int dlen = minmax_mean_sill[0].length;
 		double[][] old_mas = new double[dlen][4];
 		for(int t=0; t<dlen; t++) {
@@ -1846,5 +2235,42 @@ public class DataFrame2D {
 		minmax_mean_sill[1][dlen] = _max;
 		minmax_mean_sill[2][dlen] = _mean;
 		minmax_mean_sill[3][dlen] = _sill;
+	}
+	protected void set_stdana(int _var_id, double _min, double _max, double _mean, double _sill) {
+		minmax_mean_sill[0][_var_id] = _min;
+		minmax_mean_sill[1][_var_id] = _max;
+		minmax_mean_sill[2][_var_id] = _mean;
+		minmax_mean_sill[3][_var_id] = _sill;
+	}
+	protected void recalcStats(int _var_id) {
+		String vn = getVarname(_var_id);
+		switch(getVariableType(_var_id)) {
+			case BYTE: byte[][] arrb = byte_column.get(vn);
+				byte[] inaxb = StdAnalysis.minmax(arrb); byte[] mvb = StdAnalysis.mean_var(arrb);
+				set_stdana(_var_id, inaxb[0], inaxb[1], mvb[0], mvb[1]);
+				break;
+			case SHORT: short[][] arrs = short_column.get(vn);
+				short[] inaxs = StdAnalysis.minmax(arrs); short[] mvs = StdAnalysis.mean_var(arrs);
+				set_stdana(_var_id, inaxs[0], inaxs[1], mvs[0], mvs[1]);
+				break;
+			case INT: int[][] arri = int_column.get(vn);
+				int[] inaxi = StdAnalysis.minmax(arri); int[] mvi = StdAnalysis.mean_var(arri);
+				set_stdana(_var_id, inaxi[0], inaxi[1], mvi[0], mvi[1]);
+				break;
+			case LONG: long[][] arrl = long_column.get(vn);
+				long[] inaxl = StdAnalysis.minmax(arrl); long[] mvl = StdAnalysis.mean_var(arrl);
+				set_stdana(_var_id, inaxl[0], inaxl[1], mvl[0], mvl[1]);
+				break;
+			case FLOAT: float[][] arrf = float_column.get(vn);
+				float[] inaxf = StdAnalysis.minmax(arrf); float[] mvf = StdAnalysis.mean_var(arrf);
+				set_stdana(_var_id, inaxf[0], inaxf[1], mvf[0], mvf[1]);
+				break;
+			case DOUBLE: double[][] arrd = double_column.get(vn);
+				double[] inaxd = StdAnalysis.minmax(arrd); double[] mvd = StdAnalysis.mean_var(arrd);
+				set_stdana(_var_id, inaxd[0], inaxd[1], mvd[0], mvd[1]);
+				break;
+			default:
+				break;
+		}
 	}
 }

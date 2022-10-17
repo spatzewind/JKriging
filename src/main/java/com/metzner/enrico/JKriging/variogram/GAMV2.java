@@ -15,7 +15,7 @@ import com.metzner.enrico.JKriging.helper.DataHelper;
 import com.metzner.enrico.JKriging.helper.FormatHelper;
 import com.metzner.enrico.JKriging.helper.MathHelper;
 
-public class GAMV {
+public class GAMV2 {
 	public final static int    SEMI_VARIOGRAM   =  1;
 	public final static int    CROSS_VARIOGRAM  =  2;
 	public final static int    COVARIANCE       =  3;
@@ -51,7 +51,7 @@ public class GAMV {
 
 
 
-	public GAMV() {
+	public GAMV2() {
 		
 		direction = new ArrayList<double[]>();
 		variogram = new ArrayList<double[]>();

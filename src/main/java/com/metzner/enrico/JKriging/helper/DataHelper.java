@@ -15,19 +15,43 @@ public class DataHelper {
 	}
 
 	public static class JulianDate {
+		/**
+		 * gives the current time as julian date
+		 * 
+		 * @return the julian date in double precision
+		 */
 		public static double now() {
 			return System.currentTimeMillis()/86400000.0d + 2440587.5d;
 		}
+		/**
+		 * calculates the julian date in double precision<br>
+		 * corresponding to the given combination of day,month,year,hour,minute,second in the gregorian calendar
+		 * 
+		 * @param _greg  int array with {day, month, year, hour, minute, second} of the date
+		 * @return       the julian date
+		 */
 		public static double cal2jd(int[] _greg) {
 			return cal2jd(_greg[0], _greg[1], _greg[2], _greg[3], _greg[4], _greg[5]);
 		}
-		public static double cal2jd(int _d, int _m, int _y, int _h, int _n, int _s) {
-		    int a = (_m>2 ? _m : _m+12) + 1;
-		    int j = (_m>2 ? _y : _y-1);
-		    long dt = (long)(365.25d * (j+4716) + 0.001d)-(j<-4716?1L:0L) + o_floor(30.6001d*a) + _d;
+		/**
+		 * calculates the julian date in double precision<br>
+		 * corresponding to the given combination of day,month,year,hour,minute,second in the gregorian calendar
+		 * 
+		 * @param day    day of the date   (from 1 to 31)
+		 * @param month  month of the date (from 1 to 12)
+		 * @param year   year of the date
+		 * @param hour   hours of the date (from 0 to 23)
+		 * @param minute minutes of the date (from 0 to 59)
+		 * @param second seconds of the date (from 0 to 59)
+		 * @return       the julian date
+		 */
+		public static double cal2jd(int day, int month, int year, int hour, int minute, int second) {
+		    int a = (month>2 ? month : month+12) + 1;
+		    int j = (month>2 ? year : year-1);
+		    long dt = (long)(365.25d * (j+4716) + 0.001d)-(j<-4716?1L:0L) + o_floor(30.6001d*a) + day;
 		    dt += 2L - o_floor(j/100d+0.000001d) + o_floor(j/400d+0.000001d);
 		    dt -= 1524L;
-		    double time = (_h-12) / 24d + _n/1440d + _s/86400d;
+		    double time = (hour-12) / 24d + minute/1440d + second/86400d;
 		    return (dt + time);
 		}
 		/**

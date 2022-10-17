@@ -20,6 +20,12 @@ public class FormatHelper {
 		return nf(_num,all,flt,' ');
 	}
 	public static String nf(double _num, int all, int flt, char fillchar) {
+		if(Double.isNaN(_num)) {
+			String nf = "                NaN";
+			while(nf.length()<all) nf = " "+nf;
+			if(nf.length()>all) nf = nf.substring(nf.length()-all);
+			return nf;
+		}
 		double _pos = Math.abs(_num);
 		long li = (long) _pos;
 		long lf = (long) (Math.pow(10, flt)*(_pos-li)+0.5d);
@@ -32,6 +38,7 @@ public class FormatHelper {
 	}
 
 	public static String name2CFConvention(String _s) {
+		if(_s==null) return _s;
 		String temp = _s.replaceAll(" ", "_");
 		temp = temp.replaceAll("\\\\", "");
 		temp = temp.replaceAll("<=", "_le_");
