@@ -6,7 +6,7 @@ public class Constants {
 	
 	/* Project constants */
 	public static final String NAME = "JKriging";
-	public static final String VERSION = "0.0.4";
+	public static final String VERSION = "0.0.5";
 	
 	
 	

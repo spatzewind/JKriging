@@ -10,6 +10,8 @@ import com.metzner.enrico.JKriging.data.DataFrame3D;
 import com.metzner.enrico.JKriging.kriging.KT3D;
 import com.metzner.enrico.JKriging.variogram.GAMV;
 
+import ucar.ma2.InvalidRangeException;
+
 public class Test_3DOrdinaryKriging_v2 {
 
 	public static void main(String[] args) {
@@ -119,7 +121,11 @@ public class Test_3DOrdinaryKriging_v2 {
 		//df_alex.read_gam_dat("res/K3_alex3D.out");
 		//df_K_alex.printfull();
 		df_K_alex.head();
-		df_K_alex.writeToNetcdf("res/K3_alex_out.nc");
+		try {
+			df_K_alex.writeToNetcdf("res/K3_alex_out.nc");
+		} catch (IOException | InvalidRangeException e) {
+			e.printStackTrace();
+		}
 		
 //		System.out.println("\nDeleted temporary parameter file : "+k.delete());
 		

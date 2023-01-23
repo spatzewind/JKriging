@@ -4,6 +4,7 @@ import java.io.IOException;
 
 import com.metzner.enrico.JKriging.data.DataFrame;
 
+import ucar.ma2.InvalidRangeException;
 import ucar.nc2.NetcdfFile;
 
 public class Test_NetcdfSupport {
@@ -31,6 +32,8 @@ public class Test_NetcdfSupport {
 			df_nc.writeToNetcdf("res/test2d_dataframe.nc");
 		} catch(IOException ioe) {
 			ioe.printStackTrace();
+		} catch (InvalidRangeException ire) {
+			ire.printStackTrace();
 		}
 	}
 }

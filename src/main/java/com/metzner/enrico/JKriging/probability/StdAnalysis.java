@@ -1,5 +1,7 @@
 package com.metzner.enrico.JKriging.probability;
 
+import com.metzner.enrico.JKriging.data.Constants;
+
 public class StdAnalysis {
 
 	public static byte[]   minmax(byte[] arr)   { byte in=Byte.MAX_VALUE, ax=Byte.MIN_VALUE;
@@ -195,6 +197,14 @@ public class StdAnalysis {
 		double v=0d; for(double[][] ddarr: arr) for(double[] darr: ddarr) for(double d: darr) { if(Double.isNaN(d)) continue; v+=(m-d)*(m-d); }
 		v /= mc-1d; return new double[] {m, v}; }
 
+	public static double[] mean_var(double[] arr, double[] wgt) {
+		if(wgt==null || arr.length!=wgt.length) return mean_var(arr);
+		if(arr.length==0) return new double[] {Double.NaN, Double.NaN};
+		double m=0d, mw=0d, mc=0d; for(int i=0; i<arr.length; i++) { if(Double.isNaN(arr[i]) || Double.isNaN(wgt[i])) continue; m+=arr[i]*wgt[i]; mw+=wgt[i]; mc+=1d; }
+		if(mc<0.5d || Math.abs(mw)<Constants.D_EPSLON) return new double[] {Double.NaN, Double.NaN};
+		m /= mw; if(mc<1.5d) return new double[] {m, Double.NaN}; double v=0d;
+		for(int i=0; i<arr.length; i++) { if(Double.isNaN(arr[i])||Double.isNaN(wgt[i])) continue; v+=(m-arr[i])*(m-arr[i])*wgt[i]*wgt[i]; mw+=wgt[i]*wgt[i]; }
+		v /= mw*(mc-1d)/mc; return new double[] {m, v}; }
 
 //	@SuppressWarnings("unchecked")
 //	public static <T extends Number> T variance(T[] arr) {

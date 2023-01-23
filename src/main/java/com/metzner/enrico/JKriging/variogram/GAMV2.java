@@ -13,7 +13,7 @@ import com.metzner.enrico.JKriging.data.Constants;
 import com.metzner.enrico.JKriging.data.DataFrame;
 import com.metzner.enrico.JKriging.helper.DataHelper;
 import com.metzner.enrico.JKriging.helper.FormatHelper;
-import com.metzner.enrico.JKriging.helper.MathHelper;
+import com.metzner.enrico.JKriging.probability.StdAnalysis;
 
 public class GAMV2 {
 	public final static int    SEMI_VARIOGRAM   =  1;
@@ -33,9 +33,9 @@ public class GAMV2 {
 
 	private List<double[]> direction;
 	private List<double[]> variogram;
-	String x_var, y_var, z_var;
+	String x_var, y_var, z_var, w_var;
 	private int[]    ivc, indflag, dirnum, lagnum;
-	private double[] dis, gam, hm, tm, hv, tv, np;
+	private double[] dis, gam, hm, tm, hv, tv, np, wsum;
 	private String[] names;
 
 	private double xlag, xltol, tmin, tmax;
@@ -84,6 +84,8 @@ public class GAMV2 {
 		//System.out.println(" tail,head,type = "+dataframe.getVarname(tailID-1)+", "+dataframe.getVarname(headID-1)+", "+variogramTypeById(type));
 		//variogram.add(new double[] {tailID*1.0001d,headID*1.0001d,type*1.0001d,_cut});
 		//paramchecklist[4] = true;
+		if(_x_id==0) { _x_id = _y_id; _y_id = _z_id; _z_id = 0; }
+		if(_x_id==0) { _x_id = _y_id; _y_id = 0; _z_id = 0; }
 		x_var = dataframe.getVarname(_x_id-1+Constants.FIRST_IDX);
 		y_var = dataframe.getVarname(_y_id-1+Constants.FIRST_IDX);
 		z_var = dataframe.getVarname(_z_id-1+Constants.FIRST_IDX);
@@ -149,13 +151,15 @@ public class GAMV2 {
 		direction.add(new double[] {90d-a,at,bandwh, d,dt,bandwd});
 		paramchecklist[3] = true;
 	}
-	public void addVariogramDef(int type, int tailID, int headID, double _cut) {
+	public void addVariogramDef(int type, int tailID, int headID, int weightID, double _cut) {
 		if(dataframe == null) { System.err.println("No dataframe set!"); return; }
 		int nvar = dataframe.getVariableCount();
 		if(tailID<1 || tailID>nvar) { System.err.println("tail variable number out of range!"); return; }
 		if(headID<1 || headID>nvar) { System.err.println("head variable number out of range!"); return; }
-		System.out.println(" tail,head,type = "+dataframe.getVarname(tailID-1+Constants.FIRST_IDX)+", "+
-				dataframe.getVarname(headID-1+Constants.FIRST_IDX)+", "+variogramTypeById(type));
+		if(weightID<1 || weightID>nvar) { System.err.println("weight variable number out of range!"); return; }
+		System.out.println(" tail,head,weight,type = "+dataframe.getVarname(tailID-1+Constants.FIRST_IDX)+", "+
+				dataframe.getVarname(headID-1+Constants.FIRST_IDX)+", "+dataframe.getVarname(weightID-1+Constants.FIRST_IDX)
+				+", "+variogramTypeById(type));
 		double cut = 0d;
 		if(type==CONT_INDICATOR || type==CAT_INDICATOR) {
 			ncut++;
@@ -173,12 +177,13 @@ public class GAMV2 {
 			names[nvar+ncut-1] = "Indicator "+ncut;
 			System.out.println(" indicator threshold = "+cut);
 		}
-		variogram.add(new double[] {tailID*1.0001d,headID*1.0001d,type*1.0001d,cut});
+		variogram.add(new double[] {tailID*1.0001d,headID*1.0001d,weightID*1.0001d,type*1.0001d,cut});
 		paramchecklist[4] = true;
 	}
-	public void addVariogramDef(int type, String tailVarName, String headVarName, double _cut) {
+	public void addVariogramDef(int type, String tailVarName, String headVarName, String weightVarName, double _cut) {
 		addVariogramDef(type, dataframe.getVariableID(tailVarName)-Constants.FIRST_IDX+1,
-				dataframe.getVariableID(headVarName)-Constants.FIRST_IDX+1, _cut);
+				dataframe.getVariableID(headVarName)-Constants.FIRST_IDX+1,
+				dataframe.getVariableID(weightVarName)-Constants.FIRST_IDX+1, _cut);
 	}
 	public void standardizeSills(boolean _i_sill) {
 		isill = (_i_sill ? 1 : 0);
@@ -402,11 +407,13 @@ public class GAMV2 {
 			}
 		double[] direct = direction.get(0);
 		double[] variog = variogram.get(0);
+		String v_tail = dataframe.getVarname((int)variog[0]-1+Constants.FIRST_IDX);
+		String v_head = dataframe.getVarname((int)variog[1]-1+Constants.FIRST_IDX);
+		String v_wgt  = dataframe.getVarname((int)variog[2]-1+Constants.FIRST_IDX);
 		System.out.println("[DEBUG]\n"+
 			" X,Y,Z => "+x_var+" "+y_var+" "+z_var+"\n"+
 			" dir 1:   "+direct[0]+" "+direct[1]+" "+direct[2]+" "+direct[3]+" "+direct[4]+" "+direct[5]+"\n"+
-			" vario 1: "+variogramTypeById((int)variog[2])+" "+dataframe.getVarname((int)variog[0]-1+Constants.FIRST_IDX)+" "+
-				dataframe.getVarname((int)variog[1]-1+Constants.FIRST_IDX));
+			" vario 1: "+variogramTypeById((int)variog[3])+" "+v_tail+" "+v_head+" ("+v_wgt+")");
 //        c-----------------------------------------------------------------------
 //        c
 //        c              Variogram of 3-D Irregularly Spaced Data
@@ -485,11 +492,18 @@ public class GAMV2 {
 //        c Original:  A.G. Journel                                           1978
 //        c Revisions: K. Guertin                                             1980
 //        c-----------------------------------------------------------------------
-		//    use geostat
-		double PI = Math.PI;
-		
 		//precheck and warnings:
 		check(dataframe.getMins(),dataframe.getMaxs());
+		
+		//filter NaNs out:
+		String filter = "isnan(@"+v_tail+")";
+		if(!v_tail.equals(v_head)) filter += " || isnan(@"+v_head+")";
+		if(x_var!=null) filter += " || isnan(@"+x_var+")";
+		if(y_var!=null) filter += " || isnan(@"+y_var+")";
+		if(z_var!=null) filter += " || isnan(@"+z_var+")";
+		DataFrame tempDF = dataframe.filterSubDataFrame("~( "+filter+" )");
+		if(tempDF==null || tempDF.getNumberOfDatapoints()==0)
+			return null;
 		
 		//allocate variables:
 		int ndir  = direction.size();
@@ -505,6 +519,7 @@ public class GAMV2 {
 		hv  = new double[mxdlv];
 		tv  = new double[mxdlv];
 		np  = new double[mxdlv];
+		wsum = new double[mxdlv];
 //		double[] uvxazm = new double[ndir];
 //		double[] uvyazm = new double[ndir];
 //		double[] csatol = new double[ndir];
@@ -513,10 +528,11 @@ public class GAMV2 {
 //		double[] csdtol = new double[ndir];
 
 		int datalength = 0;
+		int dimcount = 0;
 		double[] x=null,y=null,z=null;
-		if(dataframe.hasVariable(x_var)) {x = ((double[]) dataframe.getArray(x_var)).clone(); datalength = Math.max(datalength,x.length); }
-		if(dataframe.hasVariable(y_var)) {y = ((double[]) dataframe.getArray(y_var)).clone(); datalength = Math.max(datalength,y.length); }
-		if(dataframe.hasVariable(z_var)) {z = ((double[]) dataframe.getArray(z_var)).clone(); datalength = Math.max(datalength,z.length); }
+		if(tempDF.hasVariable(x_var)) {x = ((double[]) tempDF.getArray(x_var)).clone(); datalength = Math.max(datalength,x.length); dimcount++; }
+		if(tempDF.hasVariable(y_var)) {y = ((double[]) tempDF.getArray(y_var)).clone(); datalength = Math.max(datalength,y.length); dimcount++; }
+		if(tempDF.hasVariable(z_var)) {z = ((double[]) tempDF.getArray(z_var)).clone(); datalength = Math.max(datalength,z.length); dimcount++; }
 		if(x_var==null) {x = new double[datalength]; for(int d=0; d<datalength; d++) x[d] = 0d; }
 		if(y_var==null) {y = new double[datalength]; for(int d=0; d<datalength; d++) y[d] = 0d; }
 		if(z_var==null) {z = new double[datalength]; for(int d=0; d<datalength; d++) z[d] = 0d; }
@@ -527,6 +543,7 @@ public class GAMV2 {
 			dis[i] = 0d; gam[i] = 0d;
 			hm[i]  = 0d; tm[i]  = 0d;
 			hv[i]  = 0d; tv[i]  = 0d;
+			wsum[i] = 0d;
 		}
 
 //        c Define the distance tolerance if it isn't already:
@@ -536,12 +553,15 @@ public class GAMV2 {
 		double dismxs = ((nlag + 0.5d - Constants.D_EPSLON) * xlag); dismxs *= dismxs;
 		
 //        c MAIN LOOP OVER ALL VARIOGRAMS:
+		double[][] mvtt = new double[nvarg][];
+		double[][] mvhh = new double[nvarg][];
 		for(int iv=0; iv<nvarg; iv++) {
 			double[] vario_param = variogram.get(iv);
-			int ivtail = (int) vario_param[0];
-			int ivhead = (int) vario_param[1];
-			int ivtype = (int) vario_param[2];
-			//double ivcut = vario_param[3];
+			int ivtail =   (int) vario_param[0];
+			int ivhead =   (int) vario_param[1];
+			int ivweight = (int) vario_param[2];
+			int ivtype =   (int) vario_param[3];
+			//double ivcut = vario_param[4];
 			int varcount = dataframe.getVariableCount();
 			if(ivhead<1 || ivhead>varcount) {
 				System.err.println("[GAMV] Cannot find a variable with ID "+ivhead+" for \"head\"");
@@ -551,9 +571,15 @@ public class GAMV2 {
 				System.err.println("[GAMV] Cannot find a variable with ID "+ivtail+" for \"tail\"");
 				continue;
 			}
-			double[] tail = ((double[]) dataframe.getArray(ivtail-1+Constants.FIRST_IDX)).clone();
-			double[] head = ((double[]) dataframe.getArray(ivhead-1+Constants.FIRST_IDX)).clone();
-			DataHelper.sortem(head, tail);
+			if(ivweight<1 || ivweight>varcount) {
+				System.err.println("[GAMV] Cannot find a variabble with ID "+ivweight+" for \"weight\"");
+			}
+			double[] tail = ((double[]) tempDF.getArray(ivtail-1+Constants.FIRST_IDX)).clone();
+			double[] head = ((double[]) tempDF.getArray(ivhead-1+Constants.FIRST_IDX)).clone();
+			double[] weight = ((double[]) tempDF.getArray(ivweight-1+Constants.FIRST_IDX)).clone();
+			double[] help = new double[tail.length];
+			mvtt[iv] = StdAnalysis.mean_var(tail, weight);
+			mvhh[iv] = StdAnalysis.mean_var(head, weight);
 
 //        c Definition of the direction corresponding to the current pair. All
 //        c directions are considered (overlapping of direction tolerance cones
@@ -572,7 +598,7 @@ public class GAMV2 {
 				double azmuth = azm * D2R; //reworked to use mathematical angles everywhere as possible
 				double uvxazm = Math.cos(azmuth);
 				double uvyazm = Math.sin(azmuth);
-				double csatol = (atol<=0d ? Math.cos(45d*PI/180d) : Math.cos(atol*PI/180d));
+				double csatol = (atol<=0d ? Math.cos(45d*D2R) : Math.cos(atol*D2R));
 
 //        c The declination is measured positive down from vertical (up) rather
 //        c than negative down from horizontal:
@@ -580,6 +606,25 @@ public class GAMV2 {
 				double uvzdec = Math.cos(declin);
 				double uvhdec = Math.sin(declin);
 				double csdtol = (dtol<=0d ? Math.cos(45d*D2R) : Math.cos(dtol*D2R));
+				
+//				Refine maxdistance
+				double maxdist = dismxs;
+				switch(dimcount) {
+					default:
+					case 1:
+						break;
+					case 2:
+						maxdist /= csatol*csatol;
+						break;
+					case 3:
+						if(Math.abs(csatol)>Constants.D_EPSLON) maxdist /= csatol*csatol;
+						if(Math.abs(csdtol)>Constants.D_EPSLON) maxdist /= csdtol*csdtol;
+						break;
+				}
+//				Calculate helper array for ordering along analysis-direction
+				for(int i=0; i<datalength; i++)
+					help[i] = uvhdec*z[i] + uvzdec*(uvxazm*x[i]+uvyazm*y[i]);
+				DataHelper.sortem(help, head, tail, weight);
 
 //        c MAIN LOOP OVER ALL PAIRS:
 				int irepo = Math.max(1, Math.min(datalength/10, 1000));
@@ -588,6 +633,7 @@ public class GAMV2 {
 					for(int j=i; j<datalength; j++) { // Loop ID: 4
 
 //        c Definition of the lag corresponding to the current pair:
+						if(help[j]-help[i]>dismxs) break;
 						double dx  = x[j] - x[i];
 						double dy  = y[j] - y[i];
 						double dz  = z[j] - z[i];
@@ -595,7 +641,7 @@ public class GAMV2 {
 						double dys = dy*dy;
 						double dzs = dz*dz;
 						double hs  = dxs + dys + dzs;
-						if(hs > dismxs) continue;
+						if(hs > maxdist) break; //due to ordering, all j after this pair leads to greater hs
 						double h   = Math.sqrt(hs);
 
 //        c Determine which lag this is and skip if outside the defined distance
@@ -647,6 +693,7 @@ public class GAMV2 {
 
 //        c For this variogram, sort out which is the tail and the head value:
 						double[] _vrth = sub_tail_head(i,j,tail,head, dcazm>=0d && dcdec>=0d,omni, ivtype);
+						double wgt = weight[i]*weight[j];
 						double[] pair = {_vrth[0], _vrth[1]};
 						double[] pairpr = {_vrth[2], _vrth[3]};
 
@@ -663,19 +710,19 @@ public class GAMV2 {
 //        c
 						int index_off = id*nvarg*(nlag+2)+iv*(nlag+2);
 						if(ivtype==SEMI_VARIOGRAM || ivtype==GENERAL_RELATIVE || ivtype==CONT_INDICATOR || ivtype==CAT_INDICATOR) {
-							sub_semivariogram(index_off, h, pair,pairpr, lagbeg,lagend, omni);
+							sub_semivariogram(index_off, h, pair,pairpr, lagbeg,lagend, omni, wgt);
 						} else if(ivtype==CROSS_VARIOGRAM) {
-							sub_cross_semivariogram(index_off, h, pair,pairpr, lagbeg,lagend);
+							sub_cross_semivariogram(index_off, h, pair,pairpr, lagbeg,lagend, wgt);
 						} else if(Math.abs(ivtype)==COVARIANCE) {
-							sub_covariance(index_off, h, pair,pairpr, lagbeg,lagend, omni);
+							sub_covariance(index_off, h, pair,pairpr, lagbeg,lagend, omni, wgt);
 						} else if(Math.abs(ivtype)==CORRELOGRAM) {
-							sub_correlogram(index_off, h, pair,pairpr, lagbeg,lagend, omni);
+							sub_correlogram(index_off, h, pair,pairpr, lagbeg,lagend, omni, wgt);
 						} else if(ivtype==PAIR_RELATIVE) {
-							sub_pairwise_relative(index_off, h, pair,pairpr, lagbeg,lagend, omni);
+							sub_pairwise_relative(index_off, h, pair,pairpr, lagbeg,lagend, omni, wgt);
 						} else if(ivtype==VARIO_OF_LOG) {
-							sub_log_variogram(index_off,h, pair,pairpr, lagbeg,lagend, omni);
+							sub_log_variogram(index_off,h, pair,pairpr, lagbeg,lagend, omni, wgt);
 						} else if(ivtype==SEMI_MADOGRAM) {
-							sub_madogram(index_off, h, pair,pairpr, lagbeg,lagend, omni);
+							sub_madogram(index_off, h, pair,pairpr, lagbeg,lagend, omni, wgt);
 						}
 					}
 					progressNPairs = (double) (i+1) / (double) datalength;
@@ -697,8 +744,8 @@ public class GAMV2 {
 			double[] vario_param = variogram.get(iv);
 			int ivtail = (int) vario_param[0]-1 + Constants.FIRST_IDX;
 			int ivhead = (int) vario_param[1]-1 + Constants.FIRST_IDX;
-			int ivtype = (int) vario_param[2];
-			//double ivcut = vario_param[3];
+			int ivtype = (int) vario_param[3];
+			//double ivcut = vario_param[4];
 
 			for(int id=0; id<ndir; id++) { // Loop ID: 5
 
@@ -718,8 +765,8 @@ public class GAMV2 {
 					if(isill==1) {
 						if(ivtail==ivhead) {
 							//if(DEBUG_MODE) System.out.println("sills["+names[iii]+"] = "+sills[iii]);
-							if((ivtype==SEMI_VARIOGRAM || ivtype==CONT_INDICATOR) && dataframe.getSill(ivtail)>0d)
-								gam[i] /= dataframe.getSill(ivtail);
+							if((ivtype==SEMI_VARIOGRAM || ivtype==CONT_INDICATOR) && mvtt[iv][1]>0d)
+								gam[i] /= mvtt[iv][1];
 						}
 					}
 //        c
@@ -737,10 +784,10 @@ public class GAMV2 {
 					} else if(Math.abs(ivtype)==COVARIANCE) {
 						gam[i] -= hm[i]*tm[i];
 						if(ivtype<0) {
-							if(dataframe.getSill(ivtail)<0d || dataframe.getSill(ivhead)<0d) {
+							if(mvtt[iv][1]<0d || mvhh[iv][1]<0d) {
 								gam[i] = Double.NaN;
 							} else {
-								double variance = Math.sqrt(dataframe.getSill(ivtail) * dataframe.getSill(ivhead));
+								double variance = Math.sqrt(mvtt[iv][1] * mvhh[iv][1]);
 								gam[i] = variance - gam[i];
 							}
 						}
@@ -923,8 +970,8 @@ public class GAMV2 {
 			double[] vario_param = variogram.get(iv);
 			int ivtail = (int) vario_param[0]-1;
 			int ivhead = (int) vario_param[1]-1;
-			int ivtype = (int) vario_param[2];
-			//double ivcut = vario_param[3];
+			int ivtype = (int) vario_param[3];
+			//double ivcut = vario_param[4];
 
 //        c Note the variogram type and the variables being used:
 			title = variogramTypeById(ivtype)+"  tail="+dataframe.getVarname(ivtail+Constants.FIRST_IDX)+
@@ -1055,142 +1102,142 @@ public class GAMV2 {
 		return sth;
 	}
 
-	private void sub_semivariogram(int _idxoff, double _h, double[] _pair, double[] _pair_pr, int _lagbeg, int _lagend, boolean _omni) {
+	private void sub_semivariogram(int _idxoff, double _h, double[] _pair, double[] _pair_pr, int _lagbeg, int _lagend, boolean _omni, double _wgt) {
 		for(int il=_lagbeg-1; il<_lagend; il++) {
 			int ii = _idxoff+il;
-			np[ii]  += 1d;
-			dis[ii] += _h;
-			tm[ii]  += _pair[0];
-			hm[ii]  += _pair[1];
-			gam[ii] += (_pair[1]-_pair[0])*(_pair[1]-_pair[0]);
+			np[ii]  += _wgt;
+			dis[ii] += _h*_wgt;
+			tm[ii]  += _pair[0]*_wgt;
+			hm[ii]  += _pair[1]*_wgt;
+			gam[ii] += (_pair[1]-_pair[0])*(_pair[1]-_pair[0])*_wgt;
 			if(_omni) {
 				if(_pair_pr[0]>=tmin && _pair_pr[1]>=tmin && _pair_pr[0]<tmax && _pair_pr[1]<tmax) {
-					np[ii]  += 1d;
-					dis[ii] += _h;
-					tm[ii]  += _pair_pr[0];
-					hm[ii]  += _pair_pr[1];
-					gam[ii] += (_pair_pr[1]-_pair_pr[0])*(_pair_pr[1]-_pair_pr[0]);
+					np[ii]  += _wgt;
+					dis[ii] += _h*_wgt;
+					tm[ii]  += _pair_pr[0]*_wgt;
+					hm[ii]  += _pair_pr[1]*_wgt;
+					gam[ii] += (_pair_pr[1]-_pair_pr[0])*(_pair_pr[1]-_pair_pr[0])*_wgt;
 				}
 			}
 		}
 	}
-	private void sub_cross_semivariogram(int _idxoff, double _h, double[] _pair, double[] _pair_pr, int _lagbeg, int _lagend) {
+	private void sub_cross_semivariogram(int _idxoff, double _h, double[] _pair, double[] _pair_pr, int _lagbeg, int _lagend, double _wgt) {
 		for(int il=_lagbeg-1; il<_lagend; il++) {
 			int ii = _idxoff+il;
-			np[ii]  += 1d;
-			dis[ii] += _h;
-			tm[ii]  += 0.5d*(_pair[0]+_pair_pr[0]);
-			hm[ii]  += 0.5d*(_pair[1]+_pair_pr[1]);
-			gam[ii] += (_pair_pr[1]-_pair[1])*(_pair[0]-_pair_pr[0]);
+			np[ii]  += _wgt;
+			dis[ii] += _h*_wgt;
+			tm[ii]  += 0.5d*(_pair[0]+_pair_pr[0])*_wgt;
+			hm[ii]  += 0.5d*(_pair[1]+_pair_pr[1])*_wgt;
+			gam[ii] += (_pair_pr[1]-_pair[1])*(_pair[0]-_pair_pr[0])*_wgt;
 		}
 	}
-	private void sub_covariance(int _idxoff, double _h, double[] _pair, double[] _pair_pr, int _lagbeg, int _lagend, boolean _omni) {
+	private void sub_covariance(int _idxoff, double _h, double[] _pair, double[] _pair_pr, int _lagbeg, int _lagend, boolean _omni, double _wgt) {
 		for(int il=_lagbeg-1; il<_lagend; il++) {
 			int ii = _idxoff+il;
-			np[ii]  += 1d;
-			dis[ii] += _h;
-			tm[ii]  += _pair[0];
-			hm[ii]  += _pair[1];
-			gam[ii] += _pair[1]*_pair[0];
+			np[ii]  += _wgt;
+			dis[ii] += _h*_wgt;
+			tm[ii]  += _pair[0]*_wgt;
+			hm[ii]  += _pair[1]*_wgt;
+			gam[ii] += _pair[1]*_pair[0]*_wgt;
 			if(_omni) {
 				if(_pair_pr[0]>=tmin && _pair_pr[1]>=tmin && _pair_pr[0]<tmax && _pair_pr[1]<tmax) {
-					np[ii]  += 1d;
-					dis[ii] += _h;
-					tm[ii]  += _pair_pr[0];
-					hm[ii]  += _pair_pr[1];
-					gam[ii] += _pair_pr[1]*_pair_pr[0];
+					np[ii]  += _wgt;
+					dis[ii] += _h*_wgt;
+					tm[ii]  += _pair_pr[0]*_wgt;
+					hm[ii]  += _pair_pr[1]*_wgt;
+					gam[ii] += _pair_pr[1]*_pair_pr[0]*_wgt;
 				}
 			}
 		}
 	}
-	private void sub_correlogram(int _idxoff, double _h, double[] _pair, double[] _pair_pr, int _lagbeg, int _lagend, boolean _omni) {
+	private void sub_correlogram(int _idxoff, double _h, double[] _pair, double[] _pair_pr, int _lagbeg, int _lagend, boolean _omni, double _wgt) {
 		for(int il=_lagbeg-1; il<_lagend; il++) {
 			int ii = _idxoff+il;
-			np[ii]  += 1d;
-			dis[ii] += _h;
-			tm[ii]  += _pair[0];
-			hm[ii]  += _pair[1];
-			hv[ii]  += _pair[1]*_pair[1];
-			tv[ii]  += _pair[0]*_pair[0];
-			gam[ii] += _pair[1]*_pair[0];
+			np[ii]  += _wgt;
+			dis[ii] += _h*_wgt;
+			tm[ii]  += _pair[0]*_wgt;
+			hm[ii]  += _pair[1]*_wgt;
+			hv[ii]  += _pair[1]*_pair[1]*_wgt;
+			tv[ii]  += _pair[0]*_pair[0]*_wgt;
+			gam[ii] += _pair[1]*_pair[0]*_wgt;
 			if(_omni) {
 				if(_pair_pr[0]>=tmin && _pair_pr[1]>=tmin && _pair_pr[0]<tmax && _pair_pr[1]<tmax) {
-					np[ii]  += 1d;
-					dis[ii] += _h;
-					tm[ii]  += _pair_pr[0];
-					hm[ii]  += _pair_pr[1];
-					hv[ii]  += _pair_pr[1]*_pair_pr[1];
-					tv[ii]  += _pair_pr[0]*_pair_pr[0];
-					gam[ii] += _pair_pr[1]*_pair_pr[0];
+					np[ii]  += _wgt;
+					dis[ii] += _h*_wgt;
+					tm[ii]  += _pair_pr[0]*_wgt;
+					hm[ii]  += _pair_pr[1]*_wgt;
+					hv[ii]  += _pair_pr[1]*_pair_pr[1]*_wgt;
+					tv[ii]  += _pair_pr[0]*_pair_pr[0]*_wgt;
+					gam[ii] += _pair_pr[1]*_pair_pr[0]*_wgt;
 				}
 			}
 		}
 	}
-	private void sub_pairwise_relative(int _idxoff, double _h, double[] _pair, double[] _pair_pr, int _lagbeg, int _lagend, boolean _omni) {
+	private void sub_pairwise_relative(int _idxoff, double _h, double[] _pair, double[] _pair_pr, int _lagbeg, int _lagend, boolean _omni, double _wgt) {
 		for(int il=_lagbeg-1; il<_lagend; il++) {
 			int ii = _idxoff+il;
 			if(Math.abs(_pair[0]+_pair[1])>=Constants.D_EPSLON) {
-				np[ii]  += 1d;
-				dis[ii] += _h;
-				tm[ii]  += _pair[0];
-				hm[ii]  += _pair[1];
+				np[ii]  += _wgt;
+				dis[ii] += _h*_wgt;
+				tm[ii]  += _pair[0]*_wgt;
+				hm[ii]  += _pair[1]*_wgt;
 				double gamma = 2d*(_pair[0]-_pair[1])/(_pair[0]+_pair[1]);
-				gam[ii] += gamma*gamma;
+				gam[ii] += gamma*gamma*_wgt;
 			}
 			if(_omni) {
 				if(_pair_pr[0]>=tmin && _pair_pr[1]>=tmin && _pair_pr[0]<tmax && _pair_pr[1]<tmax) {
 					if(Math.abs(_pair_pr[0]+_pair_pr[1])>Constants.D_EPSLON) {
-						np[ii]  += 1d;
-						dis[ii] += _h;
-						tm[ii]  += _pair_pr[0];
-						hm[ii]  += _pair_pr[1];
+						np[ii]  += _wgt;
+						dis[ii] += _h*_wgt;
+						tm[ii]  += _pair_pr[0]*_wgt;
+						hm[ii]  += _pair_pr[1]*_wgt;
 						double gamma = 2d*(_pair[0]-_pair[1])/(_pair[0]+_pair[1]);
-						gam[ii] += gamma*gamma;
+						gam[ii] += gamma*gamma*_wgt;
 					}
 				}
 			}
 		}
 	}
-	private void sub_log_variogram(int _idxoff, double _h, double[] _pair, double[] _pair_pr, int _lagbeg, int _lagend, boolean _omni) {
+	private void sub_log_variogram(int _idxoff, double _h, double[] _pair, double[] _pair_pr, int _lagbeg, int _lagend, boolean _omni, double _wgt) {
 		for(int il=_lagbeg-1; il<_lagend; il++) {
 			int ii = _idxoff+il;
 			if(_pair[0]>Constants.D_EPSLON && _pair[1]>Constants.D_EPSLON) {
-				np[ii]  += 1d;
-				dis[ii] += _h;
-				tm[ii]  += _pair[0];
-				hm[ii]  += _pair[1];
+				np[ii]  += _wgt;
+				dis[ii] += _h*_wgt;
+				tm[ii]  += _pair[0]*_wgt;
+				hm[ii]  += _pair[1]*_wgt;
 				double gamma = Math.log(_pair[0])-Math.log(_pair[1]);
-				gam[ii] += gamma*gamma;
+				gam[ii] += gamma*gamma*_wgt;
 			}
 			if(_omni) {
 				if(_pair_pr[0]>=tmin && _pair_pr[1]>=tmin && _pair_pr[0]<tmax && _pair_pr[1]<tmax) {
 					if(_pair_pr[0]>Constants.D_EPSLON && _pair_pr[1]>Constants.D_EPSLON) {
-						np[ii]  += 1d;
-						dis[ii] += _h;
-						tm[ii]  += _pair_pr[0];
-						hm[ii]  += _pair_pr[1];
+						np[ii]  += _wgt;
+						dis[ii] += _h*_wgt;
+						tm[ii]  += _pair_pr[0]*_wgt;
+						hm[ii]  += _pair_pr[1]*_wgt;
 						double gamma = Math.log(_pair[0])-Math.log(_pair[1]);
-						gam[ii] += gamma*gamma;
+						gam[ii] += gamma*gamma*_wgt;
 					}
 				}
 			}
 		}
 	}
-	private void sub_madogram(int _idxoff, double _h, double[] _pair, double[] _pair_pr, int _lagbeg, int _lagend, boolean _omni) {
+	private void sub_madogram(int _idxoff, double _h, double[] _pair, double[] _pair_pr, int _lagbeg, int _lagend, boolean _omni, double _wgt) {
 		for(int il=_lagbeg-1; il<_lagend; il++) {
 			int ii = _idxoff+il;
-			np[ii]  += 1d;
-			dis[ii] += _h;
-			tm[ii]  += _pair[0];
-			hm[ii]  += _pair[1];
-			gam[ii] += Math.abs(_pair[1]-_pair[0]);
+			np[ii]  += _wgt;
+			dis[ii] += _h*_wgt;
+			tm[ii]  += _pair[0]*_wgt;
+			hm[ii]  += _pair[1]*_wgt;
+			gam[ii] += Math.abs(_pair[1]-_pair[0])*_wgt;
 			if(_omni) {
 				if(_pair_pr[0]>=tmin && _pair_pr[1]>=tmin && _pair_pr[0]<tmax && _pair_pr[1]<tmax) {
-					np[ii]  += 1d;
-					dis[ii] += _h;
-					tm[ii]  += _pair_pr[0];
-					hm[ii]  += _pair_pr[1];
-					gam[ii] += Math.abs(_pair_pr[1]-_pair_pr[0]);
+					np[ii]  += _wgt;
+					dis[ii] += _h*_wgt;
+					tm[ii]  += _pair_pr[0]*_wgt;
+					hm[ii]  += _pair_pr[1]*_wgt;
+					gam[ii] += Math.abs(_pair_pr[1]-_pair_pr[0])*_wgt;
 				}
 			}
 		}
