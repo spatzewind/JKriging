@@ -23,9 +23,9 @@ repositories {
 
 jar {
     //archiveBaseName = 'jkriging'
-    //archiveVersion = '0.0.4'
+    //archiveVersion = '0.0.5'
     baseName = 'jkriging'
-    version = '0.0.4'
+    version = '0.0.5'
 }
 
 dependencies {
