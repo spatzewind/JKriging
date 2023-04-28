@@ -51,5 +51,19 @@ public class Constants {
 	/* Versions */
 	public static double GAMV_VERSION = 3.000d;
 	public static String NETCDF_VERSION = "5.5.2";
-
+	
+	
+	
+	/* Supports */
+	public static boolean supportNetcdf = doClassExist("ucar.nc2.NetcdfFile");
+	public static boolean supportMatlab = doClassExist("us.hebi.matlab.mat.types.MatFile");
+	
+	private static boolean doClassExist(String path_to_class) {
+		try {
+			Class.forName(path_to_class);
+			return true;
+		} catch(ClassNotFoundException cnfe) {
+			return false;
+		}
+	}
 }

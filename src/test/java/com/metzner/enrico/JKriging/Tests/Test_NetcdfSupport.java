@@ -3,13 +3,11 @@ package com.metzner.enrico.JKriging.Tests;
 import java.io.IOException;
 
 import com.metzner.enrico.JKriging.data.DataFrame;
-
-import ucar.ma2.InvalidRangeException;
-import ucar.nc2.NetcdfFile;
+import com.metzner.enrico.JKriging.data.reader.DataReader;
+import com.metzner.enrico.JKriging.error.UnknownFileFormatException;
 
 public class Test_NetcdfSupport {
-
-	@SuppressWarnings("deprecation")
+	
 	public static void main(String[] args) {
 		
 		/* +--------------------------------------------+ *
@@ -18,22 +16,26 @@ public class Test_NetcdfSupport {
 		 * |                                            | *
 		 * +--------------------------------------------+ */
 		
-		NetcdfFile ncdf = null;
+		DataFrame df = null;
 		
-		try {
-			ncdf = NetcdfFile.open("res/test2d.nc");
-			System.out.println(ncdf);
-	
-			DataFrame df_nc = new DataFrame();
-			df_nc.readFromNetcdf(ncdf, true, "test2d");
+		try(DataReader dr = DataReader.openFile("res/test2d.nc")) {
+			System.out.println(dr);
 			
-			df_nc.head(0);
+			df = dr.getVars1D("test2d");
+			if(df!=null) {
+				System.out.println("Description:");
+				df.describe();
+				System.out.println("First content:");
+				df.head(0);
+			}
 			
-			df_nc.writeToNetcdf("res/test2d_dataframe.nc");
-		} catch(IOException ioe) {
+//			df_nc.writeToNetcdf("res/test2d_dataframe.nc");
+		} catch (IOException ioe) {
 			ioe.printStackTrace();
-		} catch (InvalidRangeException ire) {
-			ire.printStackTrace();
+		} catch (UnknownFileFormatException uffe) {
+			uffe.printStackTrace();
+		} catch (IllegalAccessException iae) {
+			iae.printStackTrace();
 		}
 	}
 }

@@ -1475,6 +1475,7 @@ public class DataFrame3D {
 	 * Read data from a text file in simplified GeoEAS format
 	 * @param _file_path path to the text file
 	 */
+	@Deprecated
 	public void read_gam_dat(String _file_path) {
 		if(!_file_path.endsWith(".dat") && !_file_path.endsWith(".out"))
 			System.out.println("WARNING: Standard textfiles for GSLIB ends with '.dat' or '.out'");
@@ -1577,6 +1578,7 @@ public class DataFrame3D {
 	 * @return         return this DataFrame3D
 	 * @throws IOException 
 	 */
+	@Deprecated
 	public DataFrame3D readFromNetcdf(String filepath, String... variable) throws IOException {
 		NetcdfFile nc = NetcdfFiles.open(filepath);
 		this.readFromNetcdf(nc, variable);
@@ -1591,6 +1593,7 @@ public class DataFrame3D {
 	 * @param variable    name(s) of variable(s)
 	 * @return            return this DataFrame3D
 	 */
+	@Deprecated
 	public DataFrame3D readFromNetcdf(NetcdfFile netcdf_file, String... variable) {
 		if(netcdf_file==null) {
 			System.err.println("The Netcdf file does not exist!");
@@ -1835,6 +1838,7 @@ public class DataFrame3D {
 		}
 		return this;
 	}
+	@Deprecated
 	public void readStructs(Variable var, String varname, Array a, int[] dimlen, int... coeff) {
 		System.out.println("WARNING: could not add variable \""+varname+"\": unsupported data type!");
 	}
@@ -1845,6 +1849,7 @@ public class DataFrame3D {
 	 * @throws InvalidRangeException 
 	 */
 	@SuppressWarnings("rawtypes")
+	@Deprecated
 	public void writeToNetcdf(String netcdf_file_path) throws IOException, InvalidRangeException {
 		NetcdfFormatWriter.Builder ncdfWriter = NetcdfFormatWriter.createNewNetcdf4(NetcdfFileFormat.NETCDF4_CLASSIC, netcdf_file_path, null);
 		Dimension dim0 = ncdfWriter.addDimension(dimension_names[0], datalength[0]);
@@ -1998,10 +2003,11 @@ public class DataFrame3D {
 	 * @throws InvalidRangeException 
 	 * @throws IOException 
 	 */
+	@Deprecated
 	public static void writeToNetcdf(String path, Object... df) throws IOException, InvalidRangeException {
 		DataFrame.writeToNetcdf(path, df);
 	}
-
+	
 	/**
 	 * struct variables not supported natively by JKriging<br>
 	 * this method has to be override, when use<br><br>

@@ -25,7 +25,7 @@ jar {
     //archiveBaseName = 'jkriging'
     //archiveVersion = '0.0.5'
     baseName = 'jkriging'
-    version = '0.0.5'
+    version = '0.0.6'
 }
 
 dependencies {
@@ -42,13 +42,17 @@ dependencies {
     implementation "edu.ucar:cdm-core:5.5.2"
   	//runtimeOnly "org.slf4j:slf4j-jdk14:1.7.30"
   	
+  	//JKriging should have Matlab-file-support
+  	implementation "us.hebi.matlab.mat:mfl-core:0.5.14"
+  	//implementation "com.diffplug.matsim:matfilerw:3.1.1"
+  	//implementation "org.scala-saddle:jhdf5:2.9"
+  	
   	//Need matrix decomposition for eigenvalues and eigenvectors
   	//compile group: 'org.ejml', name: 'ejml-all', version: '0.39'
 }
 
-//targetCompatibility = '1.9'
-
 tasks.withType(JavaCompile) {
     options.compilerArgs << '-Xlint:deprecation'
+    options.release = 9
     options.deprecation = true
 }

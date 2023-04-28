@@ -1349,6 +1349,7 @@ public class DataFrame2D {
 	 * @param _file_path path to the text file
 	 * @throws FileNotFoundException 
 	 */
+	@Deprecated
 	public void read_gam_dat(String _file_path) throws FileNotFoundException {
 		if(!_file_path.endsWith(".dat") && !_file_path.endsWith(".out"))
 			System.out.println("WARNING: Standard textfiles for GSLIB ends with '.dat' or '.out'");
@@ -1441,7 +1442,7 @@ public class DataFrame2D {
 		System.out.print("\n"); describe();
 		System.out.print("\n");
 	}
-
+	
 	/**
 	 * Read selected variable data from a Netcdf file
 	 * if on variable isn't in the file, it would not be read to this dataframe
@@ -1451,6 +1452,7 @@ public class DataFrame2D {
 	 * @return         return this DataFrame2D
 	 * @throws IOException 
 	 */
+	@Deprecated
 	public DataFrame2D readFromNetcdf(String filepath, String... variable) throws IOException {
 		NetcdfFile nc = NetcdfFiles.open(filepath);
 		this.readFromNetcdf(nc, variable);
@@ -1465,6 +1467,7 @@ public class DataFrame2D {
 	 * @param variable    name(s) of variable(s)
 	 * @return            return this DataFrame2D
 	 */
+	@Deprecated
 	public DataFrame2D readFromNetcdf(NetcdfFile netcdf_file, String... variable) {
 		if(netcdf_file==null) {
 			System.err.println("The Netcdf file does not exist!");
@@ -1675,6 +1678,7 @@ public class DataFrame2D {
 		}
 		return this;
 	}
+	@Deprecated
 	public void readStructs(Variable var, String varname, Array a, int[] dimlen, int... coeff) {
 		System.out.println("WARNING: could not add variable \""+varname+"\": unsupported data type!");
 	}
@@ -1685,6 +1689,7 @@ public class DataFrame2D {
 	 * @throws InvalidRangeException 
 	 */
 	@SuppressWarnings("rawtypes")
+	@Deprecated
 	public void writeToNetcdf(String netcdf_file_path) throws IOException, InvalidRangeException {
 		NetcdfFormatWriter.Builder ncdfWriter = NetcdfFormatWriter.createNewNetcdf4(NetcdfFileFormat.NETCDF4_CLASSIC, netcdf_file_path, null);
 		Dimension dim0 = ncdfWriter.addDimension(dimension_names[0], datalength[0]);
@@ -1818,6 +1823,7 @@ public class DataFrame2D {
 	 * @throws InvalidRangeException 
 	 * @throws IOException 
 	 */
+	@Deprecated
 	public static void writeToNetcdf(String path, Object... df) throws IOException, InvalidRangeException {
 		DataFrame.writeToNetcdf(path, df);
 	}

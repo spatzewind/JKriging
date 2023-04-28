@@ -604,7 +604,6 @@ public class DataFrame {
 		setVariableContent(getVariableID(_var_name), new_strings);
 	}
 	
-	
 	public void removeVariable(int _var_id) {
 		int vi = _var_id - Constants.FIRST_IDX;
 		if(vi<0 || vi>=titles.length) {
@@ -832,7 +831,7 @@ public class DataFrame {
 				DataHelper.printStackTrace(System.err); break;
 		}
 	}
-
+	
 	public DataFrame concat(DataFrame df2) {
 		if(getNumberOfDatapoints()==0) {
 			for(String var: df2.allVariableNames()) {
@@ -1376,11 +1375,10 @@ public class DataFrame {
 			return res;
 		}
 	}
-
+	
 	public void setDefaultDatatype(String _type) { default_data_type = DataType.getDataType(_type, default_data_type); }
 	public String getDefaultDatatype() { return default_data_type.toString(); }
-
-
+	
 	/**
 	 * 
 	 * @param file_path
@@ -1388,15 +1386,19 @@ public class DataFrame {
 	 * @param header_length
 	 * @param data_types
 	 */
+	@Deprecated
 	public void read_csv(String file_path, String[] data_types) {
 		read_csv(file_path, ",", 0, data_types);
 	}
+	@Deprecated
 	public void read_csv(String file_path, String delimiter, String[] data_types) {
 		read_csv(file_path, delimiter, 0, data_types);
 	}
+	@Deprecated
 	public void read_csv(String file_path, int header_length, String[] data_types) {
 		read_csv(file_path, ",", header_length, data_types);
 	}
+	@Deprecated
 	public void read_csv(String file_path, String delimiter, int header_length, String[] data_types) {
 		try(BufferedReader br = new BufferedReader(new FileReader(new File(file_path)))) {
 			boolean useGivenTypes = true;
@@ -1505,11 +1507,12 @@ public class DataFrame {
 			clear();
 		}
 	}
-
+	
 	/**
 	 * Read data from a text file in simplified GeoEAS format
 	 * @param _file_path path to the text file
 	 */
+	@Deprecated
 	public void read_gam_dat(String _file_path) {
 		if(!_file_path.endsWith(".dat") && !_file_path.endsWith(".out"))
 			System.out.println("WARNING: Standard textfiles for GSLIB ends with '.dat' or '.out'");
@@ -1597,7 +1600,7 @@ public class DataFrame {
 		System.out.print("\n"); describe();
 		System.out.print("\n");
 	}
-
+	
 	/**
 	 * Read selected variable data from a Netcdf file
 	 * if on variable isn't in the file, it would not be read to this dataframe
@@ -1608,6 +1611,7 @@ public class DataFrame {
 	 * @return                   return this DataFrame
 	 * @throws IOException 
 	 */
+	@Deprecated
 	public DataFrame readFromNetcdf(String filepath, boolean include_dimensions, String... variable) throws IOException {
 		NetcdfFile nc = NetcdfFiles.open(filepath);
 		this.readFromNetcdf(nc, include_dimensions, variable);
@@ -1622,6 +1626,7 @@ public class DataFrame {
 	 * @param variable           name(s) of variable(s)
 	 * @return                   return this DataFrame
 	 */
+	@Deprecated
 	public DataFrame readFromNetcdf(NetcdfFile netcdf_file, boolean include_dimensions, String... variable) {
 		if(netcdf_file==null) {
 			System.err.println("The Netcdf file does not exist!");
@@ -1830,6 +1835,7 @@ public class DataFrame {
 		//createDimension();
 		return this;
 	}
+	@Deprecated
 	public void readStructs(Variable var, String varname, Array a, int datalength, Index ind, int[] indexindex, int[][] indices, int[] dimids) {
 		System.out.println("WARNING: could not add variable \""+varname+"\": unsupported data type!");
 	}
@@ -1839,6 +1845,7 @@ public class DataFrame {
 	 * @throws IOException 
 	 * @throws InvalidRangeException 
 	 */
+	@Deprecated
 	@SuppressWarnings("rawtypes")
 	public void writeToNetcdf(String netcdf_file_path) throws IOException, InvalidRangeException {
 		NetcdfFormatWriter.Builder ncdfWriter = NetcdfFormatWriter.createNewNetcdf4(NetcdfFileFormat.NETCDF4_CLASSIC, netcdf_file_path, null);
@@ -1946,6 +1953,7 @@ public class DataFrame {
 	 * @throws IOException 
 	 * @throws InvalidRangeException 
 	 */
+	@Deprecated
 	public static void writeToNetcdf(String path, Object... df) throws IOException, InvalidRangeException {
 		if(df==null) return;
 		if(df.length==0) return;
@@ -1998,10 +2006,8 @@ public class DataFrame {
 		writer.flush();
 		writer.close();
 	}
-
 	
 	
-
 	public double[] getDimensionValues() {
 		if(dimension.length==0) createDimension();
 		return dimension;
@@ -2340,7 +2346,7 @@ public class DataFrame {
 		dimension_name = "";
 		attribs_dim.clear();
 	}
-
+	
 	private String[] null_line(String _in, String _del) {
 		int count = 1;
 		int occ = _in.indexOf(_del);
