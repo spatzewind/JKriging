@@ -7,7 +7,10 @@
  */
 
 // Apply the java-library plugin to add support for Java Library
-apply plugin: 'java-library'
+//apply plugin: 'java-library'
+plugins {
+	id 'java-library'
+}
 
 // In this section you declare where to find the dependencies of your project
 repositories {
@@ -22,10 +25,10 @@ repositories {
 }
 
 jar {
-    //archiveBaseName = 'jkriging'
-    //archiveVersion = '0.0.5'
-    baseName = 'jkriging'
-    version = '0.0.6'
+    archiveBaseName = 'jkriging'
+    archiveVersion = '0.0.6'
+    //baseName = 'jkriging'
+    //version = '0.0.6'
 }
 
 dependencies {
@@ -47,6 +50,10 @@ dependencies {
   	//implementation "com.diffplug.matsim:matfilerw:3.1.1"
   	//implementation "org.scala-saddle:jhdf5:2.9"
   	
+  	//Jkriging could have MS-Excel-file-support (.xls,.xlsx,...)
+  	implementation "org.dhatim:fastexcel-reader:0.16.4"
+  	implementation 'com.github.miachm.sods:SODS:1.6.6'
+  	
   	//Need matrix decomposition for eigenvalues and eigenvectors
   	//compile group: 'org.ejml', name: 'ejml-all', version: '0.39'
 }
@@ -56,3 +63,10 @@ tasks.withType(JavaCompile) {
     options.release = 9
     options.deprecation = true
 }
+
+//tasks.register('copy2processing', Copy) {
+//    from '$buildDir/libs/'
+//    include '**/*.jar'
+//    into '/home/emetzner/sketchbook/libraries/JKriging/library'
+//    rename '(.+).jar', 'JKriging.jar'
+//}

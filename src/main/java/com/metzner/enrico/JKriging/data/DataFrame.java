@@ -559,7 +559,7 @@ public class DataFrame {
 	public void setVariableContent(String _var_name, double[] new_doubles) {
 		setVariableContent(getVariableID(_var_name), new_doubles);
 	}
-	public void setVariableContent(int _var_id, String[] new_strings) throws ArrayIndexOutOfBoundsException {
+	public void setVariableContent(int _var_id, String[] new_strings) {
 		int ovi = _var_id - Constants.FIRST_IDX;
 		if(ovi<0 || ovi>=titles.length) {
 			System.err.println("Can not find and set variable with ID "+_var_id+"!");
@@ -832,6 +832,25 @@ public class DataFrame {
 		}
 	}
 	
+	public DataFrame clone() {
+		DataFrame dfCopy = new DataFrame();
+		for(String var: titles) {
+			switch(getVariableType(var)) {
+				case BOOL:   dfCopy.addColumn(var, bool_column.get(var).clone()); break;
+				case BYTE:   dfCopy.addColumn(var, byte_column.get(var).clone()); break;
+				case SHORT:  dfCopy.addColumn(var, short_column.get(var).clone()); break;
+				case INT:    dfCopy.addColumn(var, int_column.get(var).clone()); break;
+				case LONG:   dfCopy.addColumn(var, long_column.get(var).clone()); break;
+				case FLOAT:  dfCopy.addColumn(var, float_column.get(var).clone()); break;
+				case DOUBLE: dfCopy.addColumn(var, double_column.get(var).clone()); break;
+				case STRING: dfCopy.addColumn(var, string_column.get(var).clone()); break;
+//				case STRUCT: dfCopy.addColumn(var, struct_column.get(var).clone()); break;
+				default: break;
+			}
+		}
+		dfCopy.copyDimensionsFrom(this);
+		return dfCopy;
+	}
 	public DataFrame concat(DataFrame df2) {
 		if(getNumberOfDatapoints()==0) {
 			for(String var: df2.allVariableNames()) {
@@ -1259,9 +1278,9 @@ public class DataFrame {
 			DataHelper.printStackTrace(System.err);
 			return this;
 		}
-		boolean[] rowdivs = new boolean[conditions.length-1]; for(int r=0; r<rowdivs.length; r++) rowdivs[r] = false;
-		boolean[] coldivs = new boolean[conditions[0].length-1]; for(int c=0; c<coldivs.length; c++) coldivs[c] = true;
-		FormatHelper.printTable(conditions,coldivs,rowdivs);
+//		boolean[] rowdivs = new boolean[conditions.length-1]; for(int r=0; r<rowdivs.length; r++) rowdivs[r] = false;
+//		boolean[] coldivs = new boolean[conditions[0].length-1]; for(int c=0; c<coldivs.length; c++) coldivs[c] = true;
+//		FormatHelper.printTable(conditions,coldivs,rowdivs);
 		boolean[] mask = new boolean[datalength];
 		for(int e=0; e<datalength; e++)
 			mask[e] = LogicHelper.evaluateConditionLines(this, e, conditions);

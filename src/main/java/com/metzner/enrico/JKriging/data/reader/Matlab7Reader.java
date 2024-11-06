@@ -4,11 +4,14 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.collect.ImmutableList;
 import com.metzner.enrico.JKriging.data.Constants;
 import com.metzner.enrico.JKriging.data.DataFrame;
 import com.metzner.enrico.JKriging.data.DataFrame2D;
@@ -16,6 +19,7 @@ import com.metzner.enrico.JKriging.data.DataFrame3D;
 import com.metzner.enrico.JKriging.error.DimensionMismatchException;
 
 import ucar.ma2.Array;
+import ucar.ma2.ArrayString;
 import ucar.ma2.Index;
 import ucar.ma2.InvalidRangeException;
 import ucar.nc2.Attribute;
@@ -23,13 +27,14 @@ import ucar.nc2.Dimension;
 import ucar.nc2.Group;
 import ucar.nc2.NetcdfFile;
 import ucar.nc2.NetcdfFiles;
-import ucar.nc2.Variable;
 
-class NetcdfReader extends DataReader {
+class Matlab7Reader extends DataReader {
+	private final static ucar.ma2.DataType NCSTRING = ucar.ma2.DataType.STRING;
+	private final static ucar.ma2.DataType NCSTRUCT = ucar.ma2.DataType.STRUCTURE;
 	
 	private NetcdfFile ncfile = null;
 	
-	NetcdfReader(File file) throws IOException {
+	Matlab7Reader(File file) throws IOException {
 		super(file);
 		ncfile = NetcdfFiles.open(file.getAbsolutePath());
 	}
@@ -47,7 +52,7 @@ class NetcdfReader extends DataReader {
 	public Map<String, Integer> getDimensionsOfVariable(String var) throws IllegalAccessException {
 		if(ncfile==null) throw new IllegalAccessException("The Netcdf file does not exist.");
 		if(var==null) throw new IllegalAccessException("Variable cannot be null");
-		Variable v = ncfile.findVariable(var);
+		Variable v = Variable.of(ncfile.findVariable(var));
 //		if(v==null) throw new IllegalAccessException("Cannot find variable <"+var+"> in the Netcdf file.");
 		if(v==null) return null;
 		Map<String, Integer> dimmap = new HashMap<>();
@@ -94,7 +99,7 @@ class NetcdfReader extends DataReader {
 		DataFrame df = new DataFrame();
 		int dimid = 0;
 		for(Dimension dim: dims) {
-			Variable var = ncfile.findVariable(dim.getName());
+			Variable var = Variable.of(ncfile.findVariable(dim.getName()));
 			if(var==null) {
 				int[] arr = new int[datalength];
 				for(int dl=0; dl<datalength; dl++) arr[dl] = indices[dl][dimid];
@@ -103,7 +108,7 @@ class NetcdfReader extends DataReader {
 				Array a = null;
 				try {
 					a = var.read();
-				} catch (IOException e) {
+				} catch (IOException|InvalidRangeException e) {
 					System.out.println("WARNING: could not read dimension \""+dim.getName()+"\": does not add it to dataframe");
 					continue;
 				}
@@ -173,7 +178,7 @@ class NetcdfReader extends DataReader {
 			Array a = null;
 			try {
 				a = var.read();
-			} catch(IOException ioe) {
+			} catch(IOException|InvalidRangeException e) {
 				//ioe.printStackTrace();
 				System.err.println("WARNING: could not read variable \""+vname+"\": does not at to the dataframe!");
 				continue;
@@ -183,48 +188,58 @@ class NetcdfReader extends DataReader {
 			int[] dimids = new int[vdims.size()];
 			for(int d=0; d<dimids.length; d++) {
 				dimids[d] = dims.indexOf(vdims.get(d));
-//				dimids[d] = 0;
-//				int dd = -1;
-//				for(dd=0; dd<dlen; dd++) if(dims.get(dd).equals(vdims.get(d))) {
-//					dimids[d] = dd;
-//					break;
-//				}
-//				if(dd==dlen) System.err.println("WARNING: could not find dimension \""+vdims.get(d).getName()+"\": maybe read data in wrong order!");
+				dimids[d] = 0;
+				int dd = -1;
+				for(dd=0; dd<dlen; dd++) if(dims.get(dd).equals(vdims.get(d))) {
+					dimids[d] = dd;
+					break;
+				}
+				if(dd==dlen) System.err.println("WARNING: could not find dimension \""+vdims.get(d).getName()+"\": maybe read data in wrong order!");
 			}
 			int[] indexindex = new int[vdims.size()];
 			switch(var.getDataType()) {
 				case BOOLEAN: boolean[] o_arr = new boolean[datalength];
 					for(int dl=0; dl<datalength; dl++) {
+						if(!vdims.get(0).equals(Variable.SCALER_DIM)) {
 						for(int d=0; d<dimids.length; d++) { indexindex[d] = indices[dl][dimids[d]]; }
 						ind.set(indexindex); o_arr[dl] = a.getBoolean(ind);
+						} else { o_arr[dl] = a.getBoolean(0); }
 					}
 					df.addColumn(vname, o_arr);
 					break;
 				case BYTE: byte[] b_arr = new byte[datalength];
 					for(int dl=0; dl<datalength; dl++) {
+						if(!vdims.get(0).equals(Variable.SCALER_DIM)) {
 						for(int d=0; d<dimids.length; d++) { indexindex[d] = indices[dl][dimids[d]]; }
 						ind.set(indexindex); b_arr[dl] = a.getByte(ind);
+						} else { b_arr[dl] = a.getByte(0); }
 					}
 					df.addColumn(vname, b_arr);
 					break;
 				case INT: int[] i_arr = new int[datalength];
 					for(int dl=0; dl<datalength; dl++) {
+						if(!vdims.get(0).equals(Variable.SCALER_DIM)) {
 						for(int d=0; d<dimids.length; d++) { indexindex[d] = indices[dl][dimids[d]]; }
 						ind.set(indexindex); i_arr[dl] = a.getInt(ind);
+						} else { i_arr[dl] = a.getInt(0); }
 					}
 					df.addColumn(vname, i_arr);
 					break;
 				case SHORT: short[] r_arr = new short[datalength];
 					for(int dl=0; dl<datalength; dl++) {
+						if(!vdims.get(0).equals(Variable.SCALER_DIM)) {
 						for(int d=0; d<dimids.length; d++) { indexindex[d] = indices[dl][dimids[d]]; }
 						ind.set(indexindex); r_arr[dl] = a.getShort(ind);
+						} else { r_arr[dl] = a.getShort(0); }
 					}
 					df.addColumn(vname, r_arr);
 					break;
 				case LONG: long[] l_arr = new long[datalength];
 					for(int dl=0; dl<datalength; dl++) {
+						if(!vdims.get(0).equals(Variable.SCALER_DIM)) {
 						for(int d=0; d<dimids.length; d++) { indexindex[d] = indices[dl][dimids[d]]; }
 						ind.set(indexindex); l_arr[dl] = a.getLong(ind);
+						} else { l_arr[dl] = a.getLong(0); }
 					}
 					df.addColumn(vname, l_arr);
 					break;
@@ -234,8 +249,10 @@ class NetcdfReader extends DataReader {
 						//System.out.println("    [DEBUG] \""+var.getFullName()+"\":_FillValue = "+ffill);
 					}
 					for(int dl=0; dl<datalength; dl++) {
+						if(!vdims.get(0).equals(Variable.SCALER_DIM)) {
 						for(int d=0; d<dimids.length; d++) { indexindex[d] = indices[dl][dimids[d]]; }
 						ind.set(indexindex); f_arr[dl] = a.getFloat(ind);
+						} else { f_arr[dl] = a.getFloat(0); }
 						if(hasFVf && f_arr[dl]==ffill) f_arr[dl] = Float.NaN;
 					}
 					df.addColumn(vname, f_arr);
@@ -246,16 +263,25 @@ class NetcdfReader extends DataReader {
 						//System.out.println("    [DEBUG] \""+var.getFullName()+"\":_FillValue = "+dfill);
 					}
 					for(int dl=0; dl<datalength; dl++) {
+						if(!vdims.get(0).equals(Variable.SCALER_DIM)) {
 						for(int d=0; d<dimids.length; d++) { indexindex[d] = indices[dl][dimids[d]]; }
 						ind.set(indexindex); d_arr[dl] = a.getDouble(ind);
+						} else { d_arr[dl] = a.getDouble(0); }
 						if(hasFVd && d_arr[dl]==dfill) d_arr[dl] = Double.NaN;
 					}
 					df.addColumn(vname, d_arr);
 					break;
 //				case CHAR:
 //					break;
-//				case STRING:
-//					break;
+				case STRING: String[] g_arr = new String[datalength];
+					for(int dl=0; dl<datalength; dl++) {
+						if(!vdims.get(0).equals(Variable.SCALER_DIM)) {
+						for(int d=0; d<dimids.length; d++) { indexindex[d] = indices[dl][dimids[d]]; }
+						ind.set(indexindex); g_arr[dl] = (String) a.getObject(ind);
+						} else { g_arr[dl] = (String) a.getObject(0); }
+					}
+					df.addColumn(vname, g_arr);
+					break;
 //				case STRUCTURE:
 //					readStructs(var, vname, a, datalength, ind, indexindex, indices, dimids);
 //					break;
@@ -302,8 +328,8 @@ class NetcdfReader extends DataReader {
 			Array a = null;
 			try {
 				a = var.read();
-			} catch(IOException ioe) {
-				//ioe.printStackTrace();
+			} catch(IOException|InvalidRangeException e) {
+//				e.printStackTrace();
 				System.err.println("WARNING: could not read variable \""+vname+"\": does not add to the dataframe!");
 				continue;
 			}
@@ -402,7 +428,7 @@ class NetcdfReader extends DataReader {
 		}
 		for(int dimid=0; dimid<2; dimid++) {
 			String dname = dims.get(dimid).getName();
-			Variable var = ncfile.findVariable(dname);
+			Variable var = Variable.of(ncfile.findVariable(dname));
 			if(var==null) {
 				System.err.println("Cannot find dimension-variable with name \""+dname+"\", use index-array instead.");
 				df.setDimension(dimid+Constants.FIRST_IDX, dname);
@@ -411,8 +437,8 @@ class NetcdfReader extends DataReader {
 			Array a = null;
 			try {
 				a = var.read();
-			} catch(IOException ioe) {
-//				ioe.printStackTrace();
+			} catch(IOException|InvalidRangeException e) {
+//				e.printStackTrace();
 				System.err.println("Cannot read variable for dimension \""+dname+"\", use index-array instead.");
 				df.setDimension(dimid+Constants.FIRST_IDX, dname);
 				continue;
@@ -464,8 +490,8 @@ class NetcdfReader extends DataReader {
 			Array a = null;
 			try {
 				a = var.read();
-			} catch(IOException ioe) {
-				//ioe.printStackTrace();
+			} catch(IOException|InvalidRangeException e) {
+				//e.printStackTrace();
 				System.err.println("WARNING: could not read variable \""+vname+"\": does not at to the dataframe!");
 				continue;
 			}
@@ -598,7 +624,7 @@ class NetcdfReader extends DataReader {
 		}
 		for(int dimid=0; dimid<3; dimid++) {
 			String dname = dims.get(dimid).getName();
-			Variable var = ncfile.findVariable(dname);
+			Variable var = Variable.of(ncfile.findVariable(dname));
 			if(var==null) {
 				System.err.println("Cannot find dimension-variable with name \""+dname+"\", use index-array instead.");
 				df.setDimension(dimid+Constants.FIRST_IDX, dname);
@@ -607,8 +633,8 @@ class NetcdfReader extends DataReader {
 			Array a = null;
 			try {
 				a = var.read();
-			} catch(IOException ioe) {
-//				ioe.printStackTrace();
+			} catch(IOException|InvalidRangeException e) {
+//				e.printStackTrace();
 				System.err.println("Cannot read variable for dimension \""+dname+"\", use index-array instead.");
 				df.setDimension(dimid+Constants.FIRST_IDX, dname);
 				continue;
@@ -626,7 +652,7 @@ class NetcdfReader extends DataReader {
 	}
 	private void collectVarsAndDims(String[] names, List<Dimension> dims, List<Variable> vars) {
 		for(int b=0; b<names.length; b++) {
-			Variable var = ncfile.findVariable(names[b]);
+			Variable var = Variable.of(ncfile.findVariable(names[b]));
 			if(var==null) continue;
 			if(!vars.contains(var)) vars.add(var);
 			for(Dimension d: var.getDimensions()) {
@@ -675,8 +701,8 @@ class NetcdfReader extends DataReader {
 			if(effdimcnt==0) {
 				try {
 					a = var.read();
-				} catch(IOException ioe) {
-					//ioe.printStackTrace();
+				} catch(IOException|InvalidRangeException e) {
+//					e.printStackTrace();
 					System.err.println("WARNING: could not read variable \""+vname+"\": does not add to the dataframe!");
 					continue;
 				}
@@ -746,7 +772,7 @@ class NetcdfReader extends DataReader {
 			var = null;
 		}
 		
-		Variable var = ncfile.findVariable(dname);
+		Variable var = Variable.of(ncfile.findVariable(dname));
 		while(true) {
 			if(var==null) {
 				System.err.println("Cannot find dimension-variable with name \""+dname+"\", use index-array instead.");
@@ -761,8 +787,8 @@ class NetcdfReader extends DataReader {
 			Array a = null;
 			try {
 				a = var.read();
-			} catch(IOException ioe) {
-	//				ioe.printStackTrace();
+			} catch(IOException|InvalidRangeException e) {
+//				e.printStackTrace();
 				System.err.println("Cannot read variable for dimension \""+dname+"\", use index-array instead.");
 				df.setDimension(dname);
 				break;
@@ -796,18 +822,12 @@ class NetcdfReader extends DataReader {
 	
 	protected static boolean canRead(File file) {
 		try(BufferedReader br = new BufferedReader(new FileReader(file))) {
-			char[] buffer = new char[1024];
-			if(br.read(buffer)==0) return false;
+			char[] buffer = new char[116];
+			int readlength = br.read(buffer);
+			if(readlength==0) return false;
 			String header = new String(buffer);
 //			System.out.println("[NetcdfReader] fileheader: "+header);
 			if(header.contains("CDF")) return true;
-			if(header.contains("HDF")) return true;
-			char[] buffer2 = new char[1536];
-			if(br.read(buffer2)==0) return false;
-			char[] buffer3 = new char[2560];
-			System.arraycopy(buffer, 0, buffer3, 0, buffer.length);
-			System.arraycopy(buffer2, 0, buffer3, buffer.length, buffer2.length);
-			header = new String(buffer3);
 			if(header.contains("HDF")) return true;
 		} catch (IOException ioe) {
 			ioe.printStackTrace();
@@ -840,7 +860,7 @@ class NetcdfReader extends DataReader {
 			System.out.println(pad1+wL+"Rootgroup ("+group.getFullName()+"):");
 		else
 			System.out.println(pad1+wL+group.getFullName()+":");
-		System.out.println(pad2+"  "+wT+wL+"Dimensions:");
+//		System.out.println(pad2+"  "+wT+wL+"Dimensions:");
 		describeDimensions(group.getDimensions(), pad2+"  ");
 		describeVariables(group.getVariables(), pad2+"  ");
 		List<Group> groups = group.getGroups();
@@ -855,21 +875,225 @@ class NetcdfReader extends DataReader {
 			System.out.println(p+dims.get(i).getName()+" ("+dims.get(i).getLength()+")");
 		}
 	}
-	private void describeVariables(List<Variable> vars, String pad) {
+	private void describeVariables(List<ucar.nc2.Variable> vars, String pad) {
 		System.out.println(pad+wT+wL+"Variables:");
 		for(int i=0; i<vars.size(); i++) {
+			Variable v = Variable.of(vars.get(i));
 			String p = pad+wP+"  "+(i+1==vars.size()?wE:wT)+wL;
-			String t = String.format("%-6s", vars.get(i).getDataType().name().toLowerCase());
-			String n = vars.get(i).getNameAndDimensions();
+			String t = String.format("%-6s", v.getDataType().name().toLowerCase());
+			String n = v.getNameAndDimensions();
 			System.out.println(p+t+" "+n);
 		}
 	}
 	private void describeAttributes(List<Attribute> attribs, String pad1, String pad2) {
 		boolean global = pad1.equals(wE);
-		System.out.println(pad1+wL+(global?"Global a":"A")+"ttributes");
+		System.out.println(pad1+wL+(global?"Gloabl a":"A")+"ttributes");
 		for(int a=0; a<attribs.size(); a++) {
 			Attribute att = attribs.get(a);
 			System.out.println(pad2+" "+(a+1==attribs.size()?wE:wT)+wL+att.getName()+": "+att.getStringValue());
+		}
+	}
+	
+	@SuppressWarnings("unused")
+	private static class Variable {
+		public final static Dimension SCALER_DIM = new Dimension("ScalarDimension",1);
+		private static Map<String,ucar.ma2.DataType> types;
+		static {
+			types = new HashMap<>();
+			types.put("byte", ucar.ma2.DataType.BYTE); types.put("ubyte", ucar.ma2.DataType.UBYTE);
+			types.put("int", ucar.ma2.DataType.INT); types.put("uint", ucar.ma2.DataType.UINT);
+			types.put("short", ucar.ma2.DataType.SHORT); types.put("ushort", ucar.ma2.DataType.USHORT);
+			types.put("long", ucar.ma2.DataType.LONG); types.put("ulong", ucar.ma2.DataType.ULONG);
+			types.put("boolean", ucar.ma2.DataType.BOOLEAN);
+			types.put("float", ucar.ma2.DataType.FLOAT); types.put("double", ucar.ma2.DataType.DOUBLE);
+			types.put("string", ucar.ma2.DataType.STRING);
+		};
+		public static Variable of(ucar.nc2.Variable v) {
+			if(v==null) return null;
+			return new Variable(v);
+		}
+		
+		private ucar.nc2.Variable original;
+		private ucar.ma2.DataType original_datatype, matlab_datatype;
+		private int[] file_dims, output_dims;
+		private int[][] dim_mapping;
+		
+		private Variable(ucar.nc2.Variable v) {
+			original = v;
+			original_datatype = original.getDataType();
+			matlab_datatype = original.getDataType();
+			file_dims = original.getShape();
+			String m_dt = original.findAttributeString("MATLAB_class", "null");
+			if(m_dt.equals("char")) matlab_datatype = ucar.ma2.DataType.STRING;
+			else for(String type: types.keySet())
+				if(m_dt.equalsIgnoreCase(type))
+					matlab_datatype = types.get(type);
+//			String fd = ""; for(int i=0; i<file_dims.length; i++) fd+=(i==0?"":",")+file_dims[i];
+			if(matlab_datatype==ucar.ma2.DataType.STRING) {
+				int c = -1, ld = -1;
+				for(int i=0; i<file_dims.length; i++)
+					if(file_dims[i]>1) { c++; ld=i; }
+					else if(ld<0) ld = i;
+//				System.err.println("[DEBUG] "+v.getFullName()+": types="+original_datatype.name()+"/"+matlab_datatype.name()+
+//						" fd=["+fd+"] c="+c+" ld="+ld);
+				if(c<=0) {
+					output_dims = new int[0];
+					dim_mapping = new int[1][file_dims.length];
+					for(int i=0; i<file_dims.length; i++) dim_mapping[0][i] = i==ld ? 1 : 0;
+				} else {
+					output_dims = new int[c];
+					dim_mapping = new int[c][file_dims.length];
+					c = 0;
+					for(int j=0; j<file_dims.length; j++) {
+						if(file_dims[j]==1) continue;
+						output_dims[c] = file_dims[j];
+						for(int i=0; i<file_dims.length; i++)
+							dim_mapping[c][i] = j==i ? 1 : 0;
+						c++;
+					}
+					dim_mapping[c-1][ld] = 1;
+				}
+//				output_dims = new int[file_dims.length-1];
+//				dim_mapping = new int[output_dims.length][file_dims.length];
+//				for(int j=0; j<output_dims.length; j++) {
+//					output_dims[j] = file_dims[j];
+//					for(int i=0; i<file_dims.length; i++)
+//						dim_mapping[j][i] = j==i ? 1 : i==file_dims.length-1 ? 1 : 0;
+//				}
+			} else {
+				int c = 0;
+				for(int i: file_dims) if(i>1) c++;
+				output_dims = new int[c];
+				if(c==0) {
+					dim_mapping = new int[1][file_dims.length];
+					for(int i=0; i<file_dims.length; i++)
+						dim_mapping[0][i] = i==0 ? 1 : 0;
+				} else {
+					dim_mapping = new int[c][file_dims.length];
+					c = 0;
+					for(int j=0; j<file_dims.length; j++) {
+						if(file_dims[j]==1) continue;
+						output_dims[c] = file_dims[j];
+						for(int i=0; i<file_dims.length; i++)
+							dim_mapping[c][i] = j==i ? 1 : 0;
+						c++;
+					}
+				}
+			}
+		}
+		
+		public ucar.ma2.DataType getNetcdfDataType() {
+			return original_datatype;
+		}
+		public ucar.ma2.DataType getDataType() {
+			return matlab_datatype;
+		}
+		public String getFullName() {
+			return original.getFullName();
+		}
+		public String getNameAndDimensions() {
+			String res = original.getFullName()+"(";
+			for(int d=0; d<output_dims.length; d++) res+=(d==0?"":",")+output_dims[d];
+			if(output_dims.length==0) res+="S";
+			return res+")";
+		}
+		public int getShape(int idx) {
+			return output_dims[idx];
+		}
+		public int[] getShape() {
+			return output_dims;
+		}
+		public Dimension getDimension(int idx) {
+			if(0<=idx && idx<output_dims.length)
+				return new Dimension("generic"+output_dims[idx], output_dims[idx]);
+			return null;
+		}
+		public ImmutableList<Dimension> getDimensions() {
+			Dimension[] dims = new Dimension[Math.max(1,output_dims.length)];
+			if(output_dims.length==0) dims[0] = SCALER_DIM;
+			else for(int i=0; i<dims.length; i++) dims[i] = getDimension(i);
+			return ImmutableList.copyOf(dims);
+		}
+		public boolean hasAttribute(String attName) {
+			return original.hasAttribute(attName);
+		}
+		public Attribute findAttribute(String name) {
+			return original.findAttribute(name);
+		}
+		@SuppressWarnings("deprecation")
+		public Array read() throws IOException,InvalidRangeException {
+			if(matlab_datatype!=NCSTRING && original_datatype!=NCSTRUCT) {
+				//normal data handling
+				//implicit: matlab_datatype==original_datatype
+				Array array = original.read();
+				if(output_dims.length<file_dims.length)
+					array = array.reduce();
+				return array;
+			} else
+			if(matlab_datatype!=NCSTRING) {
+				//handling structures
+			} else
+			{
+				//String arrays are allways reduced, with last dimension larger than one as the string length
+				Array raw = original.read().reduce();
+				ArrayString strArr = new ArrayString(output_dims);
+				Index index = strArr.getIndex();
+				int[] start = raw.getShape().clone();
+				int[] range = raw.getShape().clone();
+				start[start.length-1] = 0;
+				range[range.length-1] = raw.getShape()[range.length-1];
+				for(int i=0; i<index.getSize(); i++) {
+					int[] pos = index.getCurrentCounter();
+					for(int p=0; p<pos.length; p++) {
+						start[p] = pos[p];
+						range[p] = 1;
+					}
+					short[] datas = (short[]) raw.section(start, range).get1DJavaArray(short.class);
+					byte[] datab = new byte[datas.length*2];
+					for(int b=0,s=0; s<datas.length; b=++s) {
+						datab[b] = (byte)(datas[s]&255); datab[b+1] = (byte)((datas[s]>>8)&255);
+						if(datas[s]==0) { datab[b]=0; datab[b+1] = ' '; } }
+					Charset charset = Charset.defaultCharset();
+					Attribute att_decode = original.findAttribute("MATLAB_int_decode");
+					if(att_decode!=null) switch(att_decode.getNumericValue().intValue()) {
+						case 2: charset = StandardCharsets.US_ASCII; break;
+						case 3: charset = StandardCharsets.UTF_8; break; //TODO assumption MATLAB_int_decode=3 -> UTF-8 ???
+						default: break;
+					}
+					strArr.set(index, new String(datab, charset).trim());
+					index.incr();
+				}
+				raw = null;
+				return strArr;
+			}
+			//TODO implement read()
+			return null;
+		}
+		public Array read(int[] origin, int[] shape) throws IOException, InvalidRangeException {
+			int datastate = 0;
+			if(original_datatype==matlab_datatype) datastate |= 4;
+			if(output_dims.length==file_dims.length) {
+				boolean e = true;
+				for(int i=0; i<file_dims.length && e; i++)
+					e = output_dims[i]==file_dims[i];
+				datastate |= e ? 3 : 2;
+			}
+			if(matlab_datatype!=NCSTRING) {
+				switch(datastate) {
+					case 1: return null;
+					case 2: return null;
+					case 3: return null;
+					case 4: return null;
+					case 5: return null;
+					case 6: return null;
+					case 7: return original.read();
+				}
+			}
+			//TODO implement read(origin,shape)
+			return null;
+		}
+		public ucar.nc2.AttributeContainer attributes() {
+			return original.attributes();
 		}
 	}
 }

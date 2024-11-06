@@ -5,7 +5,9 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.metzner.enrico.JKriging.data.Constants;
 import com.metzner.enrico.JKriging.data.DataFrame;
@@ -20,7 +22,7 @@ import us.hebi.matlab.mat.types.Array;
 import us.hebi.matlab.mat.types.MatlabType;
 import us.hebi.matlab.mat.types.Struct;
 
-class MatlabReader extends DataReader {
+class Matlab5Reader extends DataReader {
 	
 	private static final int MAX_READ_DIM_COUNT = 20;
 	
@@ -29,8 +31,8 @@ class MatlabReader extends DataReader {
 	
 	private Mat5File mafile = null;
 	
-	MatlabReader(File file) throws IOException {
-		super();
+	Matlab5Reader(File file) throws IOException {
+		super(file);
 		mafile = Mat5.readFromFile(file);
 	}
 	
@@ -39,6 +41,22 @@ class MatlabReader extends DataReader {
 		System.out.println(mafile);
 	}
 	
+	@Override
+	public Map<String, Integer> getDimensionsOfVariable(String var) throws IllegalAccessException {
+		if(mafile==null) throw new IllegalAccessException("The Matlab file does not exist.");
+		if(var==null) throw new IllegalAccessException("Variable cannot be null");
+		Array a = mafile.getArray(var);
+//		if(a==null) throw new IllegalAccessException("Cannot find variable <"+var+"> in the Matlab file.");
+		if(a==null) return null;
+		Map<String, Integer> dimmap = new HashMap<>();
+		if(decompose && a instanceof Struct) {
+			dimmap.put("STRUCT", 0);
+		} else {
+			for(int d=0; d<a.getNumDimensions(); d++)
+				dimmap.put("dim"+d, a.getDimensions()[d]);
+		}
+		return dimmap;
+	}
 	
 	@Override
 	public DataFrame   getVars1D(String... vars) throws IllegalAccessException {
@@ -197,6 +215,13 @@ class MatlabReader extends DataReader {
 		}
 	}
 	
+	public DataFrame get1Dslice(String filtervar, int index, String... vars) throws IllegalAccessException {
+		System.err.println("WARNING: get1Dslice for Matlab files not implemented yet!");
+		DataFrame res = new DataFrame();
+		//TODO get1Dslice matlab
+		return res;
+	}
+	
 	protected static int canRead(File file) {
 		try(BufferedReader br = new BufferedReader(new FileReader(file))) {
 			char[] buffer = new char[116];
@@ -204,7 +229,7 @@ class MatlabReader extends DataReader {
 			if(readlength==0) return 0;
 			String header = new String(buffer);
 			if(header.startsWith(MAT7_HEADER_START)) {
-				System.out.println("INFO: Matlab version -v7 and higher are probably true HDF-files and are read like Netcdf-files.");
+//				System.out.println("INFO: Matlab version -v7 and higher are probably true HDF-files and are read like Netcdf-files.");
 				return -1;
 			}
 			if(header.startsWith(MAT5_HEADER_START)) {

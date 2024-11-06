@@ -19,7 +19,7 @@ public class Test_NetcdfSupport {
 		DataFrame df = null;
 		
 		try(DataReader dr = DataReader.openFile("res/test2d.nc")) {
-			System.out.println(dr);
+			dr.describeContent();
 			
 			df = dr.getVars1D("test2d");
 			if(df!=null) {

@@ -93,7 +93,7 @@ public class LogicHelper {
 		lowlua.remove(r);
 	}
 	private static int buildConditionTree(String[] names, DataType[] types, String _cond, List<String> cond_list, String err_msg) {
-		System.out.println("[COND-TREE] analyse expression: \""+_cond+"\"..."); //TODO remove
+//		System.out.println("[COND-TREE] analyse expression: \""+_cond+"\"..."); //TODO remove
 //		System.out.println("[COND-TREE] search for brackets..."); //TODO remove
 		String temp = _cond.trim();
 		int err_offset = _cond.indexOf(temp);
@@ -354,7 +354,6 @@ public class LogicHelper {
 				return 'X';
 		}
 	}
-	
 	
 	public static boolean evaluateConditionLines(DataFrame _df, int _i, String[][] conds_lowLua) {
 		return evaluateConditionLinesInGeneral(_df, _i, _i, _i, conds_lowLua); }
