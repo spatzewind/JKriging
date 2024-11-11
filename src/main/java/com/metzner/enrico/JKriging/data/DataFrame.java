@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.metzner.enrico.JKriging.data.transform.DataTransformer;
 import com.metzner.enrico.JKriging.helper.DataHelper;
 import com.metzner.enrico.JKriging.helper.FormatHelper;
 import com.metzner.enrico.JKriging.helper.LogicHelper;
@@ -246,6 +247,27 @@ public class DataFrame {
 		string_column.put(_column_name_c, new_data);
 		if(dimension.length==0) createDimension();
 	}
+	public void addColumn(String _column_name, Object[] _column_data) { addColumn(_column_name, _column_data, false); }
+	public void addColumn(String _column_name, Object[] _column_data, boolean chopORfill) {
+		String _column_name_c = FormatHelper.name2CFConvention(_column_name);
+		if(hasVariable(_column_name_c)) {
+			System.err.println("A column with title <"+_column_name_c+"> allready exists in this dataframe!");
+			return;
+		}
+		if(_column_data.length!=datalength && !chopORfill && titles.length>0) {
+			System.err.println("The new data-column is not compatible with existing data (length is "+
+					datalength+" but found "+_column_data.length);
+			return;
+		}
+		if(titles.length==0) datalength = _column_data.length;
+		add_variable(_column_name_c, DataType.STRUCT);
+		add_stdana(Double.NaN,-Double.NaN,Double.NaN,Double.NaN);
+		Object[] new_data = new Object[datalength];
+		for(int t=0; t<datalength; t++) if(t<_column_data.length) { new_data[t] = _column_data[t]; } else { new_data[t] = null; }
+		struct_column.put(_column_name_c, new_data);
+		if(dimension.length==0) createDimension();
+	}
+	
 	public void setDimension(String dim_name) {
 		setDimension(null, dim_name);
 	}
@@ -831,7 +853,85 @@ public class DataFrame {
 				DataHelper.printStackTrace(System.err); break;
 		}
 	}
-	
+	public void transformVariable(String _var_name, DataTransformer transformer) {
+		transformVariable(getVariableID(_var_name), transformer);
+	}
+	public void transformVariable(int _var_id, DataTransformer transformer) {
+		int vi = _var_id - Constants.FIRST_IDX;
+		if(vi<0 || vi>=titles.length) {
+			System.err.println("Cannot find variable, so no transform can be applied!");
+			DataHelper.printStackTrace(System.err); return;
+		}
+		String variable_name = titles[vi];
+		Object[] old_obj = new Object[datalength];
+		Object[] new_obj = new Object[datalength];
+		switch(transformer.sourceType()) {
+			case BOOL: boolean[] bools = bool_column.get(variable_name);
+				for(int dl=0; dl<datalength; dl++) old_obj[dl] = Boolean.valueOf(bools[dl]); break;
+			case BYTE: byte[] bytes = byte_column.get(variable_name);
+				for(int dl=0; dl<datalength; dl++) old_obj[dl] = Byte.valueOf(bytes[dl]); break;
+			case DOUBLE: double[] doubles = double_column.get(variable_name);
+				for(int dl=0; dl<datalength; dl++) old_obj[dl] = Double.valueOf(doubles[dl]); break;
+			case FLOAT: float[] floats = float_column.get(variable_name);
+				for(int dl=0; dl<datalength; dl++) old_obj[dl] = Float.valueOf(floats[dl]); break;
+			case INT: int[] ints = int_column.get(variable_name);
+				for(int dl=0; dl<datalength; dl++) old_obj[dl] = Integer.valueOf(ints[dl]); break;
+			case LONG: long[] longs = long_column.get(variable_name);
+				for(int dl=0; dl<datalength; dl++) old_obj[dl] = Long.valueOf(longs[dl]); break;
+			case SHORT: short[] shorts = short_column.get(variable_name);
+				for(int dl=0; dl<datalength; dl++) old_obj[dl] = Short.valueOf(shorts[dl]); break;
+			case STRING: String[] strings = string_column.get(variable_name);
+				for(int dl=0; dl<datalength; dl++) old_obj[dl] = strings[dl]; break;
+			case STRUCT: old_obj = (Object[]) struct_column.get(variable_name);
+				break;
+			default:
+				break;
+		}
+		for(int dl=0; dl<datalength; dl++)
+			new_obj[dl] = transformer.transformCell(old_obj[dl]);
+		switch(transformer.destinationType()) {
+			case BOOL: boolean[] bools = new boolean[datalength]; for(int dl=0; dl<datalength; dl++)
+				if(new_obj[dl] instanceof Boolean) bools[dl] = ((Boolean)new_obj[dl]).booleanValue(); else
+				throw new ClassCastException("Specified destination datatype does not match actual datatype of the new variable!");
+				removeVariable(vi); addColumn(variable_name, bools); break;
+			case BYTE: byte[] bytes = new byte[datalength]; for(int dl=0; dl<datalength; dl++)
+				if(new_obj[dl] instanceof Byte) bytes[dl] = ((Byte)new_obj[dl]).byteValue(); else
+				throw new ClassCastException("Specified destination datatype does not match actual datatype of the new variable!");
+				removeVariable(vi); addColumn(variable_name, bytes); break;
+			case DOUBLE: double[] doubles = new double[datalength]; for(int dl=0; dl<datalength; dl++)
+				if(new_obj[dl] instanceof Double) doubles[dl] = ((Double)new_obj[dl]).doubleValue(); else
+				throw new ClassCastException("Specified destination datatype does not match actual datatype of the new variable!");
+				removeVariable(vi); addColumn(variable_name, doubles); break;
+			case FLOAT: float[] floats = new float[datalength]; for(int dl=0; dl<datalength; dl++)
+				if(new_obj[dl] instanceof Float) floats[dl] = ((Float)new_obj[dl]).floatValue(); else
+				throw new ClassCastException("Specified destination datatype does not match actual datatype of the new variable!");
+				removeVariable(vi); addColumn(variable_name, floats); break;
+			case INT: int[] ints = new int[datalength]; for(int dl=0; dl<datalength; dl++)
+				if(new_obj[dl] instanceof Integer) ints[dl] = ((Integer)new_obj[dl]).intValue(); else
+				throw new ClassCastException("Specified destination datatype does not match actual datatype of the new variable!");
+				removeVariable(vi); addColumn(variable_name, ints); break;
+			case LONG: long[] longs = new long[datalength]; for(int dl=0; dl<datalength; dl++)
+				if(new_obj[dl] instanceof Long) longs[dl] = ((Long)new_obj[dl]).longValue(); else
+				throw new ClassCastException("Specified destination datatype does not match actual datatype of the new variable!");
+				removeVariable(vi); addColumn(variable_name, longs); break;
+			case SHORT: short[] shorts = new short[datalength]; for(int dl=0; dl<datalength; dl++)
+				if(new_obj[dl] instanceof Short) shorts[dl] = ((Short)new_obj[dl]).shortValue(); else
+				throw new ClassCastException("Specified destination datatype does not match actual datatype of the new variable!");
+				removeVariable(vi); addColumn(variable_name, shorts); break;
+			case STRING: String[] strings = new String[datalength]; for(int dl=0; dl<datalength; dl++)
+				if(new_obj[dl] instanceof String) strings[dl] = (String)new_obj[dl]; else
+				throw new ClassCastException("Specified destination datatype does not match actual datatype of the new variable!");
+				removeVariable(vi); addColumn(variable_name, strings); break;
+			case STRUCT: removeVariable(vi); addColumn(variable_name, new_obj);
+				break;
+			default:
+				break;
+		}
+	}
+
+
+
+
 	public DataFrame clone() {
 		DataFrame dfCopy = new DataFrame();
 		for(String var: titles) {
@@ -2187,7 +2287,7 @@ public class DataFrame {
 		String[][] out = new String[10][clen+1];
 		out[0][0] = " "; out[1][0] = " Type "; out[2][0] = " Count "; out[3][0] = " mean ";
 		out[4][0] = " std "; out[5][0] = " min "; out[6][0] = " 25% ";
-		out[7][0] = " 50% "; out[8][0] = " 75% "; out[9][0] = " max ";
+		out[7][0] = " med "; out[8][0] = " 75% "; out[9][0] = " max ";
 		for(int c=0; c<clen; c++) {
 			int cc = c+1;
 			out[0][cc] = titles[c]+" ";
@@ -2388,9 +2488,25 @@ public class DataFrame {
 		return parts.toArray(new String[0]);
 	}
 	private boolean set_boolean(String _s) {
-		boolean b = Boolean.FALSE;
-		try { b = Boolean.parseBoolean(_s); } catch(NullPointerException | NumberFormatException np_nf_e) { b = Boolean.FALSE; }
-		return b;
+		if (_s == null) return false;
+		if (_s.equalsIgnoreCase("true")) return true;
+		if (_s.equalsIgnoreCase("right")) return true;
+//		if (_s.equalsIgnoreCase("false")) return false;
+//		if (_s.equalsIgnoreCase("wrong")) return false;
+		if (_s.equalsIgnoreCase("yes")) return true;
+//		if (_s.equalsIgnoreCase("no")) return false;
+		if (_s.equalsIgnoreCase("on")) return true;
+//		if (_s.equalsIgnoreCase("off")) return false;
+		if (_s.equalsIgnoreCase("ja")) return true;
+//		if (_s.equalsIgnoreCase("nein")) return false;
+		if (_s.equalsIgnoreCase("wahr")) return true;
+		if (_s.equalsIgnoreCase("richtig")) return true;
+//		if (_s.equalsIgnoreCase("falsch")) return false;
+		if (_s.equalsIgnoreCase("oui")) return true;
+//		if (_s.equalsIgnoreCase("non")) return false;
+		if (_s.equalsIgnoreCase("1")) return true;
+//		if (_s.equalsIgnoreCase("0")) return false;
+		return false;
 	}
 	private byte set_byte(String _s) {
 		byte b = Byte.MIN_VALUE;

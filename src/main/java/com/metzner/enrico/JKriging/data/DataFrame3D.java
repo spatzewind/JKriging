@@ -2228,7 +2228,7 @@ public class DataFrame3D {
 		String[][] out = new String[10][clen+1];
 		out[0][0] = " "; out[1][0] = " TYPE "; out[2][0] = " Count "; out[3][0] = " mean ";
 		out[4][0] = " std "; out[5][0] = " min "; out[6][0] = " 25% ";
-		out[7][0] = " 50% "; out[8][0] = " 75% "; out[9][0] = " max ";
+		out[7][0] = " med "; out[8][0] = " 75% "; out[9][0] = " max ";
 		for(int c=0; c<clen; c++) {
 			int cc = c+1;
 			out[0][cc] = titles[c]+" ";

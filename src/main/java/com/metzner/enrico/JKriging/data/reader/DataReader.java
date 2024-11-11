@@ -3,8 +3,6 @@ package com.metzner.enrico.JKriging.data.reader;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 import com.metzner.enrico.JKriging.data.DataFrame;
@@ -13,11 +11,6 @@ import com.metzner.enrico.JKriging.data.DataFrame3D;
 import com.metzner.enrico.JKriging.error.UnknownFileFormatException;
 
 public abstract class DataReader implements Closeable {
-	
-	private static List<DataReader> reader;
-	static {
-		reader = new ArrayList<>();
-	}
 	
 	public static final int MAX_DATAFRAME_LENGTH = Integer.MAX_VALUE>>3;
 	protected static final String wT = "\u251C"; // |-
@@ -32,7 +25,7 @@ public abstract class DataReader implements Closeable {
 	 protected constructor with parameter "file"
 	 <p>
 	   each class extending from this has to match this constructor for being initializable
-	   by static methods {@link #openFile(File) openFile(File file)} and {@link #openFile(String) openFile(String filepath)}.
+	   by static methods {@link #openFile(File) openFile(File file)}.
 	 </p>
 	 
 	 @param file file, which to read by DataReader
@@ -49,12 +42,19 @@ public abstract class DataReader implements Closeable {
 		return false;
 	}
 	
+	/**
+	 * 
+	 * @param filepath
+	 * @return
+	 * @throws IOException
+	 * @throws UnknownFileFormatException
+	 */
 	public static DataReader openFile(String filepath) throws IOException,UnknownFileFormatException {
-		if(filepath==null) throw new NullPointerException("filepath must not be null!");
+		if(filepath==null) throw new NullPointerException("Cannot read from null-filepath.");
 		return openFile(new File(filepath));
 	}
 	public static DataReader openFile(File file) throws IOException,UnknownFileFormatException {
-		if(file==null) throw new NullPointerException("file must not be null!");
+		if(file==null) throw new NullPointerException("Cannot read from null-filepath.");
 		if(file.isDirectory()) throw new IOException("Cannot read a directory.");
 		String name = file.getName();
 		
@@ -73,10 +73,6 @@ public abstract class DataReader implements Closeable {
 		}
 		throw new UnknownFileFormatException("Cannot find reader for file "+file.getAbsolutePath());
 	};
-//	public static DataReader openFileAsNetcdf(File file) throws IOException {
-//		if(file==null) throw new NullPointerException("file must not be null!");
-//		if(file.isDirectory()) throw new IOException("Cannot read a directory.");
-//	}
 	
 	public abstract void describeContent();
 	public abstract Map<String, Integer> getDimensionsOfVariable(String var) throws IllegalAccessException;
